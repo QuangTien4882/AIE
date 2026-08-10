@@ -55,7 +55,7 @@ public class ThamDinhEngine
 
             foreach (var hpDuToan in ctDuToan.DanhSachHaoPhi)
             {
-                var hpChuanMatched = TimHaoPhiTuongDuong(hpDuToan, dsHpChuan);
+                var hpChuanMatched = TimHaoPhiTuongDuong(hpDuToan, dsHpChuan, ctChuan);
                 
                 var saiLech = new SaiLechDinhMuc
                 {
@@ -76,20 +76,27 @@ public class ThamDinhEngine
                     saiLech.HaoPhiChuan = hpChuanMatched;
                     saiLech.DonGiaChuan = GetDonGiaChuan(hpChuanMatched);
 
+                    // Kiểm tra khác tên gọi (do Smart Mapping)
+                    string tenDt = ChuanHoaTen(hpDuToan.TenHaoPhi);
+                    string tenCh = ChuanHoaTen(hpChuanMatched.TenHaoPhi);
+                    if (tenDt != tenCh && !tenDt.Contains(tenCh) && !tenCh.Contains(tenDt))
+                    {
+                        saiLech.LoaiLoi = "Khác tên gọi";
+                        saiLech.MoTa = $"DT: '{hpDuToan.TenHaoPhi}' | TT38: '{hpChuanMatched.TenHaoPhi}'";
+                    }
+
                     // Kiểm tra định mức
                     if (Math.Abs(saiLech.ChenhLechDinhMuc) > 0.0001m)
                     {
-                        saiLech.LoaiLoi = "Sai định mức";
-                        saiLech.MoTa = $"'{hpDuToan.TenHaoPhi}': DT = {hpDuToan.DinhMuc:G}, TT38 = {hpChuanMatched.DinhMuc:G}";
+                        if (string.IsNullOrEmpty(saiLech.LoaiLoi)) saiLech.LoaiLoi = "Sai định mức";
+                        else saiLech.LoaiLoi += ", Sai định mức";
+                        
+                        if (string.IsNullOrEmpty(saiLech.MoTa)) saiLech.MoTa = $"DT = {hpDuToan.DinhMuc:G}, TT38 = {hpChuanMatched.DinhMuc:G}";
+                        else saiLech.MoTa += $"\nSai ĐM: DT = {hpDuToan.DinhMuc:G}, TT38 = {hpChuanMatched.DinhMuc:G}";
                     }
 
-                    // Kiểm tra đơn giá
-                    if (saiLech.DonGiaChuan.HasValue && Math.Abs(saiLech.ChenhLechDonGia) > 1)
-                    {
-                        if (string.IsNullOrEmpty(saiLech.LoaiLoi)) saiLech.LoaiLoi = "Sai đơn giá";
-                        else saiLech.LoaiLoi += ", Sai đơn giá";
-                    }
-
+                    // Bỏ kiểm tra đơn giá ở phần định mức này vì sẽ tách riêng
+                    
                     // Kiểm tra đơn vị
                     if (!string.Equals(hpDuToan.DonVi, hpChuanMatched.DonVi, StringComparison.OrdinalIgnoreCase))
                     {
@@ -120,6 +127,37 @@ public class ThamDinhEngine
 
         return ketQua;
     }
+
+    public List<VatTuGiaModel> TrichXuatVatTu(List<KetQuaCongTacThamDinh> ketQuaDinhMuc)
+    {
+        var dict = new Dictionary<string, VatTuGiaModel>();
+
+        foreach (var kq in ketQuaDinhMuc)
+        {
+            foreach (var saiLech in kq.DanhSachSaiLech)
+            {
+                if (saiLech.HaoPhiDuToan == null) continue;
+                
+                // Dùng tên chuẩn hóa làm key để gộp những vật tư giống tên
+                string key = ChuanHoaTen(saiLech.HaoPhiDuToan.TenHaoPhi) + "_" + saiLech.HaoPhiDuToan.Loai.ToString();
+
+                if (!dict.ContainsKey(key))
+                {
+                    dict[key] = new VatTuGiaModel
+                    {
+                        TenVatTu = saiLech.HaoPhiDuToan.TenHaoPhi,
+                        DonVi = saiLech.HaoPhiDuToan.DonVi,
+                        LoaiHP = saiLech.HaoPhiDuToan.Loai,
+                        GiaDuToan = saiLech.HaoPhiDuToan.DonGia,
+                        MaHieu = saiLech.HaoPhiChuan?.MaHieuHP ?? string.Empty,
+                        GiaChuan = saiLech.DonGiaChuan
+                    };
+                }
+            }
+        }
+
+        return dict.Values.OrderBy(x => x.LoaiHP).ThenBy(x => x.TenVatTu).ToList();
+    }
     
     private decimal? GetDonGiaChuan(HaoPhi hpChuan)
     {
@@ -143,20 +181,30 @@ public class ThamDinhEngine
         return null;
     }
 
-    private HaoPhi? TimHaoPhiTuongDuong(HaoPhiThamDinh hpDuToan, List<HaoPhi> dsHpChuan)
+    private HaoPhi? TimHaoPhiTuongDuong(HaoPhiThamDinh hpDuToan, List<HaoPhi> dsHpChuan, CongTacXayDung ctChuan)
     {
         string tenDt = ChuanHoaTen(hpDuToan.TenHaoPhi);
 
-        // Ưu tiên tìm khớp chính xác hoàn toàn
+        // 1. Khớp chính xác hoàn toàn
         var exactMatch = dsHpChuan.FirstOrDefault(x => ChuanHoaTen(x.TenHaoPhi) == tenDt && x.LoaiHaoPhi == hpDuToan.Loai);
         if (exactMatch != null) return exactMatch;
 
-        // Nếu không có, tìm kiếm gần đúng (chứa chuỗi)
+        // 2. Khớp gần đúng (chứa chuỗi)
         var containsMatch = dsHpChuan.FirstOrDefault(x =>
             (ChuanHoaTen(x.TenHaoPhi).Contains(tenDt) || tenDt.Contains(ChuanHoaTen(x.TenHaoPhi)))
             && x.LoaiHaoPhi == hpDuToan.Loai);
+            
+        if (containsMatch != null) return containsMatch;
 
-        return containsMatch;
+        // 3. Smart Mapping: Nếu công tác chỉ có 1 hao phí loại này, và chuẩn cũng có 1 -> Bắt cặp
+        var countChuanLoaiNay = ctChuan.DanhSachHaoPhi.Count(x => x.LoaiHaoPhi == hpDuToan.Loai);
+        if (countChuanLoaiNay == 1)
+        {
+            var smartMatch = dsHpChuan.FirstOrDefault(x => x.LoaiHaoPhi == hpDuToan.Loai);
+            if (smartMatch != null) return smartMatch;
+        }
+
+        return null;
     }
 
     private string ChuanHoaTen(string input)

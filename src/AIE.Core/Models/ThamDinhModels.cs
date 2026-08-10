@@ -81,3 +81,18 @@ public class SaiLechDinhMuc
     
     public HaoPhiThamDinh? HaoPhiDuToan { get; set; }
 }
+
+/// <summary>
+/// Tổng hợp vật tư từ dự toán để so sánh đơn giá
+/// </summary>
+public class VatTuGiaModel
+{
+    public string MaHieu { get; set; } = string.Empty;
+    public string TenVatTu { get; set; } = string.Empty;
+    public string DonVi { get; set; } = string.Empty;
+    public LoaiHaoPhi LoaiHP { get; set; }
+    public decimal GiaDuToan { get; set; }
+    public decimal? GiaChuan { get; set; }
+    
+    public decimal ChenhLechGia => (GiaChuan.HasValue) ? GiaDuToan - GiaChuan.Value : 0;
+}
