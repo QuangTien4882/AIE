@@ -142,16 +142,12 @@ namespace AIE.ExcelAddIn.Ribbon
                     
                     var ketQua = engine.KiemTra(danhSachCongTac);
 
-                    // 3. Xuất kết quả Định mức
+                    // 3. Xuất kết quả (gộp Định mức + Đơn giá + Thành tiền vào 1 sheet)
                     var writer = new AIE.ExcelAddIn.Services.ThamDinhExcelWriter();
                     writer.ExportResult(config, ketQua);
                     
-                    // 4. Bóc tách và xuất kết quả Đơn giá
-                    var dsVatTu = engine.TrichXuatVatTu(ketQua);
-                    writer.ExportGiaVatTu(dsVatTu);
-                    
-                    int soLoi = ketQua.Sum(x => x.DanhSachSaiLech.Count);
-                    MessageBox.Show($"Thẩm định hoàn tất!\nĐã kiểm tra: {ketQua.Count} công tác.\nPhát hiện: {soLoi} sai lệch.\nKết quả đã được xuất ra 4 sheet KQ_ThamDinh, KQ_GiaVL, KQ_GiaNC, KQ_GiaMay.", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    int soLoi = ketQua.Sum(x => x.DanhSachSaiLech.Count(s => !string.IsNullOrEmpty(s.LoaiLoi)));
+                    MessageBox.Show($"Thẩm định hoàn tất!\nĐã kiểm tra: {ketQua.Count} công tác.\nPhát hiện: {soLoi} sai lệch.\nKết quả đã được xuất ra sheet KQ_ThamDinh.", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
             catch (Exception ex)

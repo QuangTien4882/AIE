@@ -28,29 +28,30 @@ public class ThamDinhExcelWriter
         
         if (sourceSheet == null) throw new Exception("Không tìm thấy sheet nguồn.");
 
-        // Delete old result sheet if exists
-        string resultSheetName = "KQ_ThamDinh";
-        foreach (Worksheet sheet in wb.Worksheets)
+        // Delete old result sheets if exist
+        string[] sheetsToDelete = { "KQ_ThamDinh", "KQ_GiaVL", "KQ_GiaNC", "KQ_GiaMay" };
+        foreach (string sheetName in sheetsToDelete)
         {
-            if (sheet.Name == resultSheetName)
+            foreach (Worksheet sheet in wb.Worksheets)
             {
-                app.DisplayAlerts = false;
-                sheet.Delete();
-                app.DisplayAlerts = true;
-                break;
+                if (sheet.Name == sheetName)
+                {
+                    app.DisplayAlerts = false;
+                    sheet.Delete();
+                    app.DisplayAlerts = true;
+                    break;
+                }
             }
         }
 
         // Copy sheet xuống cuối cùng
         sourceSheet.Copy(After: wb.Worksheets[wb.Worksheets.Count]);
         var resultSheet = (Worksheet)wb.ActiveSheet;
-        resultSheet.Name = resultSheetName;
+        resultSheet.Name = "KQ_ThamDinh";
 
         int dmIndex = ColLetterToNumber(config.ColDinhMuc);
         int dgIndex = ColLetterToNumber(config.ColDonGia);
         int ttIndex = ColLetterToNumber(config.ColThanhTien);
-
-        int currDm = dmIndex;
 
         int headerRow = config.DongBatDau - 1;
         if (headerRow < 1) headerRow = 1;
@@ -69,34 +70,63 @@ public class ThamDinhExcelWriter
             }
         }
 
+        // ============================================================
+        // CHÈN CÁC CỘT MỚI (KHÔNG xóa cột Đơn giá và Thành tiền)
+        // ============================================================
+
+        // --- Bước 1: Chèn 4 cột TT38 sau cột Định mức ---
         int colTenTT38 = 0, colDviTT38 = 0, colDmTT38 = 0, colDmDiff = 0;
-
-        // Xóa các cột liên quan đến Giá và Thành tiền ở sheet KQ_DinhMuc để đỡ rối
-        if (ttIndex > 0) ((Range)resultSheet.Columns[ttIndex]).Delete();
-        if (dgIndex > 0) ((Range)resultSheet.Columns[dgIndex]).Delete();
-
-        // Chèn các cột TT38 sau cột Định mức dự toán
-        int insertPos = dmIndex;
-        if (insertPos > 0)
+        if (dmIndex > 0)
         {
-            // Cần chèn 4 cột: Tên chuẩn, Đơn vị chuẩn, Định mức chuẩn, Chênh lệch
             for (int i = 0; i < 4; i++)
             {
-                Range c = (Range)resultSheet.Columns[insertPos + 1];
+                Range c = (Range)resultSheet.Columns[dmIndex + 1];
                 c.Insert(XlInsertShiftDirection.xlShiftToRight, XlInsertFormatOrigin.xlFormatFromLeftOrAbove);
             }
-            
-            colTenTT38 = insertPos + 1;
-            colDviTT38 = insertPos + 2;
-            colDmTT38 = insertPos + 3;
-            colDmDiff = insertPos + 4;
+            colTenTT38 = dmIndex + 1;
+            colDviTT38 = dmIndex + 2;
+            colDmTT38 = dmIndex + 3;
+            colDmDiff = dmIndex + 4;
         }
 
-        // Determine rightmost inserted column to place "Ghi chú lỗi"
-        int rightmostInserted = colDmDiff;
-        int colGhiChu = rightmostInserted + 1;
-        if (rightmostInserted > 0)
+        // Cập nhật vị trí Đơn giá và Thành tiền (dịch phải 4 cột do chèn TT38)
+        int colDonGiaDuToan = dgIndex > 0 ? dgIndex + 4 : 0;
+        int colThanhTienDuToan = ttIndex > 0 ? ttIndex + 4 : 0;
+
+        // --- Bước 2: Chèn 2 cột sau Đơn giá dự toán (ĐG chuẩn, Chênh lệch ĐG) ---
+        int colDonGiaChuan = 0, colChenhLechDG = 0;
+        if (colDonGiaDuToan > 0)
         {
+            for (int i = 0; i < 2; i++)
+            {
+                Range c = (Range)resultSheet.Columns[colDonGiaDuToan + 1];
+                c.Insert(XlInsertShiftDirection.xlShiftToRight, XlInsertFormatOrigin.xlFormatFromLeftOrAbove);
+            }
+            colDonGiaChuan = colDonGiaDuToan + 1;
+            colChenhLechDG = colDonGiaDuToan + 2;
+            // Thành tiền bị dịch thêm 2
+            if (colThanhTienDuToan > 0) colThanhTienDuToan += 2;
+        }
+
+        // --- Bước 3: Chèn 2 cột sau Thành tiền dự toán (TT thẩm định, Chênh lệch TT) ---
+        int colThanhTienTD = 0, colChenhLechTT = 0;
+        if (colThanhTienDuToan > 0)
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                Range c = (Range)resultSheet.Columns[colThanhTienDuToan + 1];
+                c.Insert(XlInsertShiftDirection.xlShiftToRight, XlInsertFormatOrigin.xlFormatFromLeftOrAbove);
+            }
+            colThanhTienTD = colThanhTienDuToan + 1;
+            colChenhLechTT = colThanhTienDuToan + 2;
+        }
+
+        // --- Bước 4: Chèn 1 cột Ghi chú lỗi ở cuối ---
+        int rightmost = new[] { colChenhLechTT, colChenhLechDG, colDmDiff }.Where(x => x > 0).DefaultIfEmpty(0).Max();
+        int colGhiChu;
+        if (rightmost > 0)
+        {
+            colGhiChu = rightmost + 1;
             Range cGhiChu = (Range)resultSheet.Columns[colGhiChu];
             cGhiChu.Insert(XlInsertShiftDirection.xlShiftToRight, XlInsertFormatOrigin.xlFormatFromLeftOrAbove);
         }
@@ -106,7 +136,9 @@ public class ThamDinhExcelWriter
             colGhiChu = usedRange.Columns.Count + usedRange.Column;
         }
 
-        // Find last column for background coloring
+        // ============================================================
+        // TÌM VÙNG DỮ LIỆU
+        // ============================================================
         Range lastColRange = resultSheet.UsedRange;
         int lastCol = lastColRange.Columns.Count + lastColRange.Column - 1;
 
@@ -119,9 +151,25 @@ public class ThamDinhExcelWriter
             );
         }
 
-        // Gộp các ô tiêu đề gốc theo chiều dọc (dòng headerRow và headerRow + 1)
+        // ============================================================
+        // THIẾT LẬP FONT SIZE 12 CHO TOÀN BỘ SHEET
+        // ============================================================
+        resultSheet.Cells.Font.Size = 12;
+
+        // ============================================================
+        // ĐỊNH DẠNG TIÊU ĐỀ
+        // ============================================================
+
+        // Danh sách các cột mới (chèn thêm) - dùng để phân biệt với cột gốc
+        var newCols = new List<int> { colTenTT38, colDviTT38, colDmTT38, colDmDiff,
+            colDonGiaChuan, colChenhLechDG, colThanhTienTD, colChenhLechTT, colGhiChu }
+            .Where(x => x > 0).ToHashSet();
+
+        // Gộp các ô tiêu đề GỐC theo chiều dọc (dòng headerRow và headerRow + 1)
         for (int c = 1; c <= lastCol; c++)
         {
+            if (newCols.Contains(c)) continue; // Bỏ qua cột mới
+
             Range cellTop = resultSheet.Cells[headerRow, c];
             Range cellBottom = resultSheet.Cells[headerRow + 1, c];
             if (cellTop.Value2 != null || cellBottom.Value2 != null)
@@ -132,32 +180,26 @@ public class ThamDinhExcelWriter
             }
         }
 
-        // Format new columns (headers and borders)
-        var newCols = new List<int> { colTenTT38, colDviTT38, colDmTT38, colDmDiff, colGhiChu }.Where(x => x > 0).ToList();
+        // Lấy font name chuẩn từ ô tiêu đề gốc
+        string baseFontName = resultSheet.Cells[headerRow, 1].Font.Name?.ToString() ?? "Times New Roman";
+
+        // Định dạng các cột mới (sub-header ở dòng headerRow + 1)
         foreach (int c in newCols)
         {
-            // Định dạng Header phụ (dòng headerRow + 1)
             Range subHeader = resultSheet.Cells[headerRow + 1, c];
             subHeader.Font.Bold = true;
+            subHeader.Font.Size = 12;
+            subHeader.Font.Name = baseFontName;
             subHeader.Font.Color = ColorTranslator.ToOle(Color.Black);
             subHeader.HorizontalAlignment = XlHAlign.xlHAlignCenter;
             subHeader.VerticalAlignment = XlVAlign.xlVAlignCenter;
             subHeader.WrapText = true;
             
-            // Kế thừa font chữ từ ô bên cạnh
-            if (c > 1)
-            {
-                Range prevCell = resultSheet.Cells[headerRow + 1, c - 1];
-                subHeader.Font.Name = prevCell.Font.Name;
-                subHeader.Font.Size = prevCell.Font.Size;
-            }
-            
             if (c == colGhiChu)
             {
                 subHeader.Interior.Color = ColorTranslator.ToOle(Color.Orange);
                 subHeader.Value2 = "Ghi chú lỗi (Cảnh báo)";
-                
-                // Ghi chú lỗi sẽ gộp cả 2 dòng
+                // Ghi chú gộp cả 2 dòng header
                 Range mergeGhiChu = resultSheet.Range[resultSheet.Cells[headerRow, c], resultSheet.Cells[headerRow + 1, c]];
                 mergeGhiChu.Merge();
                 mergeGhiChu.VerticalAlignment = XlVAlign.xlVAlignCenter;
@@ -165,18 +207,22 @@ public class ThamDinhExcelWriter
             else
             {
                 subHeader.Interior.Color = ColorTranslator.ToOle(Color.LightGray);
-                // Ghi lại Text cho các cột
                 if (c == colTenTT38) subHeader.Value2 = "Tên VT/NC/MTC";
                 if (c == colDviTT38) subHeader.Value2 = "Đơn vị";
                 if (c == colDmTT38) subHeader.Value2 = "Định mức";
                 if (c == colDmDiff) subHeader.Value2 = "Chênh lệch ĐM";
+                if (c == colDonGiaChuan) subHeader.Value2 = "Đơn giá chuẩn";
+                if (c == colChenhLechDG) subHeader.Value2 = "Chênh lệch ĐG";
+                if (c == colThanhTienTD) subHeader.Value2 = "Thành tiền (TĐ)";
+                if (c == colChenhLechTT) subHeader.Value2 = "Chênh lệch TT";
             }
-            
+
+            // Độ rộng cột
             if (c == colTenTT38) resultSheet.Columns[c].ColumnWidth = 35;
             else if (c == colGhiChu) resultSheet.Columns[c].ColumnWidth = 35;
             else resultSheet.Columns[c].ColumnWidth = 15;
 
-            // Kẻ khung (Borders) cho toàn bộ dòng dữ liệu của cột mới
+            // Kẻ khung cho cột mới
             if (lastRow >= headerRow + 1)
             {
                 Range colRange = resultSheet.Range[resultSheet.Cells[headerRow, c], resultSheet.Cells[lastRow, c]];
@@ -184,7 +230,7 @@ public class ThamDinhExcelWriter
             }
         }
 
-        // Tạo tiêu đề gộp cho 4 cột TT38 (dòng headerRow)
+        // Tiêu đề gộp: "Định mức theo Thông tư 38"
         if (colTenTT38 > 0 && colDmDiff > 0)
         {
             Range groupHeader = resultSheet.Range[resultSheet.Cells[headerRow, colTenTT38], resultSheet.Cells[headerRow, colDmDiff]];
@@ -193,16 +239,45 @@ public class ThamDinhExcelWriter
             groupHeader.HorizontalAlignment = XlHAlign.xlHAlignCenter;
             groupHeader.VerticalAlignment = XlVAlign.xlVAlignCenter;
             groupHeader.Font.Bold = true;
+            groupHeader.Font.Size = 12;
+            groupHeader.Font.Name = baseFontName;
             groupHeader.Interior.Color = ColorTranslator.ToOle(Color.LightGray);
             groupHeader.Borders.LineStyle = XlLineStyle.xlContinuous;
-            
-            // Kế thừa font chữ
-            Range prevCell = resultSheet.Cells[headerRow, colTenTT38 - 1];
-            groupHeader.Font.Name = prevCell.Font.Name;
-            groupHeader.Font.Size = prevCell.Font.Size;
         }
 
-        // Populate Data (Xử lý từ dưới lên trên để việc chèn dòng không làm sai lệch SoDongExcel của các dòng bên trên)
+        // Tiêu đề gộp: "Đơn giá thẩm định"
+        if (colDonGiaChuan > 0 && colChenhLechDG > 0)
+        {
+            Range groupHeader = resultSheet.Range[resultSheet.Cells[headerRow, colDonGiaChuan], resultSheet.Cells[headerRow, colChenhLechDG]];
+            groupHeader.Merge();
+            groupHeader.Value2 = "Đơn giá thẩm định";
+            groupHeader.HorizontalAlignment = XlHAlign.xlHAlignCenter;
+            groupHeader.VerticalAlignment = XlVAlign.xlVAlignCenter;
+            groupHeader.Font.Bold = true;
+            groupHeader.Font.Size = 12;
+            groupHeader.Font.Name = baseFontName;
+            groupHeader.Interior.Color = ColorTranslator.ToOle(Color.LightGray);
+            groupHeader.Borders.LineStyle = XlLineStyle.xlContinuous;
+        }
+
+        // Tiêu đề gộp: "Thành tiền thẩm định"
+        if (colThanhTienTD > 0 && colChenhLechTT > 0)
+        {
+            Range groupHeader = resultSheet.Range[resultSheet.Cells[headerRow, colThanhTienTD], resultSheet.Cells[headerRow, colChenhLechTT]];
+            groupHeader.Merge();
+            groupHeader.Value2 = "Thành tiền thẩm định";
+            groupHeader.HorizontalAlignment = XlHAlign.xlHAlignCenter;
+            groupHeader.VerticalAlignment = XlVAlign.xlVAlignCenter;
+            groupHeader.Font.Bold = true;
+            groupHeader.Font.Size = 12;
+            groupHeader.Font.Name = baseFontName;
+            groupHeader.Interior.Color = ColorTranslator.ToOle(Color.LightGray);
+            groupHeader.Borders.LineStyle = XlLineStyle.xlContinuous;
+        }
+
+        // ============================================================
+        // GHI DỮ LIỆU (Xử lý từ dưới lên trên để chèn dòng không sai lệch)
+        // ============================================================
         foreach (var kq in results.OrderByDescending(x => x.DuToan.SoDongExcel))
         {
             var dt = kq.DuToan;
@@ -226,13 +301,12 @@ public class ThamDinhExcelWriter
                 ctRange.Interior.Color = ColorTranslator.ToOle(Color.FromArgb(252, 228, 214)); // Đỏ nhạt
             }
             
-            // In Tên công tác chuẩn TT38 để người dùng đối chiếu
+            // In Tên công tác chuẩn TT38
             if (colTenTT38 > 0)
             {
                 resultSheet.Cells[dt.SoDongExcel, colTenTT38].Value2 = kq.DinhMucChuan.TenCongTac;
                 resultSheet.Cells[dt.SoDongExcel, colTenTT38].Font.Bold = true;
-                resultSheet.Cells[dt.SoDongExcel, colTenTT38].Font.Name = resultSheet.Cells[dt.SoDongExcel, 3].Font.Name;
-                resultSheet.Cells[dt.SoDongExcel, colTenTT38].Interior.Color = ColorTranslator.ToOle(Color.FromArgb(255, 242, 204)); // Vàng nhạt để nổi bật
+                resultSheet.Cells[dt.SoDongExcel, colTenTT38].Interior.Color = ColorTranslator.ToOle(Color.FromArgb(255, 242, 204));
             }
 
             // 2. Chèn dòng cho các "Hao phí thiếu" (Có trong TT38 nhưng không có trong Dự toán)
@@ -244,7 +318,6 @@ public class ThamDinhExcelWriter
                 var thieuLoai = thieuItems.Where(x => x.HaoPhiChuan.LoaiHaoPhi == loai).ToList();
                 if (thieuLoai.Any())
                 {
-                    // Tìm dòng thích hợp để chèn (ngay dưới hao phí cuối cùng cùng loại, hoặc loại trước đó)
                     int insertRow = dt.SoDongExcel;
                     var sameLoai = dt.DanhSachHaoPhi.Where(x => x.Loai == loai).ToList();
                     if (sameLoai.Any()) insertRow = sameLoai.Max(x => x.SoDongExcel);
@@ -264,42 +337,31 @@ public class ThamDinhExcelWriter
                         if (vl.Any()) insertRow = vl.Max(x => x.SoDongExcel);
                     }
 
-                    // Chèn N dòng
                     for (int i = 0; i < thieuLoai.Count; i++)
                     {
                         int newRow = insertRow + 1 + i;
                         Range insertedRow = (Range)resultSheet.Rows[newRow];
                         insertedRow.Insert(XlInsertShiftDirection.xlShiftDown, XlInsertFormatOrigin.xlFormatFromLeftOrAbove);
                         
-                        // Clear định dạng có thể bị kế thừa từ dòng công tác
                         Range newRowRange = resultSheet.Range[resultSheet.Cells[newRow, 1], resultSheet.Cells[newRow, lastCol]];
                         newRowRange.Interior.ColorIndex = 0;
                         newRowRange.Font.Bold = false;
                         
                         var sl = thieuLoai[i];
-                        if (colTenTT38 > 0) 
-                        {
-                            resultSheet.Cells[newRow, colTenTT38].Value2 = sl.HaoPhiChuan.TenHaoPhi;
-                            resultSheet.Cells[newRow, colTenTT38].Font.Name = resultSheet.Cells[insertRow, 3].Font.Name;
-                            resultSheet.Cells[newRow, colTenTT38].Font.Size = resultSheet.Cells[insertRow, 3].Font.Size;
-                        }
-                        if (colDviTT38 > 0) 
-                        {
-                            resultSheet.Cells[newRow, colDviTT38].Value2 = sl.HaoPhiChuan.DonVi;
-                            resultSheet.Cells[newRow, colDviTT38].Font.Name = resultSheet.Cells[insertRow, 3].Font.Name;
-                            resultSheet.Cells[newRow, colDviTT38].Font.Size = resultSheet.Cells[insertRow, 3].Font.Size;
-                        }
-                        if (colDmTT38 > 0) 
-                        {
-                            resultSheet.Cells[newRow, colDmTT38].Value2 = sl.HaoPhiChuan.DinhMuc;
-                            resultSheet.Cells[newRow, colDmTT38].Font.Name = resultSheet.Cells[insertRow, 3].Font.Name;
-                            resultSheet.Cells[newRow, colDmTT38].Font.Size = resultSheet.Cells[insertRow, 3].Font.Size;
-                        }
+                        if (colTenTT38 > 0) resultSheet.Cells[newRow, colTenTT38].Value2 = sl.HaoPhiChuan.TenHaoPhi;
+                        if (colDviTT38 > 0) resultSheet.Cells[newRow, colDviTT38].Value2 = sl.HaoPhiChuan.DonVi;
+                        if (colDmTT38 > 0) resultSheet.Cells[newRow, colDmTT38].Value2 = sl.HaoPhiChuan.DinhMuc;
+                        
+                        // Đơn giá chuẩn cho hao phí thiếu
+                        if (colDonGiaChuan > 0 && sl.DonGiaChuan.HasValue)
+                            resultSheet.Cells[newRow, colDonGiaChuan].Value2 = sl.DonGiaChuan.Value;
+                        
+                        // Thành tiền thẩm định cho hao phí thiếu
+                        if (colThanhTienTD > 0 && sl.DonGiaChuan.HasValue)
+                            resultSheet.Cells[newRow, colThanhTienTD].Value2 = sl.HaoPhiChuan.DinhMuc * sl.DonGiaChuan.Value;
                         
                         resultSheet.Cells[newRow, colGhiChu].Value2 = $"[Thiếu hao phí] TT38 có '{sl.HaoPhiChuan.TenHaoPhi}'";
                         resultSheet.Cells[newRow, colGhiChu].Font.Color = ColorTranslator.ToOle(Color.Red);
-                        resultSheet.Cells[newRow, colGhiChu].Font.Name = resultSheet.Cells[insertRow, 3].Font.Name;
-                        resultSheet.Cells[newRow, colGhiChu].Font.Size = resultSheet.Cells[insertRow, 3].Font.Size;
 
                         // Cập nhật lại SoDongExcel cho các hao phí dự toán bị đẩy xuống
                         foreach (var hp in dt.DanhSachHaoPhi)
@@ -316,67 +378,94 @@ public class ThamDinhExcelWriter
                 var rowExcel = hpDuToan.SoDongExcel;
                 var saiLech = kq.DanhSachSaiLech.FirstOrDefault(x => x.HaoPhiDuToan == hpDuToan);
                 
-                // Lấy font chuẩn từ cột dự toán gốc để đồng bộ
-                string fontName = resultSheet.Cells[rowExcel, 3].Font.Name?.ToString() ?? "Times New Roman";
-                double fontSize = resultSheet.Cells[rowExcel, 3].Font.Size;
-                
                 if (saiLech != null)
                 {
                     if (saiLech.HaoPhiChuan == null)
                     {
-                        // Explicitly label as Thừa hao phí
+                        // Hao phí thừa
                         resultSheet.Cells[rowExcel, colGhiChu].Value2 = "Hao phí thừa";
                         resultSheet.Cells[rowExcel, colGhiChu].Font.Color = ColorTranslator.ToOle(Color.Red);
                         resultSheet.Cells[rowExcel, colGhiChu].Font.Bold = true;
-                        resultSheet.Cells[rowExcel, colGhiChu].Font.Name = fontName;
-                        resultSheet.Cells[rowExcel, colGhiChu].Font.Size = fontSize;
                     }
                     else
                     {
-                        if (colTenTT38 > 0) 
-                        {
-                            resultSheet.Cells[rowExcel, colTenTT38].Value2 = saiLech.HaoPhiChuan.TenHaoPhi;
-                            resultSheet.Cells[rowExcel, colTenTT38].Font.Name = fontName;
-                            resultSheet.Cells[rowExcel, colTenTT38].Font.Size = fontSize;
-                        }
-                        if (colDviTT38 > 0) 
-                        {
-                            resultSheet.Cells[rowExcel, colDviTT38].Value2 = saiLech.HaoPhiChuan.DonVi;
-                            resultSheet.Cells[rowExcel, colDviTT38].Font.Name = fontName;
-                            resultSheet.Cells[rowExcel, colDviTT38].Font.Size = fontSize;
-                        }
-                        if (colDmTT38 > 0) 
-                        {
-                            resultSheet.Cells[rowExcel, colDmTT38].Value2 = saiLech.HaoPhiChuan.DinhMuc;
-                            resultSheet.Cells[rowExcel, colDmTT38].Font.Name = fontName;
-                            resultSheet.Cells[rowExcel, colDmTT38].Font.Size = fontSize;
-                        }
-                        
-                        if (colDmDiff > 0) 
+                        // --- Phần Định mức TT38 ---
+                        if (colTenTT38 > 0) resultSheet.Cells[rowExcel, colTenTT38].Value2 = saiLech.HaoPhiChuan.TenHaoPhi;
+                        if (colDviTT38 > 0) resultSheet.Cells[rowExcel, colDviTT38].Value2 = saiLech.HaoPhiChuan.DonVi;
+                        if (colDmTT38 > 0) resultSheet.Cells[rowExcel, colDmTT38].Value2 = saiLech.HaoPhiChuan.DinhMuc;
+                        if (colDmDiff > 0)
                         {
                             resultSheet.Cells[rowExcel, colDmDiff].Value2 = saiLech.ChenhLechDinhMuc;
-                            resultSheet.Cells[rowExcel, colDmDiff].Font.Name = fontName;
-                            resultSheet.Cells[rowExcel, colDmDiff].Font.Size = fontSize;
                             if (Math.Abs(saiLech.ChenhLechDinhMuc) > 0.0001m)
                                 resultSheet.Cells[rowExcel, colDmDiff].Font.Color = ColorTranslator.ToOle(Color.Red);
                         }
 
-                        if (saiLech.LoaiLoi != null && !saiLech.LoaiLoi.StartsWith("Thiếu hao phí"))
+                        // --- Phần Đơn giá ---
+                        if (colDonGiaChuan > 0 && saiLech.DonGiaChuan.HasValue)
                         {
-                            resultSheet.Cells[rowExcel, colGhiChu].Value2 = saiLech.LoaiLoi;
-                            resultSheet.Cells[rowExcel, colGhiChu].Font.Name = fontName;
-                            resultSheet.Cells[rowExcel, colGhiChu].Font.Size = fontSize;
-                            if (saiLech.LoaiLoi == "Khác tên gọi")
-                                resultSheet.Cells[rowExcel, colGhiChu].Font.Color = ColorTranslator.ToOle(Color.DarkOrange);
-                            else
-                                resultSheet.Cells[rowExcel, colGhiChu].Font.Color = ColorTranslator.ToOle(Color.Red);
+                            resultSheet.Cells[rowExcel, colDonGiaChuan].Value2 = saiLech.DonGiaChuan.Value;
+                        }
+                        if (colChenhLechDG > 0 && saiLech.DonGiaChuan.HasValue)
+                        {
+                            decimal chenhLechDG = hpDuToan.DonGia - saiLech.DonGiaChuan.Value;
+                            resultSheet.Cells[rowExcel, colChenhLechDG].Value2 = chenhLechDG;
+                            if (Math.Abs(chenhLechDG) > 1)
+                                resultSheet.Cells[rowExcel, colChenhLechDG].Font.Color = ColorTranslator.ToOle(Color.Red);
+                        }
+
+                        // --- Phần Thành tiền ---
+                        if (colThanhTienTD > 0 && saiLech.DonGiaChuan.HasValue)
+                        {
+                            decimal ttThamDinh = saiLech.HaoPhiChuan.DinhMuc * saiLech.DonGiaChuan.Value;
+                            resultSheet.Cells[rowExcel, colThanhTienTD].Value2 = ttThamDinh;
+                        }
+                        if (colChenhLechTT > 0 && saiLech.DonGiaChuan.HasValue)
+                        {
+                            decimal ttThamDinh = saiLech.HaoPhiChuan.DinhMuc * saiLech.DonGiaChuan.Value;
+                            decimal ttDuToan = hpDuToan.ThanhTien > 0 ? hpDuToan.ThanhTien : hpDuToan.DinhMuc * hpDuToan.DonGia;
+                            decimal chenhLechTT = ttDuToan - ttThamDinh;
+                            resultSheet.Cells[rowExcel, colChenhLechTT].Value2 = chenhLechTT;
+                            if (Math.Abs(chenhLechTT) > 1)
+                                resultSheet.Cells[rowExcel, colChenhLechTT].Font.Color = ColorTranslator.ToOle(Color.Red);
+                        }
+
+                        // --- Ghi chú lỗi tổng hợp (định mức + đơn giá) ---
+                        var loiList = new List<string>();
+
+                        // Lỗi từ thẩm định định mức
+                        if (!string.IsNullOrEmpty(saiLech.LoaiLoi))
+                            loiList.Add(saiLech.LoaiLoi);
+
+                        // Lỗi đơn giá
+                        if (saiLech.DonGiaChuan.HasValue)
+                        {
+                            decimal chenhLechDG = hpDuToan.DonGia - saiLech.DonGiaChuan.Value;
+                            if (Math.Abs(chenhLechDG) > 1)
+                                loiList.Add("Sai đơn giá");
+                        }
+                        else if (!string.IsNullOrEmpty(saiLech.HaoPhiChuan?.MaHieuHP))
+                        {
+                            loiList.Add("Không có giá chuẩn");
+                        }
+
+                        if (loiList.Count > 0)
+                        {
+                            string ghiChu = string.Join(", ", loiList);
+                            resultSheet.Cells[rowExcel, colGhiChu].Value2 = ghiChu;
+                            
+                            bool hasSerious = ghiChu.Contains("Sai") || ghiChu.Contains("thừa") || ghiChu.Contains("Không có");
+                            resultSheet.Cells[rowExcel, colGhiChu].Font.Color = hasSerious
+                                ? ColorTranslator.ToOle(Color.Red)
+                                : ColorTranslator.ToOle(Color.DarkOrange);
                         }
                     }
                 }
             }
         }
 
-        // Cố định dòng tiêu đề (Freeze Panes)
+        // ============================================================
+        // CỐ ĐỊNH DÒNG TIÊU ĐỀ VÀ ĐỊNH DẠNG CUỐI CÙNG
+        // ============================================================
         try
         {
             resultSheet.Activate();
@@ -385,12 +474,12 @@ public class ThamDinhExcelWriter
             resultSheet.Application.ActiveWindow.ScrollRow = 1;
             resultSheet.Application.ActiveWindow.ScrollColumn = 1;
             
-            // Cố định dưới dòng headerRow + 1 (vì tiêu đề hiện tại có 2 dòng)
+            // Cố định dưới dòng headerRow + 1 (tiêu đề có 2 dòng)
             resultSheet.Application.ActiveWindow.SplitRow = headerRow + 1;
             resultSheet.Application.ActiveWindow.SplitColumn = 0;
             resultSheet.Application.ActiveWindow.FreezePanes = true;
 
-            // Thiết lập Wrap Text cho toàn bộ vùng dữ liệu (từ dòng headerRow + 2 trở xuống)
+            // Wrap Text cho vùng dữ liệu
             if (lastRow > headerRow + 1)
             {
                 Range dataRange = resultSheet.Range[resultSheet.Cells[headerRow + 2, 1], resultSheet.Cells[lastRow, colGhiChu]];
@@ -426,96 +515,5 @@ public class ThamDinhExcelWriter
             div = (int)((div - mod) / 26);
         }
         return colLetter;
-    }
-
-    public void ExportGiaVatTu(List<VatTuGiaModel> danhSachVatTu)
-    {
-        ExportGiaChoLoai(danhSachVatTu, AIE.Core.Enums.LoaiHaoPhi.VL, "KQ_GiaVL", "BẢNG THẨM ĐỊNH GIÁ VẬT LIỆU");
-        ExportGiaChoLoai(danhSachVatTu, AIE.Core.Enums.LoaiHaoPhi.NC, "KQ_GiaNC", "BẢNG THẨM ĐỊNH GIÁ NHÂN CÔNG");
-        ExportGiaChoLoai(danhSachVatTu, AIE.Core.Enums.LoaiHaoPhi.MAY, "KQ_GiaMay", "BẢNG THẨM ĐỊNH GIÁ MÁY THI CÔNG");
-    }
-
-    private void ExportGiaChoLoai(List<VatTuGiaModel> tatCaVatTu, AIE.Core.Enums.LoaiHaoPhi loai, string sheetName, string tieuDe)
-    {
-        var ds = tatCaVatTu.Where(x => x.LoaiHP == loai).ToList();
-        if (ds.Count == 0) return;
-
-        var app = (Application)ExcelDnaUtil.Application;
-        var wb = app.ActiveWorkbook;
-        
-        // Xóa sheet cũ nếu có
-        foreach (Worksheet s in wb.Worksheets)
-        {
-            if (s.Name == sheetName)
-            {
-                app.DisplayAlerts = false;
-                s.Delete();
-                app.DisplayAlerts = true;
-                break;
-            }
-        }
-
-        // Tạo sheet mới
-        var sheet = (Worksheet)wb.Worksheets.Add(After: wb.Worksheets[wb.Worksheets.Count]);
-        sheet.Name = sheetName;
-
-        // Định dạng tiêu đề
-        sheet.Cells[1, 1].Value2 = tieuDe;
-        sheet.Cells[1, 1].Font.Bold = true;
-        sheet.Cells[1, 1].Font.Size = 14;
-        
-        // Header
-        int row = 3;
-        string[] headers = { "STT", "Mã hiệu TT38", "Tên Vật tư/NC/Máy", "Đơn vị", "Đơn giá Dự toán", "Đơn giá Chuẩn", "Chênh lệch" };
-        for (int i = 0; i < headers.Length; i++)
-        {
-            var cell = sheet.Cells[row, i + 1];
-            cell.Value2 = headers[i];
-            cell.Font.Bold = true;
-            cell.Interior.Color = ColorTranslator.ToOle(Color.LightGray);
-            cell.HorizontalAlignment = XlHAlign.xlHAlignCenter;
-            cell.Borders.LineStyle = XlLineStyle.xlContinuous;
-        }
-
-        // Data
-        row++;
-        for (int i = 0; i < ds.Count; i++)
-        {
-            var item = ds[i];
-            sheet.Cells[row, 1].Value2 = i + 1;
-            sheet.Cells[row, 2].Value2 = item.MaHieu;
-            sheet.Cells[row, 3].Value2 = item.TenVatTu;
-            sheet.Cells[row, 4].Value2 = item.DonVi;
-            sheet.Cells[row, 5].Value2 = item.GiaDuToan;
-            
-            if (item.GiaChuan.HasValue)
-            {
-                sheet.Cells[row, 6].Value2 = item.GiaChuan.Value;
-                sheet.Cells[row, 7].Value2 = item.ChenhLechGia;
-                if (Math.Abs(item.ChenhLechGia) > 1)
-                {
-                    sheet.Cells[row, 7].Font.Color = ColorTranslator.ToOle(Color.Red);
-                }
-            }
-            else
-            {
-                sheet.Cells[row, 6].Value2 = "Không có giá chuẩn";
-                sheet.Cells[row, 6].Font.Color = ColorTranslator.ToOle(Color.DarkOrange);
-            }
-
-            Range dataRange = sheet.Range[sheet.Cells[row, 1], sheet.Cells[row, 7]];
-            dataRange.Borders.LineStyle = XlLineStyle.xlContinuous;
-            
-            row++;
-        }
-
-        // Căn chỉnh độ rộng cột
-        sheet.Columns[1].ColumnWidth = 5;
-        sheet.Columns[2].ColumnWidth = 15;
-        sheet.Columns[3].ColumnWidth = 45;
-        sheet.Columns[4].ColumnWidth = 10;
-        sheet.Columns[5].ColumnWidth = 18;
-        sheet.Columns[6].ColumnWidth = 18;
-        sheet.Columns[7].ColumnWidth = 18;
     }
 }
