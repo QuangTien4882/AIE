@@ -50,7 +50,6 @@ public class DuToanExcelReader
                 continue;
             }
 
-            // Nếu cột Mã hiệu có dữ liệu -> Đây là dòng Công tác
             if (!string.IsNullOrWhiteSpace(maHieu))
             {
                 currentCongTac = new CongTacThamDinh
@@ -65,21 +64,24 @@ public class DuToanExcelReader
             else if (currentCongTac != null)
             {
                 // Kiểm tra xem dòng này có phải là dòng tiêu đề nhóm không (Vật liệu, Nhân công, Máy thi công)
-                string tenLower = ten.ToLower();
-                if (tenLower == "vật liệu" || tenLower == "vl" || tenLower.StartsWith("vật liệu"))
+                string tenLower = ten.ToLower().Trim();
+                
+                // Nếu dòng này không có định mức (hoặc định mức rỗng), nó có khả năng cao là dòng tiêu đề (VD: 'b) Nhân công')
+                if (string.IsNullOrEmpty(strDinhMuc) || !decimal.TryParse(strDinhMuc, out _))
                 {
-                    currentLoaiHp = LoaiHaoPhi.VL;
-                }
-                else if (tenLower == "nhân công" || tenLower == "nc" || tenLower.StartsWith("nhân công"))
-                {
-                    currentLoaiHp = LoaiHaoPhi.NC;
-                }
-                else if (tenLower == "máy thi công" || tenLower == "m" || tenLower.StartsWith("máy thi công") || tenLower.StartsWith("máy tc"))
-                {
-                    currentLoaiHp = LoaiHaoPhi.MAY;
+                    if (tenLower.Contains("vật liệu") || tenLower == "vl")
+                        currentLoaiHp = LoaiHaoPhi.VL;
+                    else if (tenLower.Contains("nhân công") || tenLower == "nc")
+                        currentLoaiHp = LoaiHaoPhi.NC;
+                    else if (tenLower.Contains("máy thi công") || tenLower == "m" || tenLower.Contains("máy tc") || tenLower.Contains("máy thi cong"))
+                        currentLoaiHp = LoaiHaoPhi.MAY;
                 }
                 else if (decimal.TryParse(strDinhMuc, out decimal dinhMuc))
                 {
+                    // Nếu là dòng dữ liệu (có định mức), ta có thể fallback thêm nếu tiêu đề bị thiếu
+                    if (tenLower.StartsWith("nhân công")) currentLoaiHp = LoaiHaoPhi.NC;
+                    else if (tenLower.StartsWith("máy")) currentLoaiHp = LoaiHaoPhi.MAY;
+
                     decimal donGia = 0;
                     if (!string.IsNullOrEmpty(strDonGia))
                     {
@@ -92,7 +94,7 @@ public class DuToanExcelReader
                         decimal.TryParse(strThanhTien, out thanhTien);
                     }
                     
-                    // Nếu có giá trị định mức -> Đây là dòng Hao phí
+                    // Thêm HaoPhi
                     var hp = new HaoPhiThamDinh
                     {
                         SoDongExcel = row,

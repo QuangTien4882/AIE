@@ -66,7 +66,7 @@ public class ThamDinhEngine
 
                 if (hpChuanMatched == null)
                 {
-                    saiLech.LoaiLoi = "Hao phí thừa / Không khớp";
+                    saiLech.LoaiLoi = "Hao phí thừa";
                     saiLech.MoTa = $"Dự toán có '{hpDuToan.TenHaoPhi}' nhưng TT38 không có (hoặc tên không khớp).";
                 }
                 else
@@ -196,12 +196,55 @@ public class ThamDinhEngine
             
         if (containsMatch != null) return containsMatch;
 
-        // 3. Smart Mapping: Nếu công tác chỉ có 1 hao phí loại này, và chuẩn cũng có 1 -> Bắt cặp
+        // 3. Khớp theo mức độ trùng lặp từ vựng (Word Overlap)
+        var wordsDt = tenDt.Split(new[] { ' ', '-', ',', '.', '(', ')' }, StringSplitOptions.RemoveEmptyEntries);
+        HaoPhi? bestMatch = null;
+        int maxOverlap = 0;
+
+        foreach (var hp in dsHpChuan.Where(x => x.LoaiHaoPhi == hpDuToan.Loai))
+        {
+            var wordsCh = ChuanHoaTen(hp.TenHaoPhi).Split(new[] { ' ', '-', ',', '.', '(', ')' }, StringSplitOptions.RemoveEmptyEntries);
+            int overlap = wordsDt.Intersect(wordsCh).Count();
+            
+            if (overlap > maxOverlap)
+            {
+                maxOverlap = overlap;
+                bestMatch = hp;
+            }
+        }
+
+        // Bắt cặp nếu trùng ít nhất 2 từ (VD: "Máy đào", "Máy đầm", "Vật liệu")
+        // Nếu tên quá ngắn (chỉ 1 từ) thì cần trùng 1 từ
+        int minRequiredOverlap = wordsDt.Length <= 1 ? 1 : 2;
+        if (bestMatch != null && maxOverlap >= minRequiredOverlap)
+        {
+            return bestMatch;
+        }
+
+        // 4. Smart Mapping: Nếu công tác chỉ có 1 hao phí loại này, và chuẩn cũng có 1 -> Bắt cặp
+        // Nhưng BẮT BUỘC phải có ít nhất 1 từ trùng để tránh ghép nhầm (VD: "Nhựa bitum" với "Bột đá")
         var countChuanLoaiNay = ctChuan.DanhSachHaoPhi.Count(x => x.LoaiHaoPhi == hpDuToan.Loai);
         if (countChuanLoaiNay == 1)
         {
             var smartMatch = dsHpChuan.FirstOrDefault(x => x.LoaiHaoPhi == hpDuToan.Loai);
-            if (smartMatch != null) return smartMatch;
+            if (smartMatch != null)
+            {
+                // Kiểm tra có ít nhất 1 từ trùng
+                var w1 = tenDt.Split(new[] { ' ', '-', ',', '.', '(', ')' }, StringSplitOptions.RemoveEmptyEntries);
+                var w2 = ChuanHoaTen(smartMatch.TenHaoPhi).Split(new[] { ' ', '-', ',', '.', '(', ')' }, StringSplitOptions.RemoveEmptyEntries);
+                if (w1.Intersect(w2).Any()) return smartMatch;
+            }
+        }
+        
+        // 5. Fallback cuối cùng: Nếu chỉ còn 1 hao phí TT38 chưa map cùng loại, bắt cặp NẾU có từ trùng.
+        // Tuyệt đối KHÔNG bắt cặp khi tên hoàn toàn khác nhau → phải để thành "Hao phí thừa".
+        var remainingChuanLoaiNay = dsHpChuan.Where(x => x.LoaiHaoPhi == hpDuToan.Loai).ToList();
+        if (remainingChuanLoaiNay.Count == 1)
+        {
+            var candidate = remainingChuanLoaiNay.First();
+            var w1 = tenDt.Split(new[] { ' ', '-', ',', '.', '(', ')' }, StringSplitOptions.RemoveEmptyEntries);
+            var w2 = ChuanHoaTen(candidate.TenHaoPhi).Split(new[] { ' ', '-', ',', '.', '(', ')' }, StringSplitOptions.RemoveEmptyEntries);
+            if (w1.Intersect(w2).Any()) return candidate;
         }
 
         return null;
