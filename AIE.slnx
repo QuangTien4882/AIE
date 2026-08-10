@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AIE.Core/AIE.Core.csproj" />
+    <Project Path="src/AIE.Data/AIE.Data.csproj" />
+    <Project Path="src/AIE.ExcelAddIn/AIE.ExcelAddIn.csproj" />
+    <Project Path="src/AIE.Reports/AIE.Reports.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AIE.Core.Tests/AIE.Core.Tests.csproj" />
+    <Project Path="tests/AIE.Data.Tests/AIE.Data.Tests.csproj" />
+  </Folder>
+</Solution>

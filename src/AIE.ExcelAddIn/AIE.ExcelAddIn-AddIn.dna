@@ -1,0 +1,3 @@
+<DnaLibrary Name="AIE Excel Add-In" RuntimeVersion="v4.0" xmlns="http://schemas.excel-dna.net/addin/2020/07/dnalibrary">
+  <ExternalLibrary Path="AIE.ExcelAddIn.dll" ExplicitExports="false" LoadFromBytes="true" Pack="true" IncludePdb="false" />
+</DnaLibrary>
