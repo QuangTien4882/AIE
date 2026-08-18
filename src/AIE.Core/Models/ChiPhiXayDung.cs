@@ -26,7 +26,7 @@ public class ChiPhiXayDung
     /// <summary>Chi phí chung (CPC) = T × tỉ lệ %</summary>
     public decimal CPC { get; set; }
 
-    /// <summary>CP không XĐ được khối lượng (TT) = T × tỉ lệ %</summary>
+    /// <summary>CP không XĐ được Khối lượng (TT) = T × tỉ lệ %</summary>
     public decimal TT { get; set; }
 
     /// <summary>GT = CPC + TT — Chi phí gián tiếp</summary>
@@ -52,7 +52,7 @@ public class ChiPhiXayDung
     /// <summary>GXD = Gxd + LT — Tổng chi phí xây dựng</summary>
     public decimal GXD => Gxd + LT;
 
-    // --- Tỉ lệ % đã áp dụng (lưu lại để kiểm tra) ---
+    // --- Tỉ lệ % đã áp dụng (lưu lại để Kiểm tra) ---
     public decimal TiLeCPC { get; set; }
     public decimal TiLeTT { get; set; }
     public decimal TiLeTNCTTT { get; set; }

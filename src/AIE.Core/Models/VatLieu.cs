@@ -19,6 +19,9 @@ public class VatLieu
     /// <summary>Đơn giá (đồng) — EDITABLE</summary>
     public decimal DonGia { get; set; }
 
+    /// <summary>Cước vận chuyển (đồng) — EDITABLE</summary>
+    public decimal CuocVanChuyen { get; set; }
+
     /// <summary>Nhà sản xuất / Nguồn gốc (optional)</summary>
     public string? NhaSanXuat { get; set; }
 

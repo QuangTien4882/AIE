@@ -69,6 +69,7 @@ public class SaiLechDinhMuc
     // Dữ liệu dùng để xuất cột
     public HaoPhi? HaoPhiChuan { get; set; }
     public decimal? DonGiaChuan { get; set; } // Lấy từ Repo
+    public string GhiChuDonGia { get; set; } = string.Empty;
     
     // Thuộc tính tiện ích
     public decimal ChenhLechDinhMuc => (HaoPhiChuan != null && HaoPhiDuToan != null) ? HaoPhiDuToan.DinhMuc - HaoPhiChuan.DinhMuc : 0;

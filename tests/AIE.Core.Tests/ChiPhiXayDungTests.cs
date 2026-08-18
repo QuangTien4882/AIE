@@ -40,7 +40,7 @@ public class ChiPhiXayDungTests
         // Tính lại G * 1.1% = 882824 * 1.1% = 9711.064 (Lệch).
         // Hay là Gxd * 1.1% ? 953450 * 1.1% = 10487.95 -> 10488 !!!
         // => À, TT 36 có thể quy định Nhà tạm tính trên Gxd (Sau thuế) hoặc Gx 1.1%?
-        // Hãy kiểm tra kỹ Screenshot 2: "Chi phí nhà tạm để ở và điều hành thi công (G x 1,1...)"
+        // Hãy Kiểm tra kỹ Screenshot 2: "Chi phí nhà tạm để ở và điều hành thi công (G x 1,1...)"
         // Screenshot bị cắt, "G x 1,..." có thể là (Gxd x 1,1%) hoặc (G x 1,...) 
         // 953450 * 1.1% = 10487.95 => Làm tròn = 10488. (Vậy là tính trên Gxd).
     }

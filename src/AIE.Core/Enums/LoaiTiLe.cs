@@ -8,7 +8,7 @@ public enum LoaiTiLe
 {
     /// <summary>Chi phí chung (CPC) — tính trên T hoặc NC</summary>
     CPC,
-    /// <summary>Chi phí một số công việc không xác định được khối lượng từ thiết kế (TT) — tính trên T</summary>
+    /// <summary>Chi phí một số công việc không xác định được Khối lượng từ thiết kế (TT) — tính trên T</summary>
     TT,
     /// <summary>Thu nhập chịu thuế tính trước (TNCTTT) — tính trên (T + GT)</summary>
     TNCTTT,

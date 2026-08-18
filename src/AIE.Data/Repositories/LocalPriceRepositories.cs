@@ -34,8 +34,8 @@ public class VatLieuRepository
     {
         using var connection = _context.GetConnection();
         var sql = @"
-            INSERT OR REPLACE INTO VatLieu (MaVL, TenVL, DonVi, DonGia, NhaSanXuat, GhiChu, NgayCapNhat)
-            VALUES (@MaVL, @TenVL, @DonVi, @DonGia, @NhaSanXuat, @GhiChu, @NgayCapNhat);
+            INSERT OR REPLACE INTO VatLieu (MaVL, TenVL, DonVi, DonGia, CuocVanChuyen, NhaSanXuat, GhiChu, NgayCapNhat)
+            VALUES (@MaVL, @TenVL, @DonVi, @DonGia, @CuocVanChuyen, @NhaSanXuat, @GhiChu, @NgayCapNhat);
         ";
         connection.Execute(sql, vl);
     }

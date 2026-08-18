@@ -30,7 +30,7 @@ public class ThamDinhConfigForm : Form
     /// <summary>
     /// Bảng chuyển đổi ký tự TCVN3 (.VnTime, .VnArial, ...) sang Unicode.
     /// Khi Excel dùng font TCVN3, giá trị ô đọc qua COM sẽ trả về ký tự Latin sai lệch.
-    /// Ví dụ: "®¬n vÞ" thay vì "đơn vị".
+    /// Ví dụ: "®¬n vÞ" thay vì "Đơn vị".
     /// </summary>
     private static readonly Dictionary<char, char> _tcvn3Map = new Dictionary<char, char>
     {
@@ -140,7 +140,7 @@ public class ThamDinhConfigForm : Form
 
         TableLayoutPanel tlp = new TableLayoutPanel();
         tlp.ColumnCount = 2;
-        tlp.RowCount = 12;
+        tlp.RowCount = 15;
         tlp.AutoSize = true;
         tlp.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         tlp.Padding = new Padding(20, 20, 20, 20);
@@ -359,7 +359,7 @@ public class ThamDinhConfigForm : Form
                     // === Nhận diện cột ===
 
                     // Mã hiệu / SH Định mức
-                    if (cellText.Contains("mã hiệu") || cellText.Contains("mã công tác") ||
+                    if (cellText.Contains("Mã hiệu") || cellText.Contains("mã công tác") ||
                         cellText.Contains("sh định mức") || cellText.Contains("sh đm") ||
                         cellText.Contains("số hiệu") || cellText.Contains("mã đm") ||
                         cellText == "mã cv" || (cellText.StartsWith("mã") && cellText.Length < 20))
@@ -368,7 +368,7 @@ public class ThamDinhConfigForm : Form
                         matchCount++;
                     }
                     // Tên công tác / hạng mục
-                    else if (cellText.Contains("hạng mục công tác") || cellText.Contains("tên công tác") ||
+                    else if (cellText.Contains("hạng mục công tác") || cellText.Contains("Tên công tác") ||
                              cellText.Contains("hạng mục công việc") || cellText.Contains("nội dung công việc") ||
                              cellText.Contains("danh mục") || cellText.Contains("tên vật tư") ||
                              cellText.Contains("nội dung"))
@@ -377,7 +377,7 @@ public class ThamDinhConfigForm : Form
                         matchCount++;
                     }
                     // Đơn vị
-                    else if (cellText == "đơn vị" || cellText == "đvt" || cellText == "đơn vị tính" || cellText == "đ.vị")
+                    else if (cellText == "Đơn vị" || cellText == "đvt" || cellText == "Đơn vị tính" || cellText == "đ.vị")
                     {
                         tmpDonVi = colLetter;
                         matchCount++;
@@ -396,7 +396,7 @@ public class ThamDinhConfigForm : Form
                         matchCount++;
                     }
                     // Thành tiền
-                    else if (cellText.Contains("thành tiền"))
+                    else if (cellText.Contains("Thành tiền"))
                     {
                         tmpThanhTien = colLetter;
                         matchCount++;
@@ -428,7 +428,7 @@ public class ThamDinhConfigForm : Form
                 if (!string.IsNullOrEmpty(bestThanhTien)) cbColThanhTien.SelectedItem = bestThanhTien;
 
                 // Tìm dòng data thực sự: quét từ headerRow + 1 trở đi,
-                // tìm dòng đầu tiên có chứa mã hiệu (pattern: chữ + số, VD: AB.21131)
+                // tìm dòng đầu tiên có chứa Mã hiệu (pattern: chữ + số, VD: AB.21131)
                 int dataRow = bestRow + 1;
                 int maHieuColIdx = -1;
                 if (!string.IsNullOrEmpty(bestMaHieu))
@@ -436,7 +436,7 @@ public class ThamDinhConfigForm : Form
 
                 for (int r = bestRow + rStart; r <= rEnd; r++)
                 {
-                    // Kiểm tra cột mã hiệu
+                    // Kiểm tra cột Mã hiệu
                     if (maHieuColIdx >= cStart && maHieuColIdx <= cEnd && values[r, maHieuColIdx] != null)
                     {
                         string val = values[r, maHieuColIdx].ToString().Trim();
@@ -450,7 +450,7 @@ public class ThamDinhConfigForm : Form
                         }
                     }
 
-                    // Hoặc kiểm tra nếu có ít nhất 3 ô có giá trị trong dòng này (dòng data thực sự)
+                    // Hoặc Kiểm tra nếu có ít nhất 3 ô có giá trị trong dòng này (dòng data thực sự)
                     int filledCount = 0;
                     for (int c = cStart; c <= cEnd && filledCount < 4; c++)
                     {

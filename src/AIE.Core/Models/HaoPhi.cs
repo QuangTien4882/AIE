@@ -4,7 +4,7 @@ namespace AIE.Core.Models;
 
 /// <summary>
 /// Hao phí (VL/NC/Máy) của 1 công tác xây dựng.
-/// VD: Xi măng PCB40 - V08770 - 234.725 kg cho mã hiệu AF.11112.
+/// VD: Xi măng PCB40 - V08770 - 234.725 kg cho Mã hiệu AF.11112.
 /// </summary>
 public class HaoPhi
 {

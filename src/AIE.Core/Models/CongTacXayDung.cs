@@ -1,7 +1,7 @@
 namespace AIE.Core.Models;
 
 /// <summary>
-/// Công tác xây dựng — đại diện cho 1 mã hiệu định mức (VD: AF.11112).
+/// Công tác xây dựng — đại diện cho 1 Mã hiệu định mức (VD: AF.11112).
 /// Universal — không phân biệt lĩnh vực/loại công trình.
 /// </summary>
 public class CongTacXayDung

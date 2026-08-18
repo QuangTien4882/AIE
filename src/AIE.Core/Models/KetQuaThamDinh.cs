@@ -3,7 +3,7 @@ using AIE.Core.Enums;
 namespace AIE.Core.Models;
 
 /// <summary>
-/// Kết quả thẩm định dự toán — tổng hợp tất cả các kiểm tra.
+/// Kết quả thẩm định dự toán — tổng hợp tất cả các Kiểm tra.
 /// </summary>
 public class KetQuaThamDinh
 {
@@ -11,7 +11,7 @@ public class KetQuaThamDinh
     public string LoaiCongTrinh { get; set; } = string.Empty;
     public DateTime NgayThamDinh { get; set; } = DateTime.Now;
 
-    /// <summary>Danh sách chi tiết từng mục kiểm tra</summary>
+    /// <summary>Danh sách chi tiết từng mục Kiểm tra</summary>
     public List<MucKiemTra> DanhSachKiemTra { get; set; } = [];
 
     /// <summary>Tổng hợp đối chiếu chi phí</summary>
@@ -29,11 +29,11 @@ public class KetQuaThamDinh
 }
 
 /// <summary>
-/// 1 mục kiểm tra trong kết quả thẩm định.
+/// 1 mục Kiểm tra trong kết quả thẩm định.
 /// </summary>
 public class MucKiemTra
 {
-    /// <summary>Tên mục kiểm tra (VD: "Mã hiệu AF.11112", "Tỉ lệ CPC",...)</summary>
+    /// <summary>Tên mục Kiểm tra (VD: "Mã hiệu AF.11112", "Tỉ lệ CPC",...)</summary>
     public string TenMuc { get; set; } = string.Empty;
 
     /// <summary>Nội dung chi tiết</summary>

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -9,6 +9,11 @@
 
   <ItemGroup>
     <PackageReference Include="System.Data.SQLite" Version="1.0.118.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AIE.Core\AIE.Core.csproj" />
+    <ProjectReference Include="..\AIE.Data\AIE.Data.csproj" />
   </ItemGroup>
 
 </Project>

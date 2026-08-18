@@ -15,13 +15,13 @@ public class KetQuaPhanTichDonGia
     /// <summary>Đơn vị</summary>
     public string DonVi { get; set; } = string.Empty;
 
-    /// <summary>Chi tiết hao phí VL với đơn giá & thành tiền</summary>
+    /// <summary>Chi tiết hao phí VL với đơn giá & Thành tiền</summary>
     public List<ChiTietHaoPhi> ChiTietVatLieu { get; set; } = [];
 
-    /// <summary>Chi tiết hao phí NC với đơn giá & thành tiền</summary>
+    /// <summary>Chi tiết hao phí NC với đơn giá & Thành tiền</summary>
     public List<ChiTietHaoPhi> ChiTietNhanCong { get; set; } = [];
 
-    /// <summary>Chi tiết hao phí Máy với đơn giá & thành tiền</summary>
+    /// <summary>Chi tiết hao phí Máy với đơn giá & Thành tiền</summary>
     public List<ChiTietHaoPhi> ChiTietMay { get; set; } = [];
 
     /// <summary>Tổng đơn giá vật liệu (đồng)</summary>

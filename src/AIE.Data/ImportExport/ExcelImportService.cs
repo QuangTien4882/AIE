@@ -155,9 +155,8 @@ namespace AIE.Data.ImportExport
                             MaVL = maVL,
                             TenVL = row.Cell(2).GetString().Trim(),
                             DonVi = row.Cell(3).GetString().Trim(),
-                            DonGia = row.Cell(4).GetValue<decimal>(),
-                            NhaSanXuat = row.Cell(5).GetString().Trim(),
-                            GhiChu = row.Cell(6).GetString().Trim(),
+                            DonGia = row.Cell(4).TryGetValue<decimal>(out var d) ? d : 0,
+                            GhiChu = row.Cell(5).GetString().Trim(),
                             NgayCapNhat = DateTime.Now
                         });
                         result.SoLuongThanhCong++;
@@ -191,10 +190,10 @@ namespace AIE.Data.ImportExport
                         {
                             MaNC = maNC,
                             TenNC = row.Cell(2).GetString().Trim(),
-                            Nhom = row.Cell(3).GetValue<int>(),
-                            DonVi = row.Cell(4).GetString().Trim(),
-                            DonGia = row.Cell(5).GetValue<decimal>(),
-                            GhiChu = row.Cell(6).GetString().Trim(),
+                            Nhom = 0,
+                            DonVi = row.Cell(3).GetString().Trim(),
+                            DonGia = row.Cell(4).TryGetValue<decimal>(out var d) ? d : 0,
+                            GhiChu = row.Cell(5).GetString().Trim(),
                             NgayCapNhat = DateTime.Now
                         });
                         result.SoLuongThanhCong++;
@@ -229,7 +228,7 @@ namespace AIE.Data.ImportExport
                             MaMay = maMay,
                             TenMay = row.Cell(2).GetString().Trim(),
                             DonVi = row.Cell(3).GetString().Trim(),
-                            DonGia = row.Cell(4).GetValue<decimal>(),
+                            DonGia = row.Cell(4).TryGetValue<decimal>(out var d) ? d : 0,
                             GhiChu = row.Cell(5).GetString().Trim(),
                             NgayCapNhat = DateTime.Now
                         });

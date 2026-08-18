@@ -21,8 +21,14 @@ public class DuToan
     /// <summary>Địa điểm</summary>
     public string DiaDiem { get; set; } = "Đà Nẵng";
 
+    /// <summary>ID của Bộ Đơn Giá được sử dụng cho dự toán này (để lấy giá VL, NC, Máy)</summary>
+    public int? BoDonGiaId { get; set; }
+
     /// <summary>Danh sách hạng mục</summary>
     public List<HangMuc> DanhSachHangMuc { get; set; } = [];
+
+    /// <summary>Bảng tổng hợp vật tư (Vật liệu, Nhân công, Máy thi công) phân tích từ danh sách hạng mục</summary>
+    public BangTongHopVatTu BangTongHop { get; set; } = new();
 
     /// <summary>Chi phí xây dựng (GXD)</summary>
     public ChiPhiXayDung? ChiPhiXD { get; set; }
@@ -66,7 +72,7 @@ public class HangMuc
 }
 
 /// <summary>
-/// 1 dòng dự toán = 1 công tác XD với khối lượng cụ thể.
+/// 1 dòng dự toán = 1 công tác XD với Khối lượng cụ thể.
 /// </summary>
 public class DongDuToan
 {
@@ -80,6 +86,9 @@ public class DongDuToan
 
     /// <summary>Đơn vị</summary>
     public string DonVi { get; set; } = string.Empty;
+    
+    /// <summary>Danh sách hao phí (vật liệu, nhân công, máy)</summary>
+    public List<HaoPhi> DanhSachHaoPhi { get; set; } = [];
 
     /// <summary>Khối lượng</summary>
     public decimal KhoiLuong { get; set; }

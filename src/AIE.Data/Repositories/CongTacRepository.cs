@@ -49,6 +49,15 @@ public class CongTacRepository
     }
 
     /// <summary>
+    /// Lấy danh sách tất cả hao phí
+    /// </summary>
+    public IEnumerable<HaoPhi> GetAllHaoPhi()
+    {
+        using var connection = _context.GetConnection();
+        return connection.Query<HaoPhi>("SELECT * FROM HaoPhi").ToList();
+    }
+
+    /// <summary>
     /// Đếm tổng số công tác trong DB.
     /// </summary>
     public int Count()
@@ -77,15 +86,31 @@ public class CongTacRepository
     }
 
     /// <summary>
-    /// Tìm kiếm công tác theo mã hiệu hoặc tên
+    /// Tìm kiếm công tác theo Mã hiệu hoặc tên — hỗ trợ tìm kiếm thông minh:
+    /// tách từ khoá thành các từ rời, yêu cầu TẤT CẢ các từ đều xuất hiện (bất kỳ thứ tự).
+    /// Ví dụ: "máy đào bánh xích" sẽ tìm thấy "Máy đào 1 gầu, bánh xích..."
     /// </summary>
     public IEnumerable<CongTacXayDung> SearchCongTac(string keyword)
     {
         using var connection = _context.GetConnection();
-        var param = new { Keyword = $"%{keyword}%" };
-        var sqlCongTac = "SELECT * FROM CongTacXayDung WHERE MaHieu LIKE @Keyword OR TenCongTac LIKE @Keyword LIMIT 100;";
         
-        var dsCongTac = connection.Query<CongTacXayDung>(sqlCongTac, param).ToList();
+        // Tách từ khoá thành các từ rời
+        var words = keyword.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0)
+            return connection.Query<CongTacXayDung>("SELECT * FROM CongTacXayDung LIMIT 100;").ToList();
+        
+        // Xây dựng điều kiện AND cho mỗi từ: (MaHieu LIKE '%từ1%' OR TenCongTac LIKE '%từ1%') AND ...
+        var conditions = new List<string>();
+        var parameters = new Dapper.DynamicParameters();
+        for (int i = 0; i < words.Length; i++)
+        {
+            conditions.Add($"(MaHieu LIKE @W{i} OR TenCongTac LIKE @W{i})");
+            parameters.Add($"W{i}", $"%{words[i]}%");
+        }
+        
+        var sqlCongTac = $"SELECT * FROM CongTacXayDung WHERE {string.Join(" AND ", conditions)} LIMIT 100;";
+        
+        var dsCongTac = connection.Query<CongTacXayDung>(sqlCongTac, parameters).ToList();
         if (dsCongTac.Any())
         {
             var ids = dsCongTac.Select(x => x.Id).ToList();

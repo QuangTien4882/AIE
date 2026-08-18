@@ -11,6 +11,6 @@ public enum MucDoThamDinh
     CanhBao,
     /// <summary>🔴 Không đạt — sai lệch nghiêm trọng</summary>
     KhongDat,
-    /// <summary>⚪ Bỏ qua — không đủ dữ liệu để kiểm tra</summary>
+    /// <summary>⚪ Bỏ qua — không đủ dữ liệu để Kiểm tra</summary>
     BoQua
 }

@@ -41,7 +41,7 @@ namespace AIE.ExcelAddIn.Forms
 
         private void InitializeComponents()
         {
-            this.Text = "Tra Cứu Định Mức (Thông tư 38)";
+            this.Text = "Tra cứu định mức (Thông tư 38)";
             
             var workingArea = Screen.PrimaryScreen.WorkingArea;
             this.Size = new Size((int)(workingArea.Width * 0.9), (int)(workingArea.Height * 0.9));
@@ -57,10 +57,51 @@ namespace AIE.ExcelAddIn.Forms
                 ControlPaint.DrawBorder(e.Graphics, pnlTop.ClientRectangle, Color.FromArgb(220, 221, 225), ButtonBorderStyle.Solid);
             };
             
+            var lblSearch = new Label { 
+                Text = "Tìm kiếm:", 
+                AutoSize = true, 
+                Location = new Point(20, 20),
+                Font = new Font("Be Vietnam Pro SemiBold", 9.5F),
+                ForeColor = Color.FromArgb(47, 54, 64)
+            };
+
+            txtSearch = new TextBox { 
+                Location = new Point(105, 17),
+                Width = 280,
+                Font = new Font("Be Vietnam Pro", 9.5F),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+
+            _searchTimer = new System.Windows.Forms.Timer { Interval = 300 };
+            _searchTimer.Tick += (s, e) => {
+                _searchTimer.Stop();
+                FilterData();
+            };
+
+            txtSearch.TextChanged += (s, e) => {
+                _searchTimer.Stop();
+                _searchTimer.Start();
+            };
+            
+            btnSearch = new Button { 
+                Text = "🔍", 
+                Location = new Point(400, 15),
+                Width = 40,
+                Height = 28,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(0, 168, 255),
+                ForeColor = Color.White,
+                Cursor = Cursors.Hand,
+                Font = new Font("Segoe UI Emoji", 10F)
+            };
+            btnSearch.FlatAppearance.BorderSize = 0;
+            ToolTip tt = new ToolTip();
+            tt.SetToolTip(btnSearch, "Tìm kiếm định mức");
+            btnSearch.Click += (s, e) => FilterData();
+
             var lblPhuLuc = new Label { 
                 Text = "Bộ định mức:", 
                 AutoSize = true, 
-                Location = new Point(20, 20),
                 Font = new Font("Be Vietnam Pro SemiBold", 9.5F),
                 ForeColor = Color.FromArgb(47, 54, 64)
             };
@@ -109,57 +150,17 @@ namespace AIE.ExcelAddIn.Forms
             
             btnPhuLuc.Click += (s, e) => menuPhuLuc.Show(btnPhuLuc, new Point(0, btnPhuLuc.Height));
             
-            var lblSearch = new Label { 
-                Text = "Tìm kiếm:", 
-                AutoSize = true, 
-                Font = new Font("Be Vietnam Pro SemiBold", 9.5F),
-                ForeColor = Color.FromArgb(47, 54, 64)
-            };
-            
-            txtSearch = new TextBox { 
-                Width = 300,
-                Font = new Font("Be Vietnam Pro", 9.5F),
-                BorderStyle = BorderStyle.FixedSingle
-            };
-            
-            _searchTimer = new System.Windows.Forms.Timer { Interval = 300 };
-            _searchTimer.Tick += (s, e) => {
-                _searchTimer.Stop();
-                FilterData();
-            };
-
-            txtSearch.TextChanged += (s, e) => {
-                _searchTimer.Stop();
-                _searchTimer.Start();
-            };
-            
-            btnSearch = new Button { 
-                Text = "🔍", 
-                Width = 40,
-                Height = 28,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(0, 168, 255),
-                ForeColor = Color.White,
-                Cursor = Cursors.Hand,
-                Font = new Font("Segoe UI Emoji", 10F)
-            };
-            btnSearch.FlatAppearance.BorderSize = 0;
-            ToolTip tt = new ToolTip();
-            tt.SetToolTip(btnSearch, "Tìm kiếm định mức");
-            btnSearch.Click += (s, e) => FilterData();
-
             pnlTop.Controls.Add(lblPhuLuc);
             pnlTop.Controls.Add(btnPhuLuc);
             pnlTop.Controls.Add(lblSearch);
             pnlTop.Controls.Add(txtSearch);
             pnlTop.Controls.Add(btnSearch);
 
-            // Tính vị trí search controls bám sát bên phải
+            // Tính vị trí PhuLuc controls bám sát bên phải
             Action layoutSearch = () => {
                 int right = pnlTop.ClientSize.Width - 15;
-                btnSearch.Location = new Point(right - btnSearch.Width, 16);
-                txtSearch.Location = new Point(btnSearch.Left - txtSearch.Width - 5, 18);
-                lblSearch.Location = new Point(txtSearch.Left - lblSearch.Width - 5, 20);
+                btnPhuLuc.Location = new Point(right - btnPhuLuc.Width, 15);
+                lblPhuLuc.Location = new Point(btnPhuLuc.Left - lblPhuLuc.Width - 10, 20);
             };
             pnlTop.Resize += (s, e) => layoutSearch();
             pnlTop.Layout += (s, e) => layoutSearch();
@@ -178,6 +179,7 @@ namespace AIE.ExcelAddIn.Forms
             // DGV Công tác
             dgvCongTac = CreateModernGrid();
             dgvCongTac.SelectionChanged += DgvCongTac_SelectionChanged;
+            dgvCongTac.CellDoubleClick += DgvCongTac_CellDoubleClick;
             SetupCongTacColumns();
             
             var pnlGrid1 = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10), BackColor = Color.FromArgb(245, 246, 250) };
@@ -240,6 +242,64 @@ namespace AIE.ExcelAddIn.Forms
             dgvCongTac.Columns.Add(colDonVi);
         }
 
+        private void DgvCongTac_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex >= 0)
+            {
+                var congTac = dgvCongTac.Rows[e.RowIndex].DataBoundItem as CongTacXayDung;
+                if (congTac != null)
+                {
+                    InsertCongTacIntoExcel(congTac);
+                }
+            }
+        }
+
+        private void InsertCongTacIntoExcel(CongTacXayDung congTac)
+        {
+            try
+            {
+                var app = (Microsoft.Office.Interop.Excel.Application)ExcelDna.Integration.ExcelDnaUtil.Application;
+                var ws = app.ActiveSheet as Microsoft.Office.Interop.Excel.Worksheet;
+                if (ws == null) return;
+
+                var activeCell = app.ActiveCell;
+                if (activeCell == null) return;
+
+                int row = activeCell.Row;
+                
+                // Assume standard template columns
+                ws.Cells[row, 2].Value2 = congTac.MaHieu;
+                ws.Cells[row, 3].Value2 = congTac.TenCongTac;
+                ws.Cells[row, 4].Value2 = congTac.DonVi;
+                
+                // Calculate STT
+                int stt = 1;
+                for (int i = row - 1; i >= 5; i--) // row 4 is header
+                {
+                    var prevCell = ws.Cells[i, 1].Value2;
+                    int prevStt = 0;
+                    if (prevCell != null && int.TryParse(prevCell.ToString(), out prevStt))
+                    {
+                        stt = prevStt + 1;
+                        break;
+                    }
+                }
+                ws.Cells[row, 1].Value2 = stt;
+
+                // Add borders and align
+                var rowRange = ws.Range[ws.Cells[row, 1], ws.Cells[row, 9]];
+                rowRange.Borders.LineStyle = Microsoft.Office.Interop.Excel.XlLineStyle.xlContinuous;
+                rowRange.VerticalAlignment = Microsoft.Office.Interop.Excel.XlVAlign.xlVAlignCenter;
+                
+                // Move to the next row
+                ws.Cells[row + 1, 2].Select();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Không thể chèn vào Excel: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         private void SetupHaoPhiColumns()
         {
             dgvHaoPhi.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(240, 240, 240);
@@ -299,11 +359,22 @@ namespace AIE.ExcelAddIn.Forms
             var filtered = _allCongTac.Where(x => 
                 (x.MaHieu != null && allowedPrefixes.Any(p => x.MaHieu.ToLower().StartsWith(p))) &&
                 (string.IsNullOrEmpty(keyword) || 
-                 (x.MaHieu != null && x.MaHieu.ToLower().Contains(keyword)) || 
-                 (x.TenCongTac != null && x.TenCongTac.ToLower().Contains(keyword)))
+                 MatchAllKeywords(keyword, x.MaHieu, x.TenCongTac))
             ).ToList();
 
             _bsCongTac.DataSource = filtered;
+        }
+
+        /// <summary>
+        /// Tìm kiếm thông minh: tách từ khoá thành các từ rời, yêu cầu TẤT CẢ các từ đều
+        /// xuất hiện trong chuỗi ghép (MaHieu + TenCongTac), không phân biệt thứ tự.
+        /// Ví dụ: "máy đào bánh xích" sẽ tìm thấy "Máy đào 1 gầu, bánh xích - dung tích gầu: 0,4m3"
+        /// </summary>
+        private static bool MatchAllKeywords(string keyword, params string[] fields)
+        {
+            var combined = string.Join(" ", fields.Where(f => f != null)).ToLower();
+            var words = keyword.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            return words.All(w => combined.Contains(w));
         }
 
         private void DgvCongTac_SelectionChanged(object sender, EventArgs e)

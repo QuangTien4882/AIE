@@ -1,5 +1,6 @@
 using ClosedXML.Excel;
 using System.IO;
+using System.Linq;
 
 namespace AIE.Data.ImportExport;
 
@@ -75,8 +76,7 @@ public class ExcelTemplateGenerator
         ws.Cell(1, 2).Value = "TenVL";
         ws.Cell(1, 3).Value = "DonVi";
         ws.Cell(1, 4).Value = "DonGia";
-        ws.Cell(1, 5).Value = "NhaSanXuat";
-        ws.Cell(1, 6).Value = "GhiChu";
+        ws.Cell(1, 5).Value = "GhiChu";
 
         ws.Cell(2, 1).Value = "V08770";
         ws.Cell(2, 2).Value = "Xi măng PCB40";
@@ -170,10 +170,52 @@ public class ExcelTemplateGenerator
 
     private void FormatHeader(IXLWorksheet ws)
     {
-        var header = ws.Row(1);
-        header.Style.Font.Bold = true;
-        header.Style.Fill.BackgroundColor = XLColor.LightGray;
+        var row = ws.Row(1);
+        row.Style.Font.Bold = true;
+        row.Style.Fill.BackgroundColor = XLColor.LightGray;
+        row.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
         ws.Columns().AdjustToContents();
+    }
+
+    /// <summary>
+    /// Xuất template Đơn giá (gồm 3 sheet VL, NC, M) từ danh sách hao phí trong CSDL
+    /// </summary>
+    public void ExportDonGiaTemplate(string filePath, System.Collections.Generic.IEnumerable<AIE.Core.Models.HaoPhi> dsHaoPhi)
+    {
+        using var wb = CreateTemplateWorkbook();
+        
+        // Nhóm hao phí theo Loại
+        var vlList = dsHaoPhi.Where(x => x.LoaiHaoPhi == AIE.Core.Enums.LoaiHaoPhi.VL).GroupBy(x => x.MaHieuHP).Select(g => g.First()).OrderBy(x => x.MaHieuHP).ToList();
+        var ncList = dsHaoPhi.Where(x => x.LoaiHaoPhi == AIE.Core.Enums.LoaiHaoPhi.NC).GroupBy(x => x.MaHieuHP).Select(g => g.First()).OrderBy(x => x.MaHieuHP).ToList();
+        var mayList = dsHaoPhi.Where(x => x.LoaiHaoPhi == AIE.Core.Enums.LoaiHaoPhi.MAY).GroupBy(x => x.MaHieuHP).Select(g => g.First()).OrderBy(x => x.MaHieuHP).ToList();
+
+        void FillSheet(string sheetName, string col1Name, System.Collections.Generic.List<AIE.Core.Models.HaoPhi> list)
+        {
+            var ws = wb.Worksheets.Add(sheetName);
+            ws.Cell(1, 1).Value = col1Name;
+            ws.Cell(1, 2).Value = "Tên";
+            ws.Cell(1, 3).Value = "Đơn vị";
+            ws.Cell(1, 4).Value = "Đơn Giá";
+            ws.Cell(1, 5).Value = "Ghi Chú";
+
+            int row = 2;
+            foreach (var item in list)
+            {
+                ws.Cell(row, 1).Value = item.MaHieuHP;
+                ws.Cell(row, 2).Value = item.TenHaoPhi;
+                ws.Cell(row, 3).Value = item.DonVi;
+                // Đơn giá để trống cho user nhập
+                row++;
+            }
+
+            FormatHeader(ws);
+        }
+
+        FillSheet("GiaVatLieu", "MaVL", vlList);
+        FillSheet("GiaNhanCong", "MaNC", ncList);
+        FillSheet("GiaMayThiCong", "MaMay", mayList);
+
+        wb.SaveAs(filePath);
     }
 
     private XLWorkbook CreateTemplateWorkbook()

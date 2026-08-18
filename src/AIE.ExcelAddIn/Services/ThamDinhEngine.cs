@@ -95,13 +95,13 @@ public class ThamDinhEngine
                         else saiLech.MoTa += $"\nSai ĐM: DT = {hpDuToan.DinhMuc:G}, TT38 = {hpChuanMatched.DinhMuc:G}";
                     }
 
-                    // Bỏ kiểm tra đơn giá ở phần định mức này vì sẽ tách riêng
+                    // Bỏ Kiểm tra đơn giá ở phần định mức này vì sẽ tách riêng
                     
-                    // Kiểm tra đơn vị
+                    // Kiểm tra Đơn vị
                     if (!string.Equals(hpDuToan.DonVi, hpChuanMatched.DonVi, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (string.IsNullOrEmpty(saiLech.LoaiLoi)) saiLech.LoaiLoi = "Sai đơn vị";
-                        else saiLech.LoaiLoi += ", Sai đơn vị";
+                        if (string.IsNullOrEmpty(saiLech.LoaiLoi)) saiLech.LoaiLoi = "Sai Đơn vị";
+                        else saiLech.LoaiLoi += ", Sai Đơn vị";
                     }
                 }
                 
@@ -111,15 +111,19 @@ public class ThamDinhEngine
             // Những hao phí chuẩn còn lại (chưa được map) là bị thiếu
             foreach (var hpThieu in dsHpChuan)
             {
-                kq.DanhSachSaiLech.Add(new SaiLechDinhMuc
+                var sl = new SaiLechDinhMuc
                 {
                     LoaiLoi = "Thiếu hao phí",
                     MoTa = $"TT38 có '{hpThieu.TenHaoPhi}' nhưng Dự toán bị thiếu.",
                     LoaiHP = hpThieu.LoaiHaoPhi,
                     SoDongExcel = ctDuToan.SoDongExcel, // Báo ở dòng công tác vì không có dòng hao phí
-                    HaoPhiChuan = hpThieu,
-                    DonGiaChuan = GetDonGiaChuan(hpThieu)
-                });
+                    HaoPhiChuan = hpThieu
+                };
+                
+                var giaChuan = GetDonGiaChuan(hpThieu);
+                sl.DonGiaChuan = giaChuan;
+
+                kq.DanhSachSaiLech.Add(sl);
             }
 
             ketQua.Add(kq);

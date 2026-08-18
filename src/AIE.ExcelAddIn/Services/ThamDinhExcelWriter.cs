@@ -467,6 +467,11 @@ public class ThamDinhExcelWriter
                             loiDonGia = "Không có giá chuẩn";
                         }
 
+                        if (!string.IsNullOrEmpty(saiLech.GhiChuDonGia))
+                        {
+                            loiDonGia = string.IsNullOrEmpty(loiDonGia) ? saiLech.GhiChuDonGia : $"{loiDonGia}. {saiLech.GhiChuDonGia}";
+                        }
+
                         if (!string.IsNullOrEmpty(loiDonGia))
                         {
                             resultSheet.Cells[rowExcel, colGhiChuDG].Value2 = loiDonGia;

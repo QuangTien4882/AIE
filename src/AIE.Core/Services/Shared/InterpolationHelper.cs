@@ -102,4 +102,42 @@ public static class InterpolationHelper
         decimal result = y1 + (y2 - y1) * (x - x1) / (x2 - x1);
         return Math.Round(result, 3);
     }
+
+    /// <summary>
+    /// Tìm tỉ lệ % CPC theo quy mô chi phí XD.
+    /// Nội suy theo công thức Thông tư 36/2026/TT-BXD:
+    /// N_t = N_d - (N_d - N_t) * (G_t - G_d) / (G_t - G_d)
+    /// </summary>
+    public static decimal NoiSuyTiLeCPC(IReadOnlyList<DinhMucCPC> danhSachDinhMuc, decimal quyMo)
+    {
+        if (danhSachDinhMuc.Count == 0)
+            throw new ArgumentException("Danh sách định mức rỗng.");
+
+        var sorted = danhSachDinhMuc.OrderBy(x => x.QuyMoMax ?? decimal.MaxValue).ToList();
+
+        // Nếu quy mô nhỏ hơn hoặc bằng mốc nhỏ nhất
+        if (quyMo <= (sorted[0].QuyMoMax ?? 0))
+            return sorted[0].TiLe;
+
+        for (int i = 1; i < sorted.Count; i++)
+        {
+            var current = sorted[i];
+            var prev = sorted[i - 1];
+            
+            decimal maxPrev = prev.QuyMoMax ?? 0;
+            decimal maxCurrent = current.QuyMoMax ?? decimal.MaxValue;
+
+            if (quyMo > maxPrev && quyMo <= maxCurrent)
+            {
+                // Nội suy tuyến tính giữa (maxPrev, prev.TiLe) và (maxCurrent, current.TiLe)
+                if (maxCurrent == decimal.MaxValue) 
+                    return current.TiLe; // Không có mốc trên, giữ nguyên
+
+                return NoiSuyTuyenTinh(maxPrev, prev.TiLe, maxCurrent, current.TiLe, quyMo);
+            }
+        }
+
+        // Lớn hơn mốc cuối cùng (trường hợp > 1000)
+        return sorted[sorted.Count - 1].TiLe;
+    }
 }

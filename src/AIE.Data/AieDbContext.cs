@@ -59,12 +59,21 @@ namespace AIE.Data
                     TenVL TEXT NOT NULL,
                     DonVi TEXT NOT NULL,
                     DonGia REAL NOT NULL,
+                    CuocVanChuyen REAL DEFAULT 0,
                     NhaSanXuat TEXT,
                     GhiChu TEXT,
                     NgayCapNhat TEXT NOT NULL
                 );
             ";
             command.ExecuteNonQuery();
+
+            // Cập nhật cấu trúc nếu đã tồn tại
+            try
+            {
+                command.CommandText = "ALTER TABLE VatLieu ADD COLUMN CuocVanChuyen REAL DEFAULT 0;";
+                command.ExecuteNonQuery();
+            }
+            catch { /* Bỏ qua nếu cột đã tồn tại */ }
 
             // Bảng giá Nhân Công
             command.CommandText = @"
@@ -131,6 +140,191 @@ namespace AIE.Data
                 );
             ";
             command.ExecuteNonQuery();
+
+            // --- CÁC BẢNG CHO MODULE BỘ ĐƠN GIÁ VÀ ĐỊNH MỨC CA MÁY TT37 ---
+
+            // Bảng quản lý Bộ đơn giá (chỉ dành cho VL và Máy)
+            command.CommandText = @"
+                CREATE TABLE IF NOT EXISTS BoDonGia (
+                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    TenBo TEXT NOT NULL,         
+                    GiaXang REAL,                
+                    GiaDiezel REAL,
+                    GiaDien REAL,
+                    GhiChu TEXT,
+                    NgayTao TEXT
+                );
+            ";
+            command.ExecuteNonQuery();
+
+            // Bảng Tính Giá Hiện Trường Vật Liệu (Hỗ trợ nhiều nguồn)
+            command.CommandText = @"
+                CREATE TABLE IF NOT EXISTS GiaVatLieuTheoBo (
+                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    BoDonGiaId INTEGER,
+                    MaVL TEXT,
+                    NguonCungCap TEXT,
+                    GiaGoc REAL,
+                    CuLy_Km REAL,
+                    LoaiDuong TEXT,
+                    CuocVC REAL,
+                    GiaHienTruong REAL,
+                    DuocChon INTEGER,
+                    FOREIGN KEY(BoDonGiaId) REFERENCES BoDonGia(Id)
+                );
+            ";
+            command.ExecuteNonQuery();
+
+            // Bảng Định mức Ca máy theo TT 37
+            command.CommandText = @"
+                CREATE TABLE IF NOT EXISTS DinhMucCaMay_TT37 (
+                    MaMay TEXT PRIMARY KEY,
+                    NguyenGia REAL,
+                    KhauHao REAL,
+                    SuaChua REAL,
+                    ChiPhiKhac REAL,
+                    DinhMucXang REAL,
+                    DinhMucDiezel REAL,
+                    DinhMucDien REAL,
+                    SoLuongNhanCong REAL,
+                    NhomNhanCong INTEGER
+                );
+            ";
+            command.ExecuteNonQuery();
+
+            // Bảng Kết quả Giá Máy
+            command.CommandText = @"
+                CREATE TABLE IF NOT EXISTS GiaMayTheoBo (
+                    BoDonGiaId INTEGER,
+                    MaMay TEXT,
+                    DonGia REAL,
+                    PRIMARY KEY(BoDonGiaId, MaMay)
+                );
+            ";
+            command.ExecuteNonQuery();
+
+            // Bảng Giá Nhân công theo Bộ
+            command.CommandText = @"
+                CREATE TABLE IF NOT EXISTS GiaNhanCongTheoBo (
+                    BoDonGiaId INTEGER,
+                    MaNC TEXT,
+                    DonGia REAL,
+                    PRIMARY KEY(BoDonGiaId, MaNC)
+                );
+            ";
+            command.ExecuteNonQuery();
+
+            // Bảng 3.3: Định mức Chi phí chung (CPC) theo TT 36/2026
+            // CPC phụ thuộc loại CT + giá trị CP XD trong TMĐT (tỷ đồng)
+            command.CommandText = @"
+                CREATE TABLE IF NOT EXISTS DinhMucCPC (
+                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    LoaiCongTrinh TEXT NOT NULL,
+                    PhanLoaiPhu TEXT,
+                    QuyMoMin REAL NOT NULL,
+                    QuyMoMax REAL,
+                    TiLe REAL NOT NULL
+                );
+            ";
+            command.ExecuteNonQuery();
+
+            // Bảng 3.5: Định mức CP một số công việc không XĐ được KL từ TK
+            command.CommandText = @"
+                CREATE TABLE IF NOT EXISTS DinhMucTT (
+                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    LoaiCongTrinh TEXT NOT NULL,
+                    PhanLoaiPhu TEXT,
+                    TiLe REAL NOT NULL
+                );
+            ";
+            command.ExecuteNonQuery();
+
+            // Seed dữ liệu Bảng 3.3 và 3.5
+            SeedDinhMucChiPhiChung(connection);
+        }
+
+        /// <summary>
+        /// Seed dữ liệu Bảng 3.3 (CPC) và Bảng 3.5 (TT) theo TT 36/2026/TT-BXD.
+        /// Chỉ insert nếu bảng chưa có dữ liệu.
+        /// </summary>
+        private void SeedDinhMucChiPhiChung(IDbConnection connection)
+        {
+            using var checkCmd = connection.CreateCommand();
+            checkCmd.CommandText = "SELECT COUNT(*) FROM DinhMucCPC";
+            var count = (long)checkCmd.ExecuteScalar();
+            if (count > 0) return; // Đã có dữ liệu
+
+            // === BẢNG 3.3: CPC (%) theo loại CT và quy mô CP XD (tỷ đồng) ===
+            // Các mốc: ≤40, ≤60, ≤100, ≤300, ≤500, ≤750, ≤1000, >1000
+            var cpcData = new[]
+            {
+                // Công trình dân dụng
+                ("Dân dụng", (string)null, new[] { (0m, 40m, 7.3m), (40m, 60m, 7.1m), (60m, 100m, 6.7m), (100m, 300m, 6.5m), (300m, 500m, 6.2m), (500m, 750m, 6.1m), (750m, 1000m, 6.0m), (1000m, (decimal?)null, 5.8m) }),
+                // Riêng CT tu bổ di tích lịch sử, văn hóa
+                ("Dân dụng", "Tu bổ di tích", new[] { (0m, 40m, 11.6m), (40m, 60m, 11.1m), (60m, 100m, 10.3m), (100m, 300m, 10.1m), (300m, 500m, 9.9m), (500m, 750m, 9.8m), (750m, 1000m, 9.6m), (1000m, (decimal?)null, 9.4m) }),
+                // Công trình công nghiệp
+                ("Công nghiệp", (string)null, new[] { (0m, 40m, 6.2m), (40m, 60m, 6.0m), (60m, 100m, 5.6m), (100m, 300m, 5.3m), (300m, 500m, 5.1m), (500m, 750m, 5.0m), (750m, 1000m, 4.9m), (1000m, (decimal?)null, 4.6m) }),
+                // Riêng CT XD đường hầm thủy điện, hầm lò
+                ("Công nghiệp", "Đường hầm thủy điện, hầm lò", new[] { (0m, 40m, 7.3m), (40m, 60m, 7.2m), (60m, 100m, 7.1m), (100m, 300m, 6.9m), (300m, 500m, 6.7m), (500m, 750m, 6.6m), (750m, 1000m, 6.5m), (1000m, (decimal?)null, 6.4m) }),
+                // Công trình giao thông
+                ("Giao thông", (string)null, new[] { (0m, 40m, 6.2m), (40m, 60m, 6.0m), (60m, 100m, 5.6m), (100m, 300m, 5.3m), (300m, 500m, 5.1m), (500m, 750m, 5.0m), (750m, 1000m, 4.9m), (1000m, (decimal?)null, 4.6m) }),
+                // Riêng công trình hầm giao thông
+                ("Giao thông", "Hầm giao thông", new[] { (0m, 40m, 7.3m), (40m, 60m, 7.2m), (60m, 100m, 7.1m), (100m, 300m, 6.9m), (300m, 500m, 6.7m), (500m, 750m, 6.6m), (750m, 1000m, 6.5m), (1000m, (decimal?)null, 6.4m) }),
+                // Công trình nông nghiệp và môi trường
+                ("Nông nghiệp và môi trường", (string)null, new[] { (0m, 40m, 6.1m), (40m, 60m, 5.9m), (60m, 100m, 5.5m), (100m, 300m, 5.3m), (300m, 500m, 5.1m), (500m, 750m, 5.0m), (750m, 1000m, 4.8m), (1000m, (decimal?)null, 4.6m) }),
+                // Riêng công trình đường hầm
+                ("Nông nghiệp và môi trường", "Đường hầm", new[] { (0m, 40m, 7.3m), (40m, 60m, 7.2m), (60m, 100m, 7.1m), (100m, 300m, 6.9m), (300m, 500m, 6.7m), (500m, 750m, 6.6m), (750m, 1000m, 6.5m), (1000m, (decimal?)null, 6.4m) }),
+                // Công trình hạ tầng kỹ thuật
+                ("Hạ tầng kỹ thuật", (string)null, new[] { (0m, 40m, 5.5m), (40m, 60m, 5.3m), (60m, 100m, 5.0m), (100m, 300m, 4.8m), (300m, 500m, 4.5m), (500m, 750m, 4.4m), (750m, 1000m, 4.3m), (1000m, (decimal?)null, 4.0m) }),
+            };
+
+            using var insertCmd = connection.CreateCommand();
+            foreach (var (loaiCT, phanLoai, mocs) in cpcData)
+            {
+                foreach (var (min, max, tiLe) in mocs)
+                {
+                    insertCmd.CommandText = $@"
+                        INSERT INTO DinhMucCPC (LoaiCongTrinh, PhanLoaiPhu, QuyMoMin, QuyMoMax, TiLe)
+                        VALUES (@loaiCT, @phanLoai, @min, @max, @tiLe)";
+                    insertCmd.Parameters.Clear();
+                    
+                    var p1 = insertCmd.CreateParameter(); p1.ParameterName = "@loaiCT"; p1.Value = loaiCT; insertCmd.Parameters.Add(p1);
+                    var p2 = insertCmd.CreateParameter(); p2.ParameterName = "@phanLoai"; p2.Value = (object)phanLoai ?? System.DBNull.Value; insertCmd.Parameters.Add(p2);
+                    var p3 = insertCmd.CreateParameter(); p3.ParameterName = "@min"; p3.Value = min; insertCmd.Parameters.Add(p3);
+                    var p4 = insertCmd.CreateParameter(); p4.ParameterName = "@max"; p4.Value = max.HasValue ? (object)max.Value : System.DBNull.Value; insertCmd.Parameters.Add(p4);
+                    var p5 = insertCmd.CreateParameter(); p5.ParameterName = "@tiLe"; p5.Value = tiLe; insertCmd.Parameters.Add(p5);
+                    
+                    insertCmd.ExecuteNonQuery();
+                }
+            }
+
+            // === BẢNG 3.5: TT (%) — cố định theo loại CT ===
+            var ttData = new[]
+            {
+                ("Dân dụng", (string)null, 2.5m),
+                ("Công nghiệp", (string)null, 2.0m),
+                ("Công nghiệp", "Đường hầm thủy điện, hầm lò", 6.5m),
+                ("Giao thông", (string)null, 2.0m),
+                ("Giao thông", "Hầm giao thông", 6.5m),
+                ("Nông nghiệp và môi trường", (string)null, 2.0m),
+                ("Nông nghiệp và môi trường", "Đường hầm", 6.5m),
+                ("Hạ tầng kỹ thuật", (string)null, 2.0m),
+            };
+
+            using var insertTT = connection.CreateCommand();
+            foreach (var (loaiCT, phanLoai, tiLe) in ttData)
+            {
+                insertTT.CommandText = @"
+                    INSERT INTO DinhMucTT (LoaiCongTrinh, PhanLoaiPhu, TiLe)
+                    VALUES (@loaiCT, @phanLoai, @tiLe)";
+                insertTT.Parameters.Clear();
+
+                var p1 = insertTT.CreateParameter(); p1.ParameterName = "@loaiCT"; p1.Value = loaiCT; insertTT.Parameters.Add(p1);
+                var p2 = insertTT.CreateParameter(); p2.ParameterName = "@phanLoai"; p2.Value = (object)phanLoai ?? System.DBNull.Value; insertTT.Parameters.Add(p2);
+                var p3 = insertTT.CreateParameter(); p3.ParameterName = "@tiLe"; p3.Value = tiLe; insertTT.Parameters.Add(p3);
+
+                insertTT.ExecuteNonQuery();
+            }
         }
     }
 }
