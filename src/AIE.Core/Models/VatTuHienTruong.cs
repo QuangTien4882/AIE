@@ -53,6 +53,9 @@ public class MayThiCongHienTruong : VatTuHienTruongBase
     // Thông tin định mức hao phí máy lấy từ CSDL (Thông tư 37)
     public DinhMucCaMay_TT37? DinhMuc { get; set; }
     
+    // Nguyên giá máy (để hiển thị cho người dùng kiểm tra)
+    public decimal NguyenGia { get; set; }
+    
     public decimal ChiPhiKhauHao { get; set; }
     public decimal ChiPhiSuaChua { get; set; }
     public decimal ChiPhiKhac { get; set; }

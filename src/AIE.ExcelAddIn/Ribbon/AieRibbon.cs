@@ -41,11 +41,12 @@ namespace AIE.ExcelAddIn.Ribbon
                       <button id='btnTraCuu' showLabel='false' screentip='Tra cứu định mức' size='large' imageMso='Search' onAction='OnTraCuuClicked' />
                       <button id='btnTaoTemplate' showLabel='false' screentip='Tạo File mẫu' size='large' imageMso='FileSaveAs' onAction='OnTaoTemplateClicked' />
                       <button id='btnXuatDonGia' showLabel='false' screentip='Trích xuất Đơn Giá' size='large' imageMso='ExportExcel' onAction='OnXuatDonGiaClicked' />
+                      <button id='btnQuanLyDonGia' showLabel='false' screentip='Quản lý Đơn giá' size='large' imageMso='DollarSign' onAction='OnQuanLyDonGiaClicked' />
                       <button id='btnDeleteDb' showLabel='false' screentip='Xóa toàn bộ Database' size='large' imageMso='RecordsDeleteRecord' onAction='OnDeleteDbClicked' />
                     </group>
 
                     <group id='groupThamDinh' label='Thẩm định dự toán'>
-                      <button id='btnQuanLyDonGia' showLabel='false' screentip='Quản lý Đơn giá' size='large' imageMso='DollarSign' onAction='OnQuanLyDonGiaClicked' />
+                      <button id='btnDonGiaThamDinh' showLabel='false' screentip='Đơn giá thẩm định' size='large' imageMso='CurrencyProperties' onAction='OnDonGiaThamDinhClicked' />
                       <button id='btnKiemTra' showLabel='false' screentip='Kiểm tra' size='large' imageMso='ReviewAcceptChange' onAction='OnKiemTraClicked' />
                       <button id='btnBaoCaoTD' showLabel='false' screentip='Xuất Báo cáo' size='large' imageMso='ExportExcel' onAction='OnBaoCaoTDClicked' />
                     </group>
@@ -198,7 +199,7 @@ namespace AIE.ExcelAddIn.Ribbon
                     var mayRepo = new AIE.Data.Repositories.MayThiCongRepository(db.Context);
                     var engine = new AIE.ExcelAddIn.Services.ThamDinhEngine(repo, vlRepo, ncRepo, mayRepo);
                     
-                    var ketQua = engine.KiemTra(danhSachCongTac);
+                    var ketQua = engine.KiemTra(danhSachCongTac, form.SelectedBoDonGiaId);
 
                     // 3. Xuất kết quả (gộp Định mức + Đơn giá + Thành tiền vào 1 sheet)
                     var writer = new AIE.ExcelAddIn.Services.ThamDinhExcelWriter();
@@ -211,6 +212,65 @@ namespace AIE.ExcelAddIn.Ribbon
             catch (Exception ex)
             {
                 MessageBox.Show("Lỗi khi Kiểm tra thẩm định: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        public void OnDonGiaThamDinhClicked(IRibbonControl control)
+        {
+            try
+            {
+                var app = (Application)ExcelDnaUtil.Application;
+                var wb = app.ActiveWorkbook;
+                if (wb == null)
+                {
+                    MessageBox.Show("Không có file Excel nào đang mở.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                var sheetNames = new System.Collections.Generic.List<string>();
+                foreach (Microsoft.Office.Interop.Excel.Worksheet sheet in wb.Worksheets)
+                {
+                    sheetNames.Add(sheet.Name);
+                }
+
+                // Tạm thời mượn ThamDinhConfigForm để người dùng map cột
+                var form = new ThamDinhConfigForm(sheetNames);
+                form.Text = "Cấu Hình Đọc Dự Toán - Lấy Đơn Giá";
+                if (form.ShowDialog() == DialogResult.OK)
+                {
+                    var config = form.ResultConfig;
+                    
+                    // 1. Đọc dữ liệu
+                    var reader = new AIE.ExcelAddIn.Services.DuToanExcelReader();
+                    var danhSachCongTac = reader.Read(config);
+
+                    if (danhSachCongTac.Count == 0)
+                    {
+                        MessageBox.Show("Không tìm thấy dữ liệu công tác nào. Vui lòng kiểm tra lại cấu hình cột.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        return;
+                    }
+
+                    // 2. Thẩm định để map với định mức chuẩn
+                    var db = new DatabaseManager();
+                    var repo = new AIE.Data.Repositories.CongTacRepository(db.Context);
+                    var vlRepo = new AIE.Data.Repositories.VatLieuRepository(db.Context);
+                    var ncRepo = new AIE.Data.Repositories.NhanCongRepository(db.Context);
+                    var mayRepo = new AIE.Data.Repositories.MayThiCongRepository(db.Context);
+                    var engine = new AIE.ExcelAddIn.Services.ThamDinhEngine(repo, vlRepo, ncRepo, mayRepo);
+                    
+                    var ketQua = engine.KiemTra(danhSachCongTac);
+
+                    // 3. Trích xuất vật tư
+                    var danhSachVatTu = engine.TrichXuatVatTu(ketQua);
+                    
+                    // 4. Mở Form ThamDinhDonGiaForm
+                    var donGiaForm = new ThamDinhDonGiaForm(danhSachVatTu);
+                    donGiaForm.ShowDialog();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khi đọc dự toán: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 

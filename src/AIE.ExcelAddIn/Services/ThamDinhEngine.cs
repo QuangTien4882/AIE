@@ -27,9 +27,16 @@ public class ThamDinhEngine
         _mayRepo = mayRepo;
     }
 
-    public List<KetQuaCongTacThamDinh> KiemTra(List<CongTacThamDinh> duToanList)
+    public List<KetQuaCongTacThamDinh> KiemTra(List<CongTacThamDinh> duToanList, int? boDonGiaId = null)
     {
         var ketQua = new List<KetQuaCongTacThamDinh>();
+        
+        BoDonGiaRepository? bdgRepo = null;
+        if (boDonGiaId.HasValue)
+        {
+            var db = new AIE.Data.DatabaseManager();
+            bdgRepo = new BoDonGiaRepository(db.Context);
+        }
 
         foreach (var ctDuToan in duToanList)
         {
@@ -74,7 +81,7 @@ public class ThamDinhEngine
                     dsHpChuan.Remove(hpChuanMatched); // Đã map
                     
                     saiLech.HaoPhiChuan = hpChuanMatched;
-                    saiLech.DonGiaChuan = GetDonGiaChuan(hpChuanMatched);
+                    saiLech.DonGiaChuan = GetDonGiaChuan(hpChuanMatched, boDonGiaId, bdgRepo);
 
                     // Kiểm tra khác tên gọi (do Smart Mapping)
                     string tenDt = ChuanHoaTen(hpDuToan.TenHaoPhi);
@@ -120,7 +127,7 @@ public class ThamDinhEngine
                     HaoPhiChuan = hpThieu
                 };
                 
-                var giaChuan = GetDonGiaChuan(hpThieu);
+                var giaChuan = GetDonGiaChuan(hpThieu, boDonGiaId, bdgRepo);
                 sl.DonGiaChuan = giaChuan;
 
                 kq.DanhSachSaiLech.Add(sl);
@@ -163,10 +170,30 @@ public class ThamDinhEngine
         return dict.Values.OrderBy(x => x.LoaiHP).ThenBy(x => x.TenVatTu).ToList();
     }
     
-    private decimal? GetDonGiaChuan(HaoPhi hpChuan)
+    private decimal? GetDonGiaChuan(HaoPhi hpChuan, int? boDonGiaId = null, BoDonGiaRepository? bdgRepo = null)
     {
         if (string.IsNullOrEmpty(hpChuan.MaHieuHP)) return null;
 
+        if (boDonGiaId.HasValue && bdgRepo != null)
+        {
+            if (hpChuan.LoaiHaoPhi == LoaiHaoPhi.VL)
+            {
+                var vl = bdgRepo.GetGiaVL(boDonGiaId.Value).FirstOrDefault(x => x.MaVL == hpChuan.MaHieuHP);
+                if (vl != null) return vl.GiaHienTruong;
+            }
+            else if (hpChuan.LoaiHaoPhi == LoaiHaoPhi.NC)
+            {
+                var nc = bdgRepo.GetGiaNC(boDonGiaId.Value).FirstOrDefault(x => x.MaNC == hpChuan.MaHieuHP);
+                if (nc != null) return nc.DonGia;
+            }
+            else if (hpChuan.LoaiHaoPhi == LoaiHaoPhi.MAY)
+            {
+                var may = bdgRepo.GetGiaMay(boDonGiaId.Value).FirstOrDefault(x => x.MaMay == hpChuan.MaHieuHP);
+                if (may != null) return may.DonGia;
+            }
+        }
+
+        // Fallback to global catalog
         if (hpChuan.LoaiHaoPhi == LoaiHaoPhi.VL)
         {
             var vl = _vlRepo.GetByMa(hpChuan.MaHieuHP);

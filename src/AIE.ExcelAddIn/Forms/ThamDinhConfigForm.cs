@@ -23,7 +23,9 @@ public class ThamDinhConfigForm : Form
     private ProgressBar progressBar;
     private Label lblStatus;
 
+    private ComboBox cbBoDonGia;
     public ThamDinhConfig ResultConfig { get; private set; }
+    public int? SelectedBoDonGiaId { get; private set; }
 
     #region TCVN3 to Unicode Conversion
 
@@ -123,6 +125,18 @@ public class ThamDinhConfigForm : Form
 
         // Gắn event SAU khi nạp xong — chỉ kích hoạt khi user tự chọn
         cbSheetName.SelectedIndexChanged += CbSheetName_SelectedIndexChanged;
+
+        LoadBoDonGia();
+    }
+
+    private void LoadBoDonGia()
+    {
+        var db = new AIE.Data.DatabaseManager();
+        var repo = new AIE.Data.Repositories.BoDonGiaRepository(db.Context);
+        var list = repo.GetAll().ToList();
+        
+        list.Insert(0, new AIE.Data.Repositories.BoDonGiaRepository.BoDonGiaInfo { Id = 0, TenBo = "(Mặc định / Không áp dụng)" });
+        cbBoDonGia.DataSource = list;
     }
 
     private void InitializeComponent()
@@ -190,6 +204,14 @@ public class ThamDinhConfigForm : Form
         nudDongBatDau = new NumericUpDown { Minimum = 1, Maximum = 10000, Value = 1 };
         AddRow("Dòng bắt đầu (Data):", nudDongBatDau);
 
+        var divider2 = new Label { BorderStyle = BorderStyle.Fixed3D, Height = 2, Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0, 10, 0, 20) };
+        tlp.Controls.Add(divider2, 0, row);
+        tlp.SetColumnSpan(divider2, 2);
+        row++;
+
+        cbBoDonGia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "TenBo", ValueMember = "Id" };
+        AddRow("Chọn Bộ Đơn Giá:", cbBoDonGia);
+
         ToolTip toolTip = new ToolTip();
 
         // Buttons
@@ -249,10 +271,17 @@ public class ThamDinhConfigForm : Form
 
     private void BtnOk_Click(object sender, EventArgs e)
     {
-        if (cbSheetName.SelectedItem == null)
+        if (string.IsNullOrEmpty(cbSheetName.Text) || string.IsNullOrEmpty(cbColMaHieu.Text))
         {
-            MessageBox.Show("Vui lòng chọn Sheet cần thẩm định.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show("Vui lòng chọn Sheet và cột Mã hiệu.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
+        }
+
+        if (cbBoDonGia.SelectedValue != null)
+        {
+            int val = (int)cbBoDonGia.SelectedValue;
+            if (val > 0) SelectedBoDonGiaId = val;
+            else SelectedBoDonGiaId = null;
         }
 
         btnOk.Enabled = false;

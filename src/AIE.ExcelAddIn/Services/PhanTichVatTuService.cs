@@ -158,6 +158,11 @@ namespace AIE.ExcelAddIn.Services
         {
             var soCaNam = 250m; // Số ca năm (theo chuẩn thường là 250 ca/năm)
 
+            // Hệ số nhiên liệu phụ theo TT37
+            decimal hsXang = 1.02m;
+            decimal hsDiezel = 1.03m;
+            decimal hsDien = 1.05m;
+
             // Materialize danh sách nhân công 1 lần duy nhất (tránh lỗi Dapper deferred execution)
             var danhSachNhanCong = _ncRepo.GetAll().ToList();
             
@@ -171,9 +176,13 @@ namespace AIE.ExcelAddIn.Services
                 }
 
                 var dm = may.DinhMuc;
+                may.NguyenGia = dm.NguyenGia;
                 
-                // Khấu hao = Nguyên giá x Tỷ lệ khấu hao / Số ca năm
-                may.ChiPhiKhauHao = dm.NguyenGia * (dm.KhauHao / 100m) / soCaNam;
+                // Giá trị thu hồi theo TT37: Nguyên giá >= 30 triệu thì G_TH = 10% Nguyên giá
+                decimal g_th = dm.NguyenGia >= 30000000m ? dm.NguyenGia * 0.1m : 0m;
+                
+                // Khấu hao = (Nguyên giá - G_TH) x Tỷ lệ khấu hao / Số ca năm
+                may.ChiPhiKhauHao = ((dm.NguyenGia - g_th) * (dm.KhauHao / 100m)) / soCaNam;
                 
                 // Sửa chữa = Nguyên giá x Tỷ lệ SC / Số ca năm
                 may.ChiPhiSuaChua = dm.NguyenGia * (dm.SuaChua / 100m) / soCaNam;
@@ -181,10 +190,10 @@ namespace AIE.ExcelAddIn.Services
                 // Chi phí khác = Nguyên giá x Tỷ lệ Khác / Số ca năm
                 may.ChiPhiKhac = dm.NguyenGia * (dm.ChiPhiKhac / 100m) / soCaNam;
 
-                // Nhiên liệu = Lượng xăng * Giá Xăng + Lượng Diezel * Giá Diezel + Lượng điện * Giá Điện
-                may.ChiPhiNhiemLieu = dm.DinhMucXang * bangTongHop.GiaXang 
-                                    + dm.DinhMucDiezel * bangTongHop.GiaDiezel 
-                                    + dm.DinhMucDien * bangTongHop.GiaDien;
+                // Nhiên liệu = (Lượng xăng * Giá Xăng * HS) + (Lượng Diezel * Giá Diezel * HS) + (Lượng điện * Giá Điện * HS)
+                may.ChiPhiNhiemLieu = dm.DinhMucXang * bangTongHop.GiaXang * hsXang
+                                    + dm.DinhMucDiezel * bangTongHop.GiaDiezel * hsDiezel
+                                    + dm.DinhMucDien * bangTongHop.GiaDien * hsDien;
 
                 // Chi phí thợ lái máy tự động lấy từ DB theo NhomNhanCong của máy
                 var nc = danhSachNhanCong.FirstOrDefault(x => x.Nhom == dm.NhomNhanCong);
