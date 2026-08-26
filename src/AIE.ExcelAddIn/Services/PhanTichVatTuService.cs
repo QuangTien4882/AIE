@@ -106,20 +106,22 @@ namespace AIE.ExcelAddIn.Services
                             if (!dictNC.ContainsKey(hp.MaHieuHP))
                             {
                                 var ncMaster = _ncRepo.GetByMa(hp.MaHieuHP);
+                                var giaNc = ncMaster?.GetDonGia(duToan.VungApDung) ?? 0;
                                 dictNC[hp.MaHieuHP] = new NhanCongHienTruong
                                 {
                                     MaVatTu = hp.MaHieuHP,
                                     TenVatTu = hp.TenHaoPhi,
                                     DonVi = hp.DonVi,
-                                    GiaGoc = ncMaster?.DonGia ?? 0,
-                                    GiaHienTruong = ncMaster?.DonGia ?? 0 // Mặc định bằng giá gốc
+                                    GiaGoc = giaNc,
+                                    GiaHienTruong = giaNc
                                 };
                             }
                             dictNC[hp.MaHieuHP].TongKhoiLuong += tongKhoiLuong;
                         }
                         else if (hp.LoaiHaoPhi == LoaiHaoPhi.MAY)
                         {
-                            if (hp.TenHaoPhi.ToLower().Contains("máy khác") || hp.MaHieuHP == "M7016")
+                            // Bỏ qua Máy khác (thường có tên là Máy khác hoặc ĐVT là %)
+                            if (hp.TenHaoPhi.Equals("Máy khác", StringComparison.OrdinalIgnoreCase) || hp.DonVi == "%")
                             {
                                 continue;
                             }
@@ -149,15 +151,13 @@ namespace AIE.ExcelAddIn.Services
             bangTongHop.DanhSachMay = dictMay.Values.OrderBy(x => x.MaVatTu).ToList();
             
             // Hàm tính lại giá máy dựa trên thông số nhiên liệu và định mức
-            TinhGiaMayThiCong(bangTongHop);
+            TinhGiaMayThiCong(bangTongHop, duToan.VungApDung);
 
             duToan.BangTongHop = bangTongHop;
         }
 
-            public void TinhGiaMayThiCong(BangTongHopVatTu bangTongHop)
+            public void TinhGiaMayThiCong(BangTongHopVatTu bangTongHop, AIE.Core.Enums.Vung vung = AIE.Core.Enums.Vung.VungII)
         {
-            var soCaNam = 250m; // Số ca năm (theo chuẩn thường là 250 ca/năm)
-
             // Hệ số nhiên liệu phụ theo TT37
             decimal hsXang = 1.02m;
             decimal hsDiezel = 1.03m;
@@ -178,6 +178,8 @@ namespace AIE.ExcelAddIn.Services
                 var dm = may.DinhMuc;
                 may.NguyenGia = dm.NguyenGia;
                 
+                decimal soCaNam = dm.SoCaNam > 0 ? dm.SoCaNam : 250m;
+                
                 // Giá trị thu hồi theo TT37: Nguyên giá >= 30 triệu thì G_TH = 10% Nguyên giá
                 decimal g_th = dm.NguyenGia >= 30000000m ? dm.NguyenGia * 0.1m : 0m;
                 
@@ -195,14 +197,21 @@ namespace AIE.ExcelAddIn.Services
                                     + dm.DinhMucDiezel * bangTongHop.GiaDiezel * hsDiezel
                                     + dm.DinhMucDien * bangTongHop.GiaDien * hsDien;
 
-                // Chi phí thợ lái máy tự động lấy từ DB theo NhomNhanCong của máy
-                var nc = danhSachNhanCong.FirstOrDefault(x => x.Nhom == dm.NhomNhanCong);
-                var giaNhanCong = nc?.DonGia ?? 0;
-                may.ChiPhiNhanCong = dm.SoLuongNhanCong * giaNhanCong;
+                // Chi phí thợ lái máy - tính đa thành phần nhân công theo Vùng
+                may.ChiPhiNhanCong = 0;
+                var tpNC = dm.GetThanhPhanNhanCong();
+                foreach (var tp in tpNC)
+                {
+                    var nc = danhSachNhanCong.FirstOrDefault(x => x.LoaiNhanCong == AIE.Core.Enums.LoaiNhanCong.VanHanhMay && x.Nhom == tp.Nhom);
+                    if (nc != null)
+                    {
+                        may.ChiPhiNhanCong += nc.GetDonGia(vung) * tp.SoLuong;
+                    }
+                }
             }
         }
 
-        public void SaveGia(BangTongHopVatTu bangTongHop)
+        public void UpdateMasterDatabase(BangTongHopVatTu bangTongHop)
         {
             // Lưu Vật Liệu (Cập nhật Giá gốc và Cước vận chuyển)
             // Trong DB, VatLieu có DonGia. Tạm thời coi DonGia là Giá Gốc. 

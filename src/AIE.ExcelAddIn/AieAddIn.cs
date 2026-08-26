@@ -9,8 +9,13 @@ public class AieAddIn : IExcelAddIn
 {
     public void AutoOpen()
     {
-        // Code chạy khi Add-in được load vào Excel
-        // Ví dụ: Đăng ký TaskPane, khởi tạo DB
+        // Khởi tạo DB và seed dữ liệu nhân công nếu chưa có
+        try
+        {
+            var db = new AIE.Data.DatabaseManager();
+            db.SeedNhanCong();
+        }
+        catch { /* Bỏ qua lỗi seed */ }
     }
 
     public void AutoClose()

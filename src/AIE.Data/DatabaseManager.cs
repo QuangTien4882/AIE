@@ -209,6 +209,75 @@ namespace AIE.Data
 
             return stats;
         }
+
+        /// <summary>
+        /// Seed dữ liệu Nhân công theo TT37/2026 cho Đà Nẵng.
+        /// Bao gồm: Xây dựng (nhóm 1-4), Vận hành máy (nhóm 1-6), Khác (nhóm 1-3).
+        /// Giá theo 4 vùng: II, III, IV, Cù Lao Chàm.
+        /// </summary>
+        public void SeedNhanCong()
+        {
+            var ncRepo = new NhanCongRepository(_context);
+            var existing = ncRepo.GetAll().ToList();
+
+            // Dữ liệu Nhân công Xây dựng (Nhóm 1-4) - Giá theo vùng (đồng/công)
+            var xdData = new[]
+            {
+                // MaNC, TenNC, Nhom, DonGiaVung2, DonGiaVung3, DonGiaVung4, DonGiaCLC
+                ("NC_XD_1", "Nhân công xây dựng nhóm I",   1, 254498m, 250383m, 242061m, 306897m),
+                ("NC_XD_2", "Nhân công xây dựng nhóm II",  2, 294557m, 290753m, 283826m, 356204m),
+                ("NC_XD_3", "Nhân công xây dựng nhóm III", 3, 315144m, 311218m, 304215m, 381250m),
+                ("NC_XD_4", "Nhân công xây dựng nhóm IV",  4, 342049m, 339770m, 329801m, 412055m),
+            };
+
+            // Dữ liệu Nhân công Vận hành máy (Nhóm 1-6) - Giá theo vùng
+            var vhmData = new[]
+            {
+                ("NC_VHM_1", "Nhân công vận hành máy, điều khiển máy",   1, 336697m, 332892m, 324086m, 405515m),
+                ("NC_VHM_2", "Lái xe",  2, 321698m, 318062m, 309649m, 387450m),
+                ("NC_VHM_3", "Thủy thủ, thợ máy, thợ điện", 3, 336200m, 325000m, 310100m, 400400m),
+                ("NC_VHM_4", "Máy trưởng, máy I, máy II, điện trưởng, kỹ thuật viên cuốc I, kỹ thuật viên cuốc II tàu biển",  4, 360400m, 338300m, 329700m, 410200m),
+                ("NC_VHM_5", "Máy trưởng, máy I, máy II, điện trưởng, kỹ thuật viên cuốc I, kỹ thuật viên cuốc II tàu sông",   5, 392500m, 359500m, 0m, 471000m),
+                ("NC_VHM_6", "Thuyền trưởng, thuyền phó",  6, 416700m, 405100m, 394500m, 502400m),
+            };
+
+            // Dữ liệu Nhân công Khác (Nhóm 1-3)
+            var khacData = new[]
+            {
+                ("NC_K_1", "Kỹ sư thực hiện khảo sát, thí nghiệm",   1, 313400m, 304600m, 295200m, 353300m),
+                ("NC_K_2", "Thợ lặn",  2, 580900m, 557400m, 529900m, 641700m),
+                ("NC_K_3", "Nghệ nhân", 3, 578300m, 549500m, 522000m, 602500m),
+            };
+
+            void UpsertNC(string ma, string ten, int nhom, AIE.Core.Enums.LoaiNhanCong loai, decimal v2, decimal v3, decimal v4, decimal clc)
+            {
+                var nc = existing.FirstOrDefault(x => x.MaNC == ma);
+                if (nc == null)
+                {
+                    nc = new AIE.Core.Models.NhanCong();
+                }
+                nc.MaNC = ma;
+                nc.TenNC = ten;
+                nc.Nhom = nhom;
+                nc.LoaiNhanCong = loai;
+                nc.DonVi = "công";
+                nc.DonGiaVung2 = v2;
+                nc.DonGiaVung3 = v3;
+                nc.DonGiaVung4 = v4;
+                nc.DonGiaCLC = clc;
+                nc.NgayCapNhat = System.DateTime.Now;
+                ncRepo.Upsert(nc);
+            }
+
+            foreach (var (ma, ten, nhom, v2, v3, v4, clc) in xdData)
+                UpsertNC(ma, ten, nhom, AIE.Core.Enums.LoaiNhanCong.XayDung, v2, v3, v4, clc);
+
+            foreach (var (ma, ten, nhom, v2, v3, v4, clc) in vhmData)
+                UpsertNC(ma, ten, nhom, AIE.Core.Enums.LoaiNhanCong.VanHanhMay, v2, v3, v4, clc);
+
+            foreach (var (ma, ten, nhom, v2, v3, v4, clc) in khacData)
+                UpsertNC(ma, ten, nhom, AIE.Core.Enums.LoaiNhanCong.Khac, v2, v3, v4, clc);
+        }
     }
 
     public class DatabaseStats

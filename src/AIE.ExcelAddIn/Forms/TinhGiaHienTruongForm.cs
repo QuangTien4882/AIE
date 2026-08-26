@@ -139,22 +139,45 @@ public class TinhGiaHienTruongForm : Form
         
         var fuelPanel = new Panel { Dock = DockStyle.Top, Height = 70, Padding = new Padding(10), BackColor = Color.FromArgb(240, 248, 255) };
         int px = 10;
+        
+        // Vùng áp dụng dropdown
+        var lblVung = new Label { Text = "Vùng áp dụng:", AutoSize = true, Location = new Point(px, 24), Font = new Font("Be Vietnam Pro", 9.5f) };
+        fuelPanel.Controls.Add(lblVung);
+        px += lblVung.PreferredWidth + 4;
+        var cbVungMay = new ComboBox { Width = 120, Location = new Point(px, 20), Font = new Font("Be Vietnam Pro", 9.5f), DropDownStyle = ComboBoxStyle.DropDownList };
+        cbVungMay.Items.AddRange(new string[] { "Vùng II", "Vùng III", "Vùng IV", "Cù Lao Chàm" });
+        cbVungMay.SelectedIndex = (int)_duToan.VungApDung - 2;
+        cbVungMay.SelectedIndexChanged += (s, e) => {
+            _duToan.VungApDung = (AIE.Core.Enums.Vung)(cbVungMay.SelectedIndex + 2);
+            RecalculateMachinePrices();
+        };
+        fuelPanel.Controls.Add(cbVungMay);
+        px += 135;
+        
         txtGiaXang = AddFuelInput(fuelPanel, "Giá Xăng (đ/lít):", ref px);
         txtGiaDiezel = AddFuelInput(fuelPanel, "Giá Diezel (đ/lít):", ref px);
         txtGiaDien = AddFuelInput(fuelPanel, "Giá Điện (đ/kWh):", ref px);
 
         dgvMay = CreateGrid("dgvMay");
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "MaVatTu", HeaderText = "Mã Máy", DataPropertyName = "MaVatTu", ReadOnly = true, Width = 100 });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "TenVatTu", HeaderText = "Tên máy", DataPropertyName = "TenVatTu", ReadOnly = true, Width = 250 });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "DonVi", HeaderText = "ĐVT", DataPropertyName = "DonVi", ReadOnly = true, Width = 60, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "TongKhoiLuong", HeaderText = "Khối lượng", DataPropertyName = "TongKhoiLuong", ReadOnly = true, Width = 90, DefaultCellStyle = new DataGridViewCellStyle { Format = "N2", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "NguyenGia", HeaderText = "Nguyên giá", DataPropertyName = "NguyenGia", ReadOnly = true, Width = 110, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiKhauHao", HeaderText = "CP Khấu hao", DataPropertyName = "ChiPhiKhauHao", ReadOnly = true, Width = 110, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiSuaChua", HeaderText = "CP Sửa chữa", DataPropertyName = "ChiPhiSuaChua", ReadOnly = true, Width = 110, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiKhac", HeaderText = "CP Khác", DataPropertyName = "ChiPhiKhac", ReadOnly = true, Width = 90, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiNhiemLieu", HeaderText = "CP Nhiên liệu", DataPropertyName = "ChiPhiNhiemLieu", ReadOnly = true, Width = 110, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiNhanCong", HeaderText = "CP Thợ lái", DataPropertyName = "ChiPhiNhanCong", ReadOnly = true, Width = 110, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "GiaHienTruong", HeaderText = "ĐƠN GIÁ CA MÁY", DataPropertyName = "GiaHienTruong", ReadOnly = true, Width = 140, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight, ForeColor = Color.Red, Font = new Font(dgvMay.Font, FontStyle.Bold) } });
+        dgvMay.ColumnHeadersHeight = 45;
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "MaVatTu", HeaderText = "Mã Máy", DataPropertyName = "MaVatTu", ReadOnly = true, Width = 90 });
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "TenVatTu", HeaderText = "Tên máy", DataPropertyName = "TenVatTu", ReadOnly = true, Width = 200 });
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "DonVi", HeaderText = "ĐVT", DataPropertyName = "DonVi", ReadOnly = true, Width = 50, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "TongKhoiLuong", HeaderText = "Khối lượng", DataPropertyName = "TongKhoiLuong", ReadOnly = true, Width = 80, DefaultCellStyle = new DataGridViewCellStyle { Format = "N2", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "NguyenGia", HeaderText = "Nguyên giá", DataPropertyName = "NguyenGia", ReadOnly = true, Width = 100, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
+        // Định mức group: cols 5, 6, 7
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "DM_KhauHao", HeaderText = "ĐM Khấu hao", DataPropertyName = "DmKhauHao", ReadOnly = true, Width = 70, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "DM_SuaChua", HeaderText = "ĐM Sửa chữa", DataPropertyName = "DmSuaChua", ReadOnly = true, Width = 70, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "DM_Khac", HeaderText = "ĐM Khác", DataPropertyName = "DmKhac", ReadOnly = true, Width = 70, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
+        // Chi phí group: cols 8, 9, 10
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiKhauHao", HeaderText = "CP Khấu hao", DataPropertyName = "ChiPhiKhauHao", ReadOnly = true, Width = 90, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiSuaChua", HeaderText = "CP Sửa chữa", DataPropertyName = "ChiPhiSuaChua", ReadOnly = true, Width = 90, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiKhac", HeaderText = "CP Khác", DataPropertyName = "ChiPhiKhac", ReadOnly = true, Width = 80, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiNhiemLieu", HeaderText = "CP Nhiên liệu", DataPropertyName = "ChiPhiNhiemLieu", ReadOnly = true, Width = 100, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiNhanCong", HeaderText = "Lương thợ", DataPropertyName = "ChiPhiNhanCong", ReadOnly = true, Width = 100, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "GiaHienTruong", HeaderText = "ĐƠN GIÁ CA MÁY", DataPropertyName = "GiaHienTruong", ReadOnly = true, Width = 130, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight, ForeColor = Color.Red, Font = new Font(dgvMay.Font, FontStyle.Bold) } });
+        
+        dgvMay.CellPainting += DgvMay_CellPainting;
         
         tabMay.Controls.Add(dgvMay);
         tabMay.Controls.Add(fuelPanel);
@@ -175,7 +198,7 @@ public class TinhGiaHienTruongForm : Form
             dgvNC.EndEdit();
             dgvMay.EndEdit();
 
-            _service.SaveGia(_bangTongHop);
+            _service.UpdateMasterDatabase(_bangTongHop);
             MessageBox.Show("Đã lưu đơn giá hiện tại vào cơ sở dữ liệu!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
@@ -355,6 +378,10 @@ public class TinhGiaHienTruongForm : Form
         dgvVL.DataSource = new BindingSource { DataSource = _bangTongHop.DanhSachVatLieu };
         dgvNC.DataSource = new BindingSource { DataSource = _bangTongHop.DanhSachNhanCong };
         dgvMay.DataSource = new BindingSource { DataSource = _bangTongHop.DanhSachMay };
+        
+        dgvVL.AutoResizeRows(DataGridViewAutoSizeRowsMode.AllCells);
+        dgvNC.AutoResizeRows(DataGridViewAutoSizeRowsMode.AllCells);
+        dgvMay.AutoResizeRows(DataGridViewAutoSizeRowsMode.AllCells);
     }
 
     private void RecalculateMachinePrices()
@@ -376,6 +403,12 @@ public class TinhGiaHienTruongForm : Form
 
         _service.TinhGiaMayThiCong(_bangTongHop);
         dgvMay.Refresh();
+    }
+
+    private void DgvMay_CellPainting(object sender, DataGridViewCellPaintingEventArgs e)
+    {
+        // Định mức: cols 5, 6, 7  |  Chi phí: cols 8, 9, 10
+        Helpers.GridHelper.PaintMergedHeader(sender, e, dgvMay, 5, 7, "Định mức", 8, 10, "Chi phí");
     }
 
     private DataGridView CreateGrid(string gridName)
@@ -403,8 +436,9 @@ public class TinhGiaHienTruongForm : Form
             },
             EnableHeadersVisualStyles = false,
             ColumnHeadersHeight = 40,
-            RowTemplate = { Height = 35 },
-            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None, // Không tự co giãn
+            AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells,
+            DefaultCellStyle = new DataGridViewCellStyle { WrapMode = DataGridViewTriState.True },
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
             ScrollBars = ScrollBars.Both,
             EditMode = DataGridViewEditMode.EditOnEnter
         };

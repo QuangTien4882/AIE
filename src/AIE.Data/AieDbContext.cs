@@ -81,13 +81,23 @@ namespace AIE.Data
                     MaNC TEXT PRIMARY KEY,
                     TenNC TEXT NOT NULL,
                     Nhom INTEGER NOT NULL,
+                    LoaiNhanCong INTEGER DEFAULT 1,
                     DonVi TEXT NOT NULL,
-                    DonGia REAL NOT NULL,
+                    DonGiaVung2 REAL DEFAULT 0,
+                    DonGiaVung3 REAL DEFAULT 0,
+                    DonGiaVung4 REAL DEFAULT 0,
+                    DonGiaCLC REAL DEFAULT 0,
                     GhiChu TEXT,
                     NgayCapNhat TEXT NOT NULL
                 );
             ";
             command.ExecuteNonQuery();
+
+            try { command.CommandText = "ALTER TABLE NhanCong ADD COLUMN LoaiNhanCong INTEGER DEFAULT 1;"; command.ExecuteNonQuery(); } catch { }
+            try { command.CommandText = "ALTER TABLE NhanCong ADD COLUMN DonGiaVung2 REAL DEFAULT 0;"; command.ExecuteNonQuery(); } catch { }
+            try { command.CommandText = "ALTER TABLE NhanCong ADD COLUMN DonGiaVung3 REAL DEFAULT 0;"; command.ExecuteNonQuery(); } catch { }
+            try { command.CommandText = "ALTER TABLE NhanCong ADD COLUMN DonGiaVung4 REAL DEFAULT 0;"; command.ExecuteNonQuery(); } catch { }
+            try { command.CommandText = "ALTER TABLE NhanCong ADD COLUMN DonGiaCLC REAL DEFAULT 0;"; command.ExecuteNonQuery(); } catch { }
 
             // Bảng giá Máy Thi Công
             command.CommandText = @"
@@ -187,10 +197,17 @@ namespace AIE.Data
                     DinhMucDiezel REAL,
                     DinhMucDien REAL,
                     SoLuongNhanCong REAL,
-                    NhomNhanCong INTEGER
+                    NhomNhanCong INTEGER,
+                    SoCaNam INTEGER DEFAULT 250,
+                    NhanCongString TEXT,
+                    ThanhPhanNhanCong TEXT
                 );
             ";
             command.ExecuteNonQuery();
+
+            // Migration cho DinhMucCaMay_TT37 (nếu bảng đã tồn tại từ trước)
+            try { command.CommandText = "ALTER TABLE DinhMucCaMay_TT37 ADD COLUMN NhanCongString TEXT;"; command.ExecuteNonQuery(); } catch { }
+            try { command.CommandText = "ALTER TABLE DinhMucCaMay_TT37 ADD COLUMN ThanhPhanNhanCong TEXT;"; command.ExecuteNonQuery(); } catch { }
 
             // Bảng Kết quả Giá Máy
             command.CommandText = @"

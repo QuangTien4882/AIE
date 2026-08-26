@@ -24,9 +24,9 @@ public class DinhMucCaMayRepository
         using var connection = _context.GetConnection();
         var sql = @"
             INSERT OR REPLACE INTO DinhMucCaMay_TT37 
-            (MaMay, NguyenGia, KhauHao, SuaChua, ChiPhiKhac, DinhMucXang, DinhMucDiezel, DinhMucDien, SoLuongNhanCong, NhomNhanCong)
+            (MaMay, NguyenGia, KhauHao, SuaChua, ChiPhiKhac, DinhMucXang, DinhMucDiezel, DinhMucDien, SoLuongNhanCong, NhomNhanCong, SoCaNam, NhanCongString, ThanhPhanNhanCong)
             VALUES 
-            (@MaMay, @NguyenGia, @KhauHao, @SuaChua, @ChiPhiKhac, @DinhMucXang, @DinhMucDiezel, @DinhMucDien, @SoLuongNhanCong, @NhomNhanCong);
+            (@MaMay, @NguyenGia, @KhauHao, @SuaChua, @ChiPhiKhac, @DinhMucXang, @DinhMucDiezel, @DinhMucDien, @SoLuongNhanCong, @NhomNhanCong, @SoCaNam, @NhanCongString, @ThanhPhanNhanCong);
         ";
         connection.Execute(sql, dm);
     }

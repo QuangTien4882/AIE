@@ -16,6 +16,7 @@ public class ThamDinhConfig
     public string ColDonGia { get; set; } = "H";
     public string ColThanhTien { get; set; } = "I";
     public int DongBatDau { get; set; } = 6;
+    public Vung Vung { get; set; } = Vung.VungII;
 }
 
 /// <summary>

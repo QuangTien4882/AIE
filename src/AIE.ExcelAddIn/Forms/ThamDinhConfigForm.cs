@@ -24,6 +24,7 @@ public class ThamDinhConfigForm : Form
     private Label lblStatus;
 
     private ComboBox cbBoDonGia;
+    private ComboBox cbVung;
     public ThamDinhConfig ResultConfig { get; private set; }
     public int? SelectedBoDonGiaId { get; private set; }
 
@@ -159,7 +160,7 @@ public class ThamDinhConfigForm : Form
         tlp.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         tlp.Padding = new Padding(20, 20, 20, 20);
         tlp.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220F));
+        tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 350F));
 
         int row = 0;
 
@@ -167,7 +168,7 @@ public class ThamDinhConfigForm : Form
         {
             Label lbl = new Label { Text = labelText, AutoSize = true, Anchor = AnchorStyles.Left | AnchorStyles.Top };
             lbl.Margin = new Padding(0, 7, 20, 0);
-            inputControl.Width = 200;
+            inputControl.Width = 330;
             inputControl.Anchor = AnchorStyles.Left | AnchorStyles.Top;
             inputControl.Margin = new Padding(0, 0, 0, 15);
             tlp.Controls.Add(lbl, 0, row);
@@ -209,8 +210,50 @@ public class ThamDinhConfigForm : Form
         tlp.SetColumnSpan(divider2, 2);
         row++;
 
-        cbBoDonGia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "TenBo", ValueMember = "Id" };
-        AddRow("Chọn Bộ Đơn Giá:", cbBoDonGia);
+        cbBoDonGia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "TenBo", ValueMember = "Id", Width = 260 };
+        
+        var btnDeleteBoDonGia = new Button { Text = "Xóa", Width = 60, Height = cbBoDonGia.Height + 2, BackColor = Color.LightCoral, ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        btnDeleteBoDonGia.FlatAppearance.BorderSize = 0;
+        btnDeleteBoDonGia.Click += BtnDeleteBoDonGia_Click;
+        
+        var panelBoDonGia = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, AutoSize = true, Margin = new Padding(0, 0, 0, 15) };
+        panelBoDonGia.Controls.Add(cbBoDonGia);
+        panelBoDonGia.Controls.Add(btnDeleteBoDonGia);
+
+        Label lblBoDonGia = new Label { Text = "Chọn Bộ Đơn Giá:", AutoSize = true, Anchor = AnchorStyles.Left | AnchorStyles.Top, Margin = new Padding(0, 7, 20, 0) };
+        tlp.Controls.Add(lblBoDonGia, 0, row);
+        tlp.Controls.Add(panelBoDonGia, 1, row);
+        row++;
+
+        // Vùng áp dụng
+        cbVung = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+        var vungListTD = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<AIE.Core.Enums.Vung, string>>
+        {
+            new System.Collections.Generic.KeyValuePair<AIE.Core.Enums.Vung, string>(AIE.Core.Enums.Vung.VungII, "Vùng II"),
+            new System.Collections.Generic.KeyValuePair<AIE.Core.Enums.Vung, string>(AIE.Core.Enums.Vung.VungIII, "Vùng III"),
+            new System.Collections.Generic.KeyValuePair<AIE.Core.Enums.Vung, string>(AIE.Core.Enums.Vung.VungIV, "Vùng IV"),
+            new System.Collections.Generic.KeyValuePair<AIE.Core.Enums.Vung, string>(AIE.Core.Enums.Vung.CuLaoCham, "Cù Lao Chàm")
+        };
+        cbVung.DisplayMember = "Value";
+        cbVung.ValueMember = "Key";
+        cbVung.DataSource = vungListTD;
+        AddRow("Vùng áp dụng:", cbVung);
+        
+        var lblVungDesc = new Label { AutoSize = true, MaximumSize = new Size(360, 0), Font = new Font("Be Vietnam Pro", 8.5f, FontStyle.Italic), ForeColor = Color.DimGray, Margin = new Padding(0, -10, 0, 15) };
+        cbVung.SelectedIndexChanged += (s, e) =>
+        {
+            var selectedVung = ((System.Collections.Generic.KeyValuePair<AIE.Core.Enums.Vung, string>)cbVung.SelectedItem).Key;
+            switch (selectedVung)
+            {
+                case AIE.Core.Enums.Vung.VungII: lblVungDesc.Text = "Gồm các phường: Hải Châu, Hòa Cường, Thanh Khê, An Khê, An Hải, Sơn Trà, Ngũ Hành Sơn, Hòa Khánh, Hải Vân, Liên Chiểu, Cẩm Lệ, Hòa Xuân, Tam Kỳ, Quảng Phú, Hương Trà, Bàn Thạch, Hội An, Hội An Đông, Hội An Tây và các xã: Hòa Vang, Hòa Tiến, Bà Nà."; break;
+                case AIE.Core.Enums.Vung.VungIII: lblVungDesc.Text = "Gồm các phường: Điện Bàn, Điện Bàn Đông, An Thắng, Điện Bàn Bắc và các xã: Núi Thành, Tam Mỹ, Tam Anh, Đức Phú, Tam Xuân, Tam Hải, Tây Hồ, Chiên Đàn, Phú Ninh, Thăng Bình, Thăng An, Thăng Trường, Thăng Điền, Thăng Phú, Đồng Dương, Quế Sơn Trung, Quế Sơn, Xuân Phú, Nông Sơn, Quế Phước, Duy Nghĩa, Nam Phước, Duy Xuyên, Thu Bồn, Điện Bàn Tây, Gò Nổi, Đại Lộc, Hà Nha, Thượng Đức, Vu Gia, Phú Thuận."; break;
+                case AIE.Core.Enums.Vung.VungIV: lblVungDesc.Text = "Gồm các xã: Lãnh Ngọc, Tiên Phước, Xã Thạnh Bình, Sơn Cẩm Hà, Trà Liên, Trà Giáp, Trà Tân, Trà Đốc, Trà My, Nam Trà My, Trà Tập, Trà Vân, Trà Linh, Trà Leng, Thạnh Mỹ, Bến Giằng, Nam Giang, Đắc Pring, La Dêê, La Êê, Sông Vàng, Sông Kôn, Đông Giang, Bến Hiên, Avương, Tây Giang, Hùng Sơn, Hiệp Đức, Việt An, Phước Trà, Khâm Đức, Phước Năng, Phước Chánh, Phước Thành, Phước Hiệp."; break;
+                case AIE.Core.Enums.Vung.CuLaoCham: lblVungDesc.Text = "Khu vực xã đảo Tân Hiệp (Cù Lao Chàm)"; break;
+            }
+        };
+        
+        tlp.Controls.Add(lblVungDesc, 1, row);
+        row++;
 
         ToolTip toolTip = new ToolTip();
 
@@ -269,6 +312,34 @@ public class ThamDinhConfigForm : Form
         this.CancelButton = btnCancel;
     }
 
+    private void BtnDeleteBoDonGia_Click(object sender, EventArgs e)
+    {
+        if (cbBoDonGia.SelectedValue == null) return;
+        int val = (int)cbBoDonGia.SelectedValue;
+        if (val == 0)
+        {
+            MessageBox.Show("Không thể xóa bộ đơn giá mặc định.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        var result = MessageBox.Show($"Bạn có chắc chắn muốn xóa Bộ đơn giá '{cbBoDonGia.Text}' không?", "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        if (result == DialogResult.Yes)
+        {
+            try
+            {
+                var db = new AIE.Data.DatabaseManager();
+                var repo = new AIE.Data.Repositories.BoDonGiaRepository(db.Context);
+                repo.Delete(val);
+                MessageBox.Show("Đã xóa bộ đơn giá thành công.", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                LoadBoDonGia();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi xóa bộ đơn giá: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+    }
+
     private void BtnOk_Click(object sender, EventArgs e)
     {
         if (string.IsNullOrEmpty(cbSheetName.Text) || string.IsNullOrEmpty(cbColMaHieu.Text))
@@ -302,7 +373,8 @@ public class ThamDinhConfigForm : Form
                 ColDinhMuc = cbColDinhMuc.SelectedItem?.ToString() ?? "E",
                 ColDonGia = cbColDonGia.SelectedItem?.ToString() ?? "F",
                 ColThanhTien = cbColThanhTien.SelectedItem?.ToString() ?? "G",
-                DongBatDau = (int)nudDongBatDau.Value
+                DongBatDau = (int)nudDongBatDau.Value,
+                Vung = ((System.Collections.Generic.KeyValuePair<AIE.Core.Enums.Vung, string>)cbVung.SelectedItem).Key
             };
             this.DialogResult = DialogResult.OK;
         }

@@ -37,30 +37,30 @@ namespace AIE.ExcelAddIn.Ribbon
                   <tab id='tabAIE' label='AIE Dự Toán'>
                     
                     <group id='groupThietLap' label='Thiết lập dữ liệu'>
-                      <button id='btnImport' showLabel='false' screentip='Nhập Database' size='large' imageMso='DatabaseInsert' onAction='OnImportClicked' />
-                      <button id='btnTraCuu' showLabel='false' screentip='Tra cứu định mức' size='large' imageMso='Search' onAction='OnTraCuuClicked' />
-                      <button id='btnTaoTemplate' showLabel='false' screentip='Tạo File mẫu' size='large' imageMso='FileSaveAs' onAction='OnTaoTemplateClicked' />
-                      <button id='btnXuatDonGia' showLabel='false' screentip='Trích xuất Đơn Giá' size='large' imageMso='ExportExcel' onAction='OnXuatDonGiaClicked' />
-                      <button id='btnQuanLyDonGia' showLabel='false' screentip='Quản lý Đơn giá' size='large' imageMso='DollarSign' onAction='OnQuanLyDonGiaClicked' />
-                      <button id='btnDeleteDb' showLabel='false' screentip='Xóa toàn bộ Database' size='large' imageMso='RecordsDeleteRecord' onAction='OnDeleteDbClicked' />
+                      <button id='btnImport' label='Nhập Database' screentip='Nhập Database' size='normal' showImage='false' onAction='OnImportClicked' />
+                      <button id='btnTraCuu' label='Tra cứu định mức' screentip='Tra cứu định mức' size='normal' showImage='false' onAction='OnTraCuuClicked' />
+                      <button id='btnTaoTemplate' label='Tạo File mẫu' screentip='Tạo File mẫu' size='normal' showImage='false' onAction='OnTaoTemplateClicked' />
+                      <button id='btnXuatDonGia' label='Trích xuất Đơn Giá' screentip='Trích xuất Đơn Giá' size='normal' showImage='false' onAction='OnXuatDonGiaClicked' />
+                      <button id='btnQuanLyDonGia' label='Quản lý Đơn giá' screentip='Quản lý Đơn giá' size='normal' showImage='false' onAction='OnQuanLyDonGiaClicked' />
+                      <button id='btnDeleteDb' label='Xóa Database' screentip='Xóa toàn bộ Database' size='normal' showImage='false' onAction='OnDeleteDbClicked' />
                     </group>
 
                     <group id='groupThamDinh' label='Thẩm định dự toán'>
-                      <button id='btnDonGiaThamDinh' showLabel='false' screentip='Đơn giá thẩm định' size='large' imageMso='CurrencyProperties' onAction='OnDonGiaThamDinhClicked' />
-                      <button id='btnKiemTra' showLabel='false' screentip='Kiểm tra' size='large' imageMso='ReviewAcceptChange' onAction='OnKiemTraClicked' />
-                      <button id='btnBaoCaoTD' showLabel='false' screentip='Xuất Báo cáo' size='large' imageMso='ExportExcel' onAction='OnBaoCaoTDClicked' />
+                      <button id='btnDonGiaThamDinh' label='Đơn giá thẩm định' screentip='Đơn giá thẩm định' size='normal' showImage='false' onAction='OnDonGiaThamDinhClicked' />
+                      <button id='btnKiemTra' label='Kiểm tra' screentip='Kiểm tra' size='normal' showImage='false' onAction='OnKiemTraClicked' />
+                      <button id='btnBaoCaoTD' label='Xuất Báo cáo' screentip='Xuất Báo cáo' size='normal' showImage='false' onAction='OnBaoCaoTDClicked' />
                     </group>
 
                     <group id='groupLapDuToan' label='Lập dự toán'>
-                      <button id='btnTaoDuToanMoi' showLabel='false' screentip='Tạo Dự toán mới' size='large' imageMso='FileNew' onAction='OnTaoDuToanMoiClicked' />
-                      <button id='btnGoiDonGia' showLabel='false' screentip='Gọi Đơn giá' size='large' imageMso='DollarSign' onAction='OnGoiDonGiaClicked' />
-                      <button id='btnTinhGiaHienTruong' showLabel='false' screentip='Tính Giá vật tư hiện trường' size='large' imageMso='TableProperties' onAction='OnTinhGiaHienTruongClicked' />
-                      <button id='btnTinhTongHop' showLabel='false' screentip='Tính Tổng hợp' size='large' imageMso='CalculateNow' onAction='OnTinhTongHopClicked' />
+                      <button id='btnTaoDuToanMoi' label='Tạo Dự toán mới' screentip='Tạo Dự toán mới' size='normal' showImage='false' onAction='OnTaoDuToanMoiClicked' />
+                      <button id='btnGoiDonGia' label='Gọi Đơn giá' screentip='Gọi Đơn giá' size='normal' showImage='false' onAction='OnGoiDonGiaClicked' />
+                      <button id='btnTinhGiaHienTruong' label='Tính Giá hiện trường' screentip='Tính Giá vật tư hiện trường' size='normal' showImage='false' onAction='OnTinhGiaHienTruongClicked' />
+                      <button id='btnTinhTongHop' label='Tính Tổng hợp' screentip='Tính Tổng hợp' size='normal' showImage='false' onAction='OnTinhTongHopClicked' />
                     </group>
 
                     <group id='groupFile' label='File Dự toán'>
-                      <button id='btnLuuDuToan' showLabel='false' screentip='Lưu Dự toán (.dt)' size='large' imageMso='FileSave' onAction='OnLuuDuToanClicked' />
-                      <button id='btnMoDuToan' showLabel='false' screentip='Mở Dự toán (.dt)' size='large' imageMso='FileOpen' onAction='OnMoDuToanClicked' />
+                      <button id='btnLuuDuToan' label='Lưu Dự toán' screentip='Lưu Dự toán (.dt)' size='normal' showImage='false' onAction='OnLuuDuToanClicked' />
+                      <button id='btnMoDuToan' label='Mở Dự toán' screentip='Mở Dự toán (.dt)' size='normal' showImage='false' onAction='OnMoDuToanClicked' />
                     </group>
 
                   </tab>
@@ -264,7 +264,15 @@ namespace AIE.ExcelAddIn.Ribbon
                     var danhSachVatTu = engine.TrichXuatVatTu(ketQua);
                     
                     // 4. Mở Form ThamDinhDonGiaForm
-                    var donGiaForm = new ThamDinhDonGiaForm(danhSachVatTu);
+                    var loading = new AIE.ExcelAddIn.Forms.LoadingForm("Đang mở Thẩm định đơn giá...");
+                    loading.Show();
+                    System.Windows.Forms.Application.DoEvents();
+                    
+                    var donGiaForm = new ThamDinhDonGiaForm(danhSachVatTu, config.Vung);
+                    
+                    loading.Close();
+                    loading.Dispose();
+                    
                     donGiaForm.ShowDialog();
                 }
             }
@@ -278,16 +286,28 @@ namespace AIE.ExcelAddIn.Ribbon
         {
             try
             {
-                var db = new DatabaseManager();
+                Cursor.Current = Cursors.WaitCursor;
+                var db = new AIE.Data.DatabaseManager();
                 var vlRepo = new AIE.Data.Repositories.VatLieuRepository(db.Context);
                 var ncRepo = new AIE.Data.Repositories.NhanCongRepository(db.Context);
                 var mayRepo = new AIE.Data.Repositories.MayThiCongRepository(db.Context);
                 var mayDmRepo = new AIE.Data.Repositories.DinhMucCaMayRepository(db.Context);
+
+                var loading = new AIE.ExcelAddIn.Forms.LoadingForm("Đang mở Quản lý đơn giá...");
+                loading.Show();
+                System.Windows.Forms.Application.DoEvents();
+
                 var form = new AIE.ExcelAddIn.Forms.QuanLyDonGiaForm(vlRepo, ncRepo, mayRepo, mayDmRepo);
+                Cursor.Current = Cursors.Default;
+                
+                loading.Close();
+                loading.Dispose();
+                
                 form.ShowDialog();
             }
             catch (Exception ex)
             {
+                Cursor.Current = Cursors.Default;
                 MessageBox.Show("Lỗi: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -299,51 +319,60 @@ namespace AIE.ExcelAddIn.Ribbon
 
         public void OnTaoDuToanMoiClicked(IRibbonControl control)
         {
-            var app = (Microsoft.Office.Interop.Excel.Application)ExcelDnaUtil.Application;
-            var wb = app.ActiveWorkbook;
-            
-            // Check if there's an active workbook that is not completely empty
-            if (wb != null)
+            try
             {
-                var ws = wb.ActiveSheet as Microsoft.Office.Interop.Excel.Worksheet;
-                bool isEmpty = false;
-                if (ws != null && ws.Name.StartsWith("Sheet"))
+                var app = (Microsoft.Office.Interop.Excel.Application)ExcelDnaUtil.Application;
+                var wb = app.ActiveWorkbook;
+                
+                // Check if there's an active workbook that is not completely empty
+                if (wb != null)
                 {
-                    var range = ws.UsedRange;
-                    if (range.Rows.Count <= 1 && range.Columns.Count <= 1 && string.IsNullOrEmpty(ws.Cells[1, 1].Text))
+                    var ws = wb.ActiveSheet as Microsoft.Office.Interop.Excel.Worksheet;
+                    bool isEmpty = false;
+                    if (ws != null && ws.Name.StartsWith("Sheet"))
                     {
-                        isEmpty = true;
+                        var range = ws.UsedRange;
+                        var cell1 = ws.Cells[1, 1] as Microsoft.Office.Interop.Excel.Range;
+                        string cellText = cell1 != null ? (cell1.Text?.ToString() ?? "") : "";
+                        if (range.Rows.Count <= 1 && range.Columns.Count <= 1 && string.IsNullOrEmpty(cellText))
+                        {
+                            isEmpty = true;
+                        }
+                    }
+
+                    if (!isEmpty)
+                    {
+                        var result = MessageBox.Show(
+                            "Đang có dự án mở. Bạn có muốn lưu dự án hiện hành trước khi tạo mới không?\n\n- Chọn Yes để Lưu dự án cũ và Tạo mới\n- Chọn No để Đóng dự án cũ (không lưu) và Tạo mới\n- Chọn Cancel để Hủy thao tác",
+                            "Xác nhận đóng dự án",
+                            MessageBoxButtons.YesNoCancel,
+                            MessageBoxIcon.Question);
+
+                        if (result == DialogResult.Cancel)
+                        {
+                            return; // Hủy tạo mới
+                        }
+                        else if (result == DialogResult.Yes)
+                        {
+                            bool saved = SaveDuToan();
+                            if (!saved) return; // Nếu người dùng hủy lưu thì không đóng
+                            
+                            wb.Close(false);
+                        }
+                        else if (result == DialogResult.No)
+                        {
+                            wb.Close(false); // Đóng không lưu
+                        }
                     }
                 }
 
-                if (!isEmpty)
-                {
-                    var result = MessageBox.Show(
-                        "Đang có dự án mở. Bạn có muốn lưu dự án hiện hành trước khi tạo mới không?\n\n- Chọn Yes để Lưu dự án cũ và Tạo mới\n- Chọn No để Đóng dự án cũ (không lưu) và Tạo mới\n- Chọn Cancel để Hủy thao tác",
-                        "Xác nhận đóng dự án",
-                        MessageBoxButtons.YesNoCancel,
-                        MessageBoxIcon.Question);
-
-                    if (result == DialogResult.Cancel)
-                    {
-                        return; // Hủy tạo mới
-                    }
-                    else if (result == DialogResult.Yes)
-                    {
-                        bool saved = SaveDuToan();
-                        if (!saved) return; // Nếu người dùng hủy lưu thì không đóng
-                        
-                        wb.Close(false);
-                    }
-                    else if (result == DialogResult.No)
-                    {
-                        wb.Close(false); // Đóng không lưu
-                    }
-                }
+                var form = new TaoDuToanMoiForm();
+                form.ShowDialog(new WindowWrapper(ExcelDnaUtil.WindowHandle));
             }
-
-            var form = new TaoDuToanMoiForm();
-            form.ShowDialog();
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khởi tạo dự toán: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         public void OnGoiDonGiaClicked(IRibbonControl control)
@@ -523,7 +552,15 @@ namespace AIE.ExcelAddIn.Ribbon
                 // Lưu vào bộ nhớ chung để có thể Save ra file .dt
                 CurrentDuToan = duToan;
 
+                var loading = new AIE.ExcelAddIn.Forms.LoadingForm("Đang mở Tính giá hiện trường...");
+                loading.Show();
+                System.Windows.Forms.Application.DoEvents();
+                
                 using var form = new TinhGiaHienTruongForm(duToan, service, phanTichDonGiaService);
+                
+                loading.Close();
+                loading.Dispose();
+                
                 form.ShowDialog();
             }
             catch (Exception ex)

@@ -18,11 +18,11 @@ namespace AIE.ExcelAddIn.Forms
     {
         private TextBox txtTenCongTrinh;
         private TextBox txtDiaDiem;
+        private ComboBox cboVung;
         private Button btnTao;
         private Button btnHuy;
 
         public TaoDuToanMoiForm()
-
         {
             InitializeComponent();
         }
@@ -30,7 +30,7 @@ namespace AIE.ExcelAddIn.Forms
         private void InitializeComponent()
         {
             this.Text = "Tạo Dự toán mới";
-            this.Size = new Size(600, 220);
+            this.Size = new Size(600, 260);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -53,6 +53,37 @@ namespace AIE.ExcelAddIn.Forms
             txtDiaDiem.Text = "Đà Nẵng"; // Default
             y += 40;
 
+            // Vùng
+            var lblVung = new Label { Text = "Vùng áp dụng:", Location = new Point(20, y + 4), Size = new Size(lblWidth, 25) };
+            cboVung = new ComboBox { Location = new Point(140, y), Size = new Size(txtWidth, 25), DropDownStyle = ComboBoxStyle.DropDownList };
+            
+            var vungList = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<Vung, string>>
+            {
+                new System.Collections.Generic.KeyValuePair<Vung, string>(Vung.VungII, "Vùng II"),
+                new System.Collections.Generic.KeyValuePair<Vung, string>(Vung.VungIII, "Vùng III"),
+                new System.Collections.Generic.KeyValuePair<Vung, string>(Vung.VungIV, "Vùng IV"),
+                new System.Collections.Generic.KeyValuePair<Vung, string>(Vung.CuLaoCham, "Cù Lao Chàm")
+            };
+            cboVung.DisplayMember = "Value";
+            cboVung.ValueMember = "Key";
+            cboVung.DataSource = vungList;
+            y += 35;
+
+            var lblVungDesc = new Label { Location = new Point(140, y), Size = new Size(txtWidth, 40), Font = new Font("Be Vietnam Pro", 8.5f, FontStyle.Italic), ForeColor = Color.DimGray };
+            cboVung.SelectedIndexChanged += (s, e) =>
+            {
+                var selectedVung = ((System.Collections.Generic.KeyValuePair<Vung, string>)cboVung.SelectedItem).Key;
+                switch (selectedVung)
+                {
+                    case Vung.VungII: lblVungDesc.Text = "Gồm các phường: Hải Châu, Hòa Cường, Thanh Khê, An Khê, An Hải, Sơn Trà, Ngũ Hành Sơn, Hòa Khánh, Hải Vân, Liên Chiểu, Cẩm Lệ, Hòa Xuân, Tam Kỳ, Quảng Phú, Hương Trà, Bàn Thạch, Hội An, Hội An Đông, Hội An Tây và các xã: Hòa Vang, Hòa Tiến, Bà Nà."; break;
+                    case Vung.VungIII: lblVungDesc.Text = "Gồm các phường: Điện Bàn, Điện Bàn Đông, An Thắng, Điện Bàn Bắc và các xã: Núi Thành, Tam Mỹ, Tam Anh, Đức Phú, Tam Xuân, Tam Hải, Tây Hồ, Chiên Đàn, Phú Ninh, Thăng Bình, Thăng An, Thăng Trường, Thăng Điền, Thăng Phú, Đồng Dương, Quế Sơn Trung, Quế Sơn, Xuân Phú, Nông Sơn, Quế Phước, Duy Nghĩa, Nam Phước, Duy Xuyên, Thu Bồn, Điện Bàn Tây, Gò Nổi, Đại Lộc, Hà Nha, Thượng Đức, Vu Gia, Phú Thuận."; break;
+                    case Vung.VungIV: lblVungDesc.Text = "Gồm các xã: Lãnh Ngọc, Tiên Phước, Xã Thạnh Bình, Sơn Cẩm Hà, Trà Liên, Trà Giáp, Trà Tân, Trà Đốc, Trà My, Nam Trà My, Trà Tập, Trà Vân, Trà Linh, Trà Leng, Thạnh Mỹ, Bến Giằng, Nam Giang, Đắc Pring, La Dêê, La Êê, Sông Vàng, Sông Kôn, Đông Giang, Bến Hiên, Avương, Tây Giang, Hùng Sơn, Hiệp Đức, Việt An, Phước Trà, Khâm Đức, Phước Năng, Phước Chánh, Phước Thành, Phước Hiệp."; break;
+                    case Vung.CuLaoCham: lblVungDesc.Text = "Khu vực xã đảo Tân Hiệp (Cù Lao Chàm)"; break;
+                }
+            };
+            
+            y += 45;
+
             // Buttons
             y += 10;
             btnTao = new Button { Text = "Khởi tạo", Location = new Point(190, y), Size = new Size(100, 35), BackColor = Color.FromArgb(0, 120, 215), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
@@ -67,6 +98,9 @@ namespace AIE.ExcelAddIn.Forms
             this.Controls.Add(txtTenCongTrinh);
             this.Controls.Add(lblDiaDiem);
             this.Controls.Add(txtDiaDiem);
+            this.Controls.Add(lblVung);
+            this.Controls.Add(cboVung);
+            this.Controls.Add(lblVungDesc);
             this.Controls.Add(btnTao);
             this.Controls.Add(btnHuy);
         }
@@ -143,6 +177,21 @@ namespace AIE.ExcelAddIn.Forms
             r2.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter;
             r2.VerticalAlignment = Excel.XlVAlign.xlVAlignCenter;
             r2.Font.Bold = true;
+
+            // Row 3: Vùng (lưu giá trị enum để đọc lại)
+            var selectedVung = ((System.Collections.Generic.KeyValuePair<Vung, string>)cboVung.SelectedItem).Key;
+            Excel.Range r3 = ws.Range["A3", "I3"];
+            r3.Merge();
+            var vungDisplayText = ((System.Collections.Generic.KeyValuePair<Vung, string>)cboVung.SelectedItem).Value;
+            r3.Value2 = "VÙNG ÁP DỤNG: " + vungDisplayText;
+            r3.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter;
+            r3.VerticalAlignment = Excel.XlVAlign.xlVAlignCenter;
+            r3.Font.Bold = true;
+
+            // Lưu giá trị Vung enum vào ô ẩn J1
+            ws.Cells[1, 10] = (int)selectedVung;
+            ((Excel.Range)ws.Cells[1, 10]).Font.Color = ColorTranslator.ToOle(Color.White);
+            ((Excel.Range)ws.Columns[10]).ColumnWidth = 0; // Ẩn cột J
 
             // --- COLUMN HEADERS ---
             ws.Cells[4, 1] = "STT";

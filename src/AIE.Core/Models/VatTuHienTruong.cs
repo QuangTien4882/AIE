@@ -44,6 +44,8 @@ public class VatLieuHienTruong : VatTuHienTruongBase
 
 public class NhanCongHienTruong : VatTuHienTruongBase
 {
+    public AIE.Core.Enums.LoaiNhanCong LoaiNhanCong { get; set; } = AIE.Core.Enums.LoaiNhanCong.XayDung;
+    public string MaNCGoc { get; set; } = string.Empty;
     // Nhân công hiện trường thường nhập trực tiếp hoặc qua hệ số
     public decimal HeSo { get; set; } = 1;
 }
@@ -61,6 +63,56 @@ public class MayThiCongHienTruong : VatTuHienTruongBase
     public decimal ChiPhiKhac { get; set; }
     public decimal ChiPhiNhiemLieu { get; set; }
     public decimal ChiPhiNhanCong { get; set; }
+    
+    // Thuộc tính phục vụ hiển thị chi tiết (readonly/tham khảo)
+    public decimal SoCaNam => DinhMuc?.SoCaNam > 0 ? DinhMuc.SoCaNam : 250m;
+    public decimal TyLeKhauHao => DinhMuc?.KhauHao ?? 0;
+    public decimal TyLeSuaChua => DinhMuc?.SuaChua ?? 0;
+    public decimal TyLeKhac => DinhMuc?.ChiPhiKhac ?? 0;
+    public decimal DinhMucXang => DinhMuc?.DinhMucXang ?? 0;
+    public decimal DinhMucDiezel => DinhMuc?.DinhMucDiezel ?? 0;
+    public decimal DinhMucDien => DinhMuc?.DinhMucDien ?? 0;
+    public decimal HeSoNhienLieuPhu => DinhMuc?.HeSoNhienLieuPhu ?? 1.0m;
+    
+    // Định mức (%) cho hiển thị trên grid
+    public decimal DmKhauHao => DinhMuc?.KhauHao ?? 0;
+    public decimal DmSuaChua => DinhMuc?.SuaChua ?? 0;
+    public decimal DmKhac => DinhMuc?.ChiPhiKhac ?? 0;
+    
+    public string DinhMucNhienLieuDisplay
+    {
+        get
+        {
+            var parts = new System.Collections.Generic.List<string>();
+            if (DinhMucXang > 0) parts.Add($"{DinhMucXang:#.##} lít xăng");
+            if (DinhMucDiezel > 0) parts.Add($"{DinhMucDiezel:#.##} lít diezel");
+            if (DinhMucDien > 0) parts.Add($"{DinhMucDien:#.##} kWh");
+            return string.Join(" + ", parts);
+        }
+    }
+    
+    public string NhanCongVanHanhDisplay
+    {
+        get
+        {
+            if (DinhMuc == null) return "";
+            if (!string.IsNullOrWhiteSpace(DinhMuc.NhanCongString))
+                return DinhMuc.NhanCongString;
+                
+            if (DinhMuc.SoLuongNhanCong <= 0) return "";
+            string tenTho = DinhMuc.NhomNhanCong switch
+            {
+                1 => "nhân công vận hành",
+                2 => "lái xe",
+                3 => "thủy thủ, thợ máy, thợ điện",
+                4 => "máy trưởng, thuyền trưởng",
+                5 => "máy trưởng tàu biển",
+                6 => "thuyền trưởng, thuyền phó",
+                _ => $"nhân công nhóm {DinhMuc.NhomNhanCong}"
+            };
+            return $"{DinhMuc.SoLuongNhanCong:#.##} {tenTho}";
+        }
+    }
     
     // Giá hiện trường của máy = Tổng các thành phần chi phí
     public override decimal GiaHienTruong 

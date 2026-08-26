@@ -43,6 +43,13 @@ public class LapDuToanExcelService
         duToan.TenCongTrinh = string.IsNullOrEmpty(tenDuAn) ? "Công trình mặc định" : tenDuAn;
         duToan.DiaDiem = string.IsNullOrEmpty(diaDiem) ? "Không xác định" : diaDiem;
 
+        // Đọc Vùng áp dụng từ ô J1 (lưu dưới dạng int enum)
+        string vungStr = GetCellValue(ws, 1, 10);
+        if (int.TryParse(vungStr, out int vungInt) && System.Enum.IsDefined(typeof(AIE.Core.Enums.Vung), vungInt))
+        {
+            duToan.VungApDung = (AIE.Core.Enums.Vung)vungInt;
+        }
+
         var hm = new HangMuc { STT = 1, TenHangMuc = "Hạng mục chung" };
         duToan.DanhSachHangMuc.Add(hm);
 

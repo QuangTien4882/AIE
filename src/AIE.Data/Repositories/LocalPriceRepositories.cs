@@ -70,8 +70,8 @@ public class NhanCongRepository
     {
         using var connection = _context.GetConnection();
         var sql = @"
-            INSERT OR REPLACE INTO NhanCong (MaNC, TenNC, Nhom, DonVi, DonGia, GhiChu, NgayCapNhat)
-            VALUES (@MaNC, @TenNC, @Nhom, @DonVi, @DonGia, @GhiChu, @NgayCapNhat);
+            INSERT OR REPLACE INTO NhanCong (MaNC, TenNC, Nhom, LoaiNhanCong, DonVi, DonGiaVung2, DonGiaVung3, DonGiaVung4, DonGiaCLC, GhiChu, NgayCapNhat)
+            VALUES (@MaNC, @TenNC, @Nhom, @LoaiNhanCong, @DonVi, @DonGiaVung2, @DonGiaVung3, @DonGiaVung4, @DonGiaCLC, @GhiChu, @NgayCapNhat);
         ";
         connection.Execute(sql, nc);
     }

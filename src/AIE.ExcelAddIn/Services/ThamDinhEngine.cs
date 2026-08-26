@@ -149,8 +149,11 @@ public class ThamDinhEngine
             {
                 if (saiLech.HaoPhiDuToan == null) continue;
                 
-                // Dùng tên chuẩn hóa làm key để gộp những vật tư giống tên
-                string key = ChuanHoaTen(saiLech.HaoPhiDuToan.TenHaoPhi) + "_" + saiLech.HaoPhiDuToan.Loai.ToString();
+                // Dùng MaHieuHP làm key nếu có, nếu không thì dùng tên chuẩn hóa
+                string maHieu = saiLech.HaoPhiChuan?.MaHieuHP ?? string.Empty;
+                string key = !string.IsNullOrEmpty(maHieu)
+                    ? maHieu + "_" + saiLech.HaoPhiDuToan.Loai.ToString()
+                    : ChuanHoaTen(saiLech.HaoPhiDuToan.TenHaoPhi) + "_" + saiLech.HaoPhiDuToan.Loai.ToString();
 
                 if (!dict.ContainsKey(key))
                 {
@@ -160,7 +163,7 @@ public class ThamDinhEngine
                         DonVi = saiLech.HaoPhiDuToan.DonVi,
                         LoaiHP = saiLech.HaoPhiDuToan.Loai,
                         GiaDuToan = saiLech.HaoPhiDuToan.DonGia,
-                        MaHieu = saiLech.HaoPhiChuan?.MaHieuHP ?? string.Empty,
+                        MaHieu = maHieu,
                         GiaChuan = saiLech.DonGiaChuan
                     };
                 }

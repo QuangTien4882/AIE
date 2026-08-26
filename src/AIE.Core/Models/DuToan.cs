@@ -21,8 +21,14 @@ public class DuToan
     /// <summary>Địa điểm</summary>
     public string DiaDiem { get; set; } = "Đà Nẵng";
 
+    /// <summary>Vùng áp dụng (để tính lương, máy)</summary>
+    public AIE.Core.Enums.Vung VungApDung { get; set; } = AIE.Core.Enums.Vung.VungII;
+
     /// <summary>ID của Bộ Đơn Giá được sử dụng cho dự toán này (để lấy giá VL, NC, Máy)</summary>
     public int? BoDonGiaId { get; set; }
+
+    /// <summary>Vùng áp dụng cho dự toán (2, 3, 4, hoặc 5 - Cù Lao Chàm)</summary>
+    public AIE.Core.Enums.Vung Vung { get; set; } = AIE.Core.Enums.Vung.VungII;
 
     /// <summary>Danh sách hạng mục</summary>
     public List<HangMuc> DanhSachHangMuc { get; set; } = [];
