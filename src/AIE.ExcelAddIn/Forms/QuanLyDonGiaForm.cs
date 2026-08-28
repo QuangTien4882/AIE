@@ -136,17 +136,54 @@ public class QuanLyDonGiaForm : Form
 
         var lblHint = new Label { Text = "💡 Click đúp vào ô Đơn giá để chỉnh sửa", AutoSize = true, Location = new Point(490, 16), ForeColor = Color.FromArgb(0, 120, 215), Font = new Font("Be Vietnam Pro", 9.5f, FontStyle.Italic) };
 
-        lblCount = new Label { AutoSize = true, ForeColor = Color.Gray, Anchor = AnchorStyles.Top | AnchorStyles.Right };
-        lblCount.Location = new Point(850, 16);
+        lblCount = new Label 
+        { 
+            AutoSize = true, 
+            ForeColor = Color.Gray,
+            Margin = new Padding(0, 5, 0, 0)
+        };
 
         topPanel.Controls.Add(lblSearch);
         topPanel.Controls.Add(txtSearch);
         topPanel.Controls.Add(lblHint);
-        topPanel.Controls.Add(lblCount);
 
-        topPanel.Resize += (s, e) => {
-            lblCount.Location = new Point(topPanel.Width - lblCount.Width - 20, 16);
+        var rightPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Right,
+            FlowDirection = FlowDirection.RightToLeft,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = false,
+            Padding = new Padding(0, 10, 10, 0)
         };
+
+        var btnAutoFit = new Button
+        {
+            Text = "↕ Tự động giãn cột/dòng",
+            AutoSize = true,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(240, 240, 240),
+            Font = new Font("Be Vietnam Pro", 9f),
+            Margin = new Padding(15, 0, 0, 0)
+        };
+        btnAutoFit.FlatAppearance.BorderColor = Color.LightGray;
+        btnAutoFit.Click += (s, e) =>
+        {
+            DataGridView activeGrid = null;
+            if (tabControl.SelectedTab == tabControl.TabPages[0]) activeGrid = dgvVL;
+            else if (tabControl.SelectedTab == tabControl.TabPages[1]) activeGrid = dgvNC;
+            else if (tabControl.SelectedTab == tabControl.TabPages[2]) activeGrid = dgvMay;
+
+            if (activeGrid != null)
+            {
+                activeGrid.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.DisplayedCells);
+                activeGrid.AutoResizeRows(DataGridViewAutoSizeRowsMode.AllCells);
+            }
+        };
+
+        rightPanel.Controls.Add(btnAutoFit);
+        rightPanel.Controls.Add(lblCount);
+        topPanel.Controls.Add(rightPanel);
 
         // ===== Tab Control =====
         tabControl = new TabControl { Dock = DockStyle.Fill };
@@ -283,7 +320,7 @@ public class QuanLyDonGiaForm : Form
             ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
             Font = new Font("Be Vietnam Pro", 10f, FontStyle.Regular),
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-            AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None,
+            AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells,
             DefaultCellStyle = new DataGridViewCellStyle { WrapMode = DataGridViewTriState.True },
             EditMode = DataGridViewEditMode.EditOnEnter
         };
@@ -371,8 +408,8 @@ public class QuanLyDonGiaForm : Form
         // === May ===
         dgvMay.Columns.Clear();
         dgvMay.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "MaHieu", HeaderText = "Mã hiệu", DataPropertyName = "MaHieu", ReadOnly = true, Width = 90 });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "Ten", HeaderText = "Tên máy và thiết bị", DataPropertyName = "Ten", ReadOnly = true, Width = 200, DefaultCellStyle = new DataGridViewCellStyle { WrapMode = DataGridViewTriState.True } });
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "MaHieu", HeaderText = "Mã hiệu", DataPropertyName = "MaHieu", ReadOnly = true, Width = 90, Frozen = true });
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "Ten", HeaderText = "Tên máy và thiết bị", DataPropertyName = "Ten", ReadOnly = true, Width = 200, Frozen = true, DefaultCellStyle = new DataGridViewCellStyle { WrapMode = DataGridViewTriState.True } });
         dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "SoCaNam", HeaderText = "Số ca/năm", DataPropertyName = "SoCaNam", ReadOnly = true, Width = 70, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
         
         dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "KhauHao", HeaderText = "ĐM Khấu hao", DataPropertyName = "TyLeKhauHao", ReadOnly = false, Width = 70, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter, BackColor = Color.FromArgb(255, 255, 200) } });

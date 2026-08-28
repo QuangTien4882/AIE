@@ -17,6 +17,7 @@ namespace AIE.ExcelAddIn.Helpers
                 // Determine if this column is part of a merged header
                 bool isMerged1 = e.ColumnIndex >= startCol1 && e.ColumnIndex <= endCol1;
                 bool isMerged2 = e.ColumnIndex >= startCol2 && e.ColumnIndex <= endCol2;
+                bool isMerged = isMerged1 || isMerged2;
 
                 // Save original clip and set clip to current cell to prevent bleeding
                 Region oldClip = e.Graphics.Clip;
@@ -28,21 +29,39 @@ namespace AIE.ExcelAddIn.Helpers
                     e.Graphics.FillRectangle(backBrush, e.CellBounds);
                 }
 
+                int midY = e.CellBounds.Top + (e.CellBounds.Height / 2);
+
                 // 2. Draw border
                 using (Pen gridPen = new Pen(dgv.GridColor))
                 {
-                    // Bottom border (always drawn)
-                    e.Graphics.DrawLine(gridPen, e.CellBounds.Left, e.CellBounds.Bottom - 1, e.CellBounds.Right, e.CellBounds.Bottom - 1);
-                    // Right border (always drawn)
-                    e.Graphics.DrawLine(gridPen, e.CellBounds.Right - 1, e.CellBounds.Top, e.CellBounds.Right - 1, e.CellBounds.Bottom);
                     // Top border (always drawn)
                     e.Graphics.DrawLine(gridPen, e.CellBounds.Left, e.CellBounds.Top, e.CellBounds.Right, e.CellBounds.Top);
+                    // Bottom border (always drawn)
+                    e.Graphics.DrawLine(gridPen, e.CellBounds.Left, e.CellBounds.Bottom - 1, e.CellBounds.Right, e.CellBounds.Bottom - 1);
                     
-                    if (isMerged1 || isMerged2)
+                    if (isMerged)
                     {
-                        // Draw horizontal line in the middle
-                        int midY = e.CellBounds.Top + (e.CellBounds.Height / 2);
+                        // Draw horizontal divider line in the middle
                         e.Graphics.DrawLine(gridPen, e.CellBounds.Left, midY, e.CellBounds.Right, midY);
+                        
+                        // Right border: only draw full-height for the LAST column in the group
+                        // For intermediate columns, only draw in the BOTTOM half (sub-header area)
+                        int endCol = isMerged1 ? endCol1 : endCol2;
+                        if (e.ColumnIndex == endCol)
+                        {
+                            // Last column in merged group: full right border
+                            e.Graphics.DrawLine(gridPen, e.CellBounds.Right - 1, e.CellBounds.Top, e.CellBounds.Right - 1, e.CellBounds.Bottom);
+                        }
+                        else
+                        {
+                            // Intermediate column: only bottom half right border (sub-header separator)
+                            e.Graphics.DrawLine(gridPen, e.CellBounds.Right - 1, midY, e.CellBounds.Right - 1, e.CellBounds.Bottom);
+                        }
+                    }
+                    else
+                    {
+                        // Non-merged columns: full right border
+                        e.Graphics.DrawLine(gridPen, e.CellBounds.Right - 1, e.CellBounds.Top, e.CellBounds.Right - 1, e.CellBounds.Bottom);
                     }
                 }
 
@@ -53,14 +72,13 @@ namespace AIE.ExcelAddIn.Helpers
                     {
                         Alignment = StringAlignment.Center,
                         LineAlignment = StringAlignment.Center,
-                        FormatFlags = StringFormatFlags.NoClip, // Allow wrapping
                         Trimming = StringTrimming.EllipsisCharacter
                     };
 
-                    if (isMerged1 || isMerged2)
+                    if (isMerged)
                     {
                         // Draw sub-header in the bottom half
-                        Rectangle subRect = new Rectangle(e.CellBounds.Left, e.CellBounds.Top + e.CellBounds.Height / 2, e.CellBounds.Width, e.CellBounds.Height / 2);
+                        Rectangle subRect = new Rectangle(e.CellBounds.Left, midY, e.CellBounds.Width, e.CellBounds.Height / 2);
                         
                         string text = e.Value?.ToString() ?? "";
                         if (text.StartsWith("ĐM ")) text = text.Substring(3);
@@ -69,12 +87,11 @@ namespace AIE.ExcelAddIn.Helpers
 
                         e.Graphics.DrawString(text, e.CellStyle.Font, foreBrush, subRect, format);
 
-                        // Draw main header across the group, clipping will naturally slice it
+                        // Draw main header across the merged group (clipping slices it per cell)
                         int startCol = isMerged1 ? startCol1 : startCol2;
                         int endCol = isMerged1 ? endCol1 : endCol2;
                         string mainHeader = isMerged1 ? header1 : header2;
 
-                        // Calculate consistent mainRect for the entire merged group
                         Rectangle firstRect = dgv.GetCellDisplayRectangle(startCol, -1, false);
                         Rectangle lastRect = dgv.GetCellDisplayRectangle(endCol, -1, false);
                         
@@ -88,13 +105,13 @@ namespace AIE.ExcelAddIn.Helpers
                     }
                     else
                     {
-                        // Normal header, draw in the full bounds
+                        // Normal header: draw centered in full bounds
+                        format.FormatFlags = StringFormatFlags.NoClip;
                         e.Graphics.DrawString(e.Value?.ToString(), e.CellStyle.Font, foreBrush, e.CellBounds, format);
                     }
                 }
                 // Restore clip
                 e.Graphics.Clip = oldClip;
-                e.Handled = true;
             }
         }
     }

@@ -36,9 +36,6 @@ public class TinhGiaHienTruongForm : Form
         
         InitializeComponent();
         LoadData();
-        RestoreColumnWidths();
-        
-        this.FormClosing += (s, e) => SaveColumnWidths();
     }
 
     private void InitializeComponent()
@@ -47,147 +44,238 @@ public class TinhGiaHienTruongForm : Form
         var workingArea = Screen.PrimaryScreen.WorkingArea;
         this.Size = new Size((int)(workingArea.Width * 0.9), (int)(workingArea.Height * 0.9));
         this.StartPosition = FormStartPosition.CenterScreen;
+        this.MinimumSize = new Size(800, 500);
         this.Font = new Font("Be Vietnam Pro", 9.5f);
 
-        var topPanel = new Panel { Dock = DockStyle.Top, Height = 60, Padding = new Padding(12) };
-        var lblTitle = new Label { Text = "BẢNG TỔNG HỢP VÀ TÍNH GIÁ VẬT TƯ", Font = new Font("Be Vietnam Pro", 14f, FontStyle.Bold), AutoSize = true, Location = new Point(12, 16), ForeColor = Color.FromArgb(0, 120, 215) };
-        
-        var rightPanel = new FlowLayoutPanel 
-        { 
-            Dock = DockStyle.Right, 
-            FlowDirection = FlowDirection.RightToLeft, 
-            Width = 450,
-            WrapContents = false,
-            Padding = new Padding(0, 0, 0, 0)
-        };
+        // ===== Top Panel: Title & Tools =====
+        var topPanel = new Panel { Dock = DockStyle.Top, Height = 50, Padding = new Padding(12, 10, 12, 5) };
+        var lblTitle = new Label { Text = "BẢNG TỔNG HỢP VÀ TÍNH GIÁ VẬT TƯ", Font = new Font("Be Vietnam Pro", 14f, FontStyle.Bold), AutoSize = true, Location = new Point(12, 12), ForeColor = Color.FromArgb(0, 120, 215) };
+        topPanel.Controls.Add(lblTitle);
 
-        var btnThoat = new Button 
-        { 
-            Text = "Đóng", 
-            Size = new Size(100, 36), 
-            BackColor = Color.White, 
-            ForeColor = Color.Black, 
+        var btnAutoFit = new Button
+        {
+            Text = "↕ Tự động giãn cột/dòng",
+            AutoSize = true,
+            Location = new Point(topPanel.Width - 190, 10),
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
             FlatStyle = FlatStyle.Flat,
-            Font = new Font("Be Vietnam Pro", 10f, FontStyle.Bold),
-            Margin = new Padding(5, 0, 0, 0)
+            BackColor = Color.FromArgb(240, 240, 240),
+            Font = new Font("Be Vietnam Pro", 9f)
         };
+        btnAutoFit.FlatAppearance.BorderColor = Color.LightGray;
+        btnAutoFit.Click += (s, e) =>
+        {
+            DataGridView activeGrid = null;
+            if (tabControl.SelectedTab == tabControl.TabPages[0]) activeGrid = dgvVL;
+            else if (tabControl.SelectedTab == tabControl.TabPages[1]) activeGrid = dgvNC;
+            else if (tabControl.SelectedTab == tabControl.TabPages[2]) activeGrid = dgvMay;
+
+            if (activeGrid != null)
+            {
+                activeGrid.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.DisplayedCells);
+                activeGrid.AutoResizeRows(DataGridViewAutoSizeRowsMode.AllCells);
+            }
+        };
+        topPanel.Controls.Add(btnAutoFit);
+
+        // ===== Bottom Panel: Buttons =====
+        var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 55, Padding = new Padding(12, 8, 12, 8) };
+
+        var btnTable = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 4,
+            RowCount = 1
+        };
+        btnTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
+        btnTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
+        btnTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
+        btnTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
+
+        var btnThoat = new Button { Text = "Đóng", Dock = DockStyle.Fill, Margin = new Padding(5, 0, 5, 0), FlatStyle = FlatStyle.Flat, Font = new Font("Be Vietnam Pro", 10f, FontStyle.Bold) };
         btnThoat.FlatAppearance.BorderColor = Color.LightGray;
         btnThoat.Click += (s, e) => this.Close();
 
-        var btnApGia = new Button 
-        { 
-            Text = "Áp giá vào Dự toán", 
-            Size = new Size(180, 36), 
-            BackColor = Color.FromArgb(40, 167, 69), 
-            ForeColor = Color.White, 
-            FlatStyle = FlatStyle.Flat,
-            Font = new Font("Be Vietnam Pro", 10f, FontStyle.Bold),
-            Margin = new Padding(5, 0, 0, 0)
-        };
+        var btnApGia = new Button { Text = "📋  Áp giá vào Dự toán", Dock = DockStyle.Fill, Margin = new Padding(5, 0, 5, 0), BackColor = Color.FromArgb(40, 167, 69), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Be Vietnam Pro", 10f, FontStyle.Bold) };
         btnApGia.FlatAppearance.BorderSize = 0;
         btnApGia.Click += BtnApGia_Click;
 
-        var btnLuu = new Button 
-        { 
-            Text = "Lưu đơn giá", 
-            Size = new Size(140, 36), 
-            BackColor = Color.FromArgb(0, 120, 215), 
-            ForeColor = Color.White, 
-            FlatStyle = FlatStyle.Flat,
-            Font = new Font("Be Vietnam Pro", 10f, FontStyle.Bold),
-            Margin = new Padding(5, 0, 0, 0)
-        };
+        var btnCapNhatGoc = new Button { Text = "🔄  Cập nhật vào đơn giá gốc", Dock = DockStyle.Fill, Margin = new Padding(5, 0, 5, 0), BackColor = Color.FromArgb(255, 152, 0), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Be Vietnam Pro", 10f, FontStyle.Bold) };
+        btnCapNhatGoc.FlatAppearance.BorderSize = 0;
+        btnCapNhatGoc.Click += BtnCapNhatGoc_Click;
+
+        var btnLuu = new Button { Text = "💾  Lưu đơn giá", Dock = DockStyle.Fill, Margin = new Padding(5, 0, 5, 0), BackColor = Color.FromArgb(0, 120, 215), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Be Vietnam Pro", 10f, FontStyle.Bold) };
         btnLuu.FlatAppearance.BorderSize = 0;
         btnLuu.Click += BtnLuu_Click;
 
-        rightPanel.Controls.Add(btnThoat);
-        rightPanel.Controls.Add(btnApGia);
-        rightPanel.Controls.Add(btnLuu);
+        btnTable.Controls.Add(btnThoat, 0, 0);
+        btnTable.Controls.Add(btnApGia, 1, 0);
+        btnTable.Controls.Add(btnCapNhatGoc, 2, 0);
+        btnTable.Controls.Add(btnLuu, 3, 0);
 
-        topPanel.Controls.Add(lblTitle);
-        topPanel.Controls.Add(rightPanel);
+        bottomPanel.Controls.Add(btnTable);
 
-        tabControl = new TabControl { Dock = DockStyle.Fill, Font = new Font("Be Vietnam Pro", 10f, FontStyle.Bold), DrawMode = TabDrawMode.OwnerDrawFixed };
-        tabControl.DrawItem += TabControl_DrawItem;
+        // ===== Tab Control =====
+        tabControl = new TabControl { Dock = DockStyle.Fill };
+        tabControl.Font = new Font("Be Vietnam Pro", 10f, FontStyle.Bold);
+        AIE.ExcelAddIn.Helpers.UIHelper.ApplyStyle(tabControl);
 
-        // Tab Vật liệu
         var tabVL = new TabPage("Vật liệu");
+        var tabNC = new TabPage("Nhân công");
+        var tabMay = new TabPage("Máy thi công");
+
+        // === Tab Vật liệu ===
         dgvVL = CreateGrid("dgvVL");
-        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "MaVatTu", HeaderText = "Mã VL", DataPropertyName = "MaVatTu", ReadOnly = true, Width = 100 });
-        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "TenVatTu", HeaderText = "Tên vật liệu", DataPropertyName = "TenVatTu", ReadOnly = true, Width = 300 });
-        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "DonVi", HeaderText = "ĐVT", DataPropertyName = "DonVi", ReadOnly = true, Width = 80, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
-        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "TongKhoiLuong", HeaderText = "Khối lượng", DataPropertyName = "TongKhoiLuong", ReadOnly = true, Width = 120, DefaultCellStyle = new DataGridViewCellStyle { Format = "N2", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
-        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "GiaGoc", HeaderText = "Giá gốc", DataPropertyName = "GiaGoc", ReadOnly = false, Width = 120, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight, BackColor = Color.FromArgb(255, 255, 200) } });
-        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "CuocVanChuyen", HeaderText = "Cước VC", DataPropertyName = "CuocVanChuyen", Width = 120, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight, BackColor = Color.FromArgb(255, 255, 200) } });
-        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "GiaHienTruong", HeaderText = "Giá hiện trường", DataPropertyName = "GiaHienTruong", ReadOnly = true, Width = 150, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight, ForeColor = Color.Red, Font = new Font(dgvVL.Font, FontStyle.Bold) } });
+        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "MaVatTu", HeaderText = "Mã VL", DataPropertyName = "MaVatTu", ReadOnly = true, FillWeight = 15 });
+        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "TenVatTu", HeaderText = "Tên vật liệu", DataPropertyName = "TenVatTu", ReadOnly = true, FillWeight = 40 });
+        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "DonVi", HeaderText = "ĐVT", DataPropertyName = "DonVi", ReadOnly = true, FillWeight = 8, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
+        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "TongKhoiLuong", HeaderText = "Khối lượng", DataPropertyName = "TongKhoiLuong", ReadOnly = true, FillWeight = 12, DefaultCellStyle = new DataGridViewCellStyle { Format = "#,##0.00", Alignment = DataGridViewContentAlignment.MiddleRight } });
+        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "GiaGoc", HeaderText = "Giá gốc", DataPropertyName = "GiaGoc", ReadOnly = false, FillWeight = 14, DefaultCellStyle = new DataGridViewCellStyle { Format = "#,##0", Alignment = DataGridViewContentAlignment.MiddleRight, BackColor = Color.FromArgb(255, 255, 200) } });
+        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "CuocVanChuyen", HeaderText = "Cước VC", DataPropertyName = "CuocVanChuyen", FillWeight = 12, DefaultCellStyle = new DataGridViewCellStyle { Format = "#,##0", Alignment = DataGridViewContentAlignment.MiddleRight, BackColor = Color.FromArgb(255, 255, 200) } });
+        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "GiaHienTruong", HeaderText = "Giá hiện trường", DataPropertyName = "GiaHienTruong", ReadOnly = true, FillWeight = 16, DefaultCellStyle = new DataGridViewCellStyle { Format = "#,##0", Alignment = DataGridViewContentAlignment.MiddleRight, ForeColor = Color.Red } });
         dgvVL.CellValueChanged += DgvVL_CellValueChanged;
         dgvVL.CellParsing += DgvVL_CellParsing;
         tabVL.Controls.Add(dgvVL);
 
-        // Tab Nhân công
-        var tabNC = new TabPage("Nhân công");
+        // === Tab Nhân công ===
         dgvNC = CreateGrid("dgvNC");
-        dgvNC.Columns.Add(new DataGridViewTextBoxColumn { Name = "MaVatTu", HeaderText = "Mã NC", DataPropertyName = "MaVatTu", ReadOnly = true, Width = 100 });
-        dgvNC.Columns.Add(new DataGridViewTextBoxColumn { Name = "TenVatTu", HeaderText = "Tên nhân công", DataPropertyName = "TenVatTu", ReadOnly = true, Width = 300 });
-        dgvNC.Columns.Add(new DataGridViewTextBoxColumn { Name = "DonVi", HeaderText = "ĐVT", DataPropertyName = "DonVi", ReadOnly = true, Width = 80, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
-        dgvNC.Columns.Add(new DataGridViewTextBoxColumn { Name = "TongKhoiLuong", HeaderText = "Khối lượng", DataPropertyName = "TongKhoiLuong", ReadOnly = true, Width = 120, DefaultCellStyle = new DataGridViewCellStyle { Format = "N2", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
-        dgvNC.Columns.Add(new DataGridViewTextBoxColumn { Name = "GiaHienTruong", HeaderText = "Giá nhân công", DataPropertyName = "GiaHienTruong", Width = 150, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight, BackColor = Color.FromArgb(255, 255, 200), ForeColor = Color.Red, Font = new Font(dgvNC.Font, FontStyle.Bold) } });
+        dgvNC.Columns.Add(new DataGridViewTextBoxColumn { Name = "MaVatTu", HeaderText = "Mã NC", DataPropertyName = "MaVatTu", ReadOnly = true, FillWeight = 15 });
+        dgvNC.Columns.Add(new DataGridViewTextBoxColumn { Name = "TenVatTu", HeaderText = "Tên nhân công", DataPropertyName = "TenVatTu", ReadOnly = true, FillWeight = 40 });
+        dgvNC.Columns.Add(new DataGridViewTextBoxColumn { Name = "DonVi", HeaderText = "ĐVT", DataPropertyName = "DonVi", ReadOnly = true, FillWeight = 10, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
+        dgvNC.Columns.Add(new DataGridViewTextBoxColumn { Name = "TongKhoiLuong", HeaderText = "Khối lượng", DataPropertyName = "TongKhoiLuong", ReadOnly = true, FillWeight = 15, DefaultCellStyle = new DataGridViewCellStyle { Format = "#,##0.00", Alignment = DataGridViewContentAlignment.MiddleRight } });
+        dgvNC.Columns.Add(new DataGridViewTextBoxColumn { Name = "GiaHienTruong", HeaderText = "Giá nhân công", DataPropertyName = "GiaHienTruong", ReadOnly = false, FillWeight = 20, DefaultCellStyle = new DataGridViewCellStyle { Format = "#,##0", Alignment = DataGridViewContentAlignment.MiddleRight, BackColor = Color.FromArgb(255, 255, 200) } });
         tabNC.Controls.Add(dgvNC);
 
-        // Tab Máy thi công
-        var tabMay = new TabPage("Máy thi công");
+        // === Tab Máy thi công (cột giống QuanLyDonGiaForm) ===
+        var mayContainer = new Panel { Dock = DockStyle.Fill };
         
-        var fuelPanel = new Panel { Dock = DockStyle.Top, Height = 70, Padding = new Padding(10), BackColor = Color.FromArgb(240, 248, 255) };
+        // --- Fuel Panel: Vùng (readonly) + Giá nhiên liệu ---
+        var fuelPanel = new Panel { Dock = DockStyle.Top, Height = 40, Padding = new Padding(8, 6, 8, 6) };
+        fuelPanel.BackColor = Color.FromArgb(240, 248, 255);
+
         int px = 10;
-        
-        // Vùng áp dụng dropdown
-        var lblVung = new Label { Text = "Vùng áp dụng:", AutoSize = true, Location = new Point(px, 24), Font = new Font("Be Vietnam Pro", 9.5f) };
-        fuelPanel.Controls.Add(lblVung);
-        px += lblVung.PreferredWidth + 4;
-        var cbVungMay = new ComboBox { Width = 120, Location = new Point(px, 20), Font = new Font("Be Vietnam Pro", 9.5f), DropDownStyle = ComboBoxStyle.DropDownList };
-        cbVungMay.Items.AddRange(new string[] { "Vùng II", "Vùng III", "Vùng IV", "Cù Lao Chàm" });
-        cbVungMay.SelectedIndex = (int)_duToan.VungApDung - 2;
-        cbVungMay.SelectedIndexChanged += (s, e) => {
-            _duToan.VungApDung = (AIE.Core.Enums.Vung)(cbVungMay.SelectedIndex + 2);
-            RecalculateMachinePrices();
+
+        // Vùng áp dụng (readonly label, not editable)
+        var lblVungLabel = new Label { Text = "Vùng áp dụng:", AutoSize = true, Location = new Point(px, 10), Font = new Font("Be Vietnam Pro", 9f) };
+        fuelPanel.Controls.Add(lblVungLabel);
+        px += lblVungLabel.PreferredWidth + 4;
+
+        string vungText = _duToan.VungApDung switch
+        {
+            AIE.Core.Enums.Vung.VungII => "Vùng II",
+            AIE.Core.Enums.Vung.VungIII => "Vùng III",
+            AIE.Core.Enums.Vung.VungIV => "Vùng IV",
+            AIE.Core.Enums.Vung.CuLaoCham => "Cù Lao Chàm",
+            _ => "Vùng II"
         };
-        fuelPanel.Controls.Add(cbVungMay);
-        px += 135;
-        
+        var lblVungValue = new Label
+        {
+            Text = vungText,
+            AutoSize = true,
+            Location = new Point(px, 10),
+            Font = new Font("Be Vietnam Pro", 9.5f, FontStyle.Bold),
+            ForeColor = Color.FromArgb(0, 120, 215)
+        };
+        fuelPanel.Controls.Add(lblVungValue);
+        px += lblVungValue.PreferredWidth + 30;
+
         txtGiaXang = AddFuelInput(fuelPanel, "Giá Xăng (đ/lít):", ref px);
         txtGiaDiezel = AddFuelInput(fuelPanel, "Giá Diezel (đ/lít):", ref px);
         txtGiaDien = AddFuelInput(fuelPanel, "Giá Điện (đ/kWh):", ref px);
 
         dgvMay = CreateGrid("dgvMay");
-        dgvMay.ColumnHeadersHeight = 45;
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "MaVatTu", HeaderText = "Mã Máy", DataPropertyName = "MaVatTu", ReadOnly = true, Width = 90 });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "TenVatTu", HeaderText = "Tên máy", DataPropertyName = "TenVatTu", ReadOnly = true, Width = 200 });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "DonVi", HeaderText = "ĐVT", DataPropertyName = "DonVi", ReadOnly = true, Width = 50, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "TongKhoiLuong", HeaderText = "Khối lượng", DataPropertyName = "TongKhoiLuong", ReadOnly = true, Width = 80, DefaultCellStyle = new DataGridViewCellStyle { Format = "N2", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
+        dgvMay.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+        // Col 0
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "MaVatTu", HeaderText = "Mã hiệu", DataPropertyName = "MaVatTu", ReadOnly = true, Width = 90, Frozen = true });
+        // Col 1
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "TenVatTu", HeaderText = "Tên máy và thiết bị", DataPropertyName = "TenVatTu", ReadOnly = true, Width = 200, Frozen = true, DefaultCellStyle = new DataGridViewCellStyle { WrapMode = DataGridViewTriState.True } });
+        // Col 2
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "SoCaNam", HeaderText = "Số ca/năm", DataPropertyName = "SoCaNam", ReadOnly = true, Width = 70, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
+        // Col 3 (Định mức start)
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "DM_KhauHao", HeaderText = "Khấu hao", DataPropertyName = "DmKhauHao", ReadOnly = true, Width = 70, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
+        // Col 4
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "DM_SuaChua", HeaderText = "Sửa chữa", DataPropertyName = "DmSuaChua", ReadOnly = true, Width = 70, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
+        // Col 5 (Định mức end)
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "DM_Khac", HeaderText = "Khác", DataPropertyName = "DmKhac", ReadOnly = true, Width = 70, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
+        // Col 6
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "DinhMucNhienLieuDisplay", HeaderText = "Định mức tiêu hao NL", DataPropertyName = "DinhMucNhienLieuDisplay", ReadOnly = true, Width = 150, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter, WrapMode = DataGridViewTriState.True } });
+        // Col 7
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "HeSoNhienLieuPhu", HeaderText = "Hệ số NL phụ", DataPropertyName = "HeSoNhienLieuPhu", ReadOnly = true, Width = 70, DefaultCellStyle = new DataGridViewCellStyle { Format = "0.##", Alignment = DataGridViewContentAlignment.MiddleCenter } });
+        // Col 8
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "NhanCongVanHanhDisplay", HeaderText = "Nhân công vận hành", DataPropertyName = "NhanCongVanHanhDisplay", ReadOnly = true, Width = 200, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleLeft, WrapMode = DataGridViewTriState.True } });
+        // Col 9
         dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "NguyenGia", HeaderText = "Nguyên giá", DataPropertyName = "NguyenGia", ReadOnly = true, Width = 100, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
-        // Định mức group: cols 5, 6, 7
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "DM_KhauHao", HeaderText = "ĐM Khấu hao", DataPropertyName = "DmKhauHao", ReadOnly = true, Width = 70, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "DM_SuaChua", HeaderText = "ĐM Sửa chữa", DataPropertyName = "DmSuaChua", ReadOnly = true, Width = 70, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "DM_Khac", HeaderText = "ĐM Khác", DataPropertyName = "DmKhac", ReadOnly = true, Width = 70, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
-        // Chi phí group: cols 8, 9, 10
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiKhauHao", HeaderText = "CP Khấu hao", DataPropertyName = "ChiPhiKhauHao", ReadOnly = true, Width = 90, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiSuaChua", HeaderText = "CP Sửa chữa", DataPropertyName = "ChiPhiSuaChua", ReadOnly = true, Width = 90, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
-        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiKhac", HeaderText = "CP Khác", DataPropertyName = "ChiPhiKhac", ReadOnly = true, Width = 80, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
+        // Col 10 (Chi phí start)
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiKhauHao", HeaderText = "Khấu hao", DataPropertyName = "ChiPhiKhauHao", ReadOnly = true, Width = 80, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
+        // Col 11
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiSuaChua", HeaderText = "Sửa chữa", DataPropertyName = "ChiPhiSuaChua", ReadOnly = true, Width = 80, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
+        // Col 12 (Chi phí end)
+        dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiKhac", HeaderText = "Khác", DataPropertyName = "ChiPhiKhac", ReadOnly = true, Width = 80, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
+        // Col 13
         dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiNhiemLieu", HeaderText = "CP Nhiên liệu", DataPropertyName = "ChiPhiNhiemLieu", ReadOnly = true, Width = 100, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
+        // Col 14
         dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiNhanCong", HeaderText = "Lương thợ", DataPropertyName = "ChiPhiNhanCong", ReadOnly = true, Width = 100, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight } });
+        // Col 15
         dgvMay.Columns.Add(new DataGridViewTextBoxColumn { Name = "GiaHienTruong", HeaderText = "ĐƠN GIÁ CA MÁY", DataPropertyName = "GiaHienTruong", ReadOnly = true, Width = 130, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0", FormatProvider = ViVn, Alignment = DataGridViewContentAlignment.MiddleRight, ForeColor = Color.Red, Font = new Font(dgvMay.Font, FontStyle.Bold) } });
-        
+
         dgvMay.CellPainting += DgvMay_CellPainting;
-        
-        tabMay.Controls.Add(dgvMay);
-        tabMay.Controls.Add(fuelPanel);
+        dgvMay.CellDoubleClick += DgvMay_CellDoubleClick;
+
+        mayContainer.Controls.Add(dgvMay);
+        mayContainer.Controls.Add(fuelPanel);
+        tabMay.Controls.Add(mayContainer);
 
         tabControl.TabPages.Add(tabVL);
         tabControl.TabPages.Add(tabNC);
         tabControl.TabPages.Add(tabMay);
 
+        // ===== Layout =====
         this.Controls.Add(tabControl);
         this.Controls.Add(topPanel);
+        this.Controls.Add(bottomPanel);
+    }
+
+    private void BtnCapNhatGoc_Click(object sender, EventArgs e)
+    {
+        try
+        {
+            dgvVL.EndEdit();
+            dgvNC.EndEdit();
+            dgvMay.EndEdit();
+
+            var db = new AIE.Data.DatabaseManager();
+            var vlRepo = new AIE.Data.Repositories.VatLieuRepository(db.Context);
+            var ncRepo = new AIE.Data.Repositories.NhanCongRepository(db.Context);
+
+            // Cập nhật giá vật liệu
+            foreach (var vl in _bangTongHop.DanhSachVatLieu)
+            {
+                var vlMaster = vlRepo.GetByMa(vl.MaVatTu);
+                if (vlMaster != null)
+                {
+                    vlMaster.DonGia = vl.GiaGoc;
+                    vlMaster.CuocVanChuyen = vl.CuocVanChuyen;
+                    vlRepo.Upsert(vlMaster);
+                }
+            }
+
+            // Cập nhật giá nhân công
+            foreach (var nc in _bangTongHop.DanhSachNhanCong)
+            {
+                var ncMaster = ncRepo.GetByMa(nc.MaVatTu);
+                if (ncMaster != null)
+                {
+                    ncMaster.SetDonGia(_duToan.VungApDung, nc.GiaHienTruong);
+                    ncRepo.Upsert(ncMaster);
+                }
+            }
+
+            MessageBox.Show("Đã cập nhật thành công vào bộ đơn giá gốc!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Lỗi khi cập nhật: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private void BtnLuu_Click(object sender, EventArgs e)
@@ -328,9 +416,10 @@ public class TinhGiaHienTruongForm : Form
 
     private TextBox AddFuelInput(Panel parent, string labelText, ref int x)
     {
-        int labelWidth = 130;
-        var lbl = new Label { Text = labelText, AutoSize = false, Size = new Size(labelWidth, 25), Location = new Point(x, 24), Font = new Font("Be Vietnam Pro", 9.5f) };
-        var txt = new TextBox { Location = new Point(x + labelWidth, 20), Width = 100, Font = new Font("Be Vietnam Pro", 10f), TextAlign = HorizontalAlignment.Right };
+        var lbl = new Label { Text = labelText, AutoSize = true, Location = new Point(x, 10), Font = new Font("Be Vietnam Pro", 9f) };
+        parent.Controls.Add(lbl);
+        x += lbl.PreferredWidth + 4;
+        var txt = new TextBox { Location = new Point(x, 7), Width = 90, Font = new Font("Be Vietnam Pro", 9.5f), TextAlign = HorizontalAlignment.Right };
         
         // Khi click vào ô: xóa dấu chấm để sẵn sàng nhập số mới
         txt.Enter += (s, e) => 
@@ -361,9 +450,8 @@ public class TinhGiaHienTruongForm : Form
                 e.Handled = true;
         };
 
-        parent.Controls.Add(lbl);
         parent.Controls.Add(txt);
-        x += labelWidth + 100 + 30; // space for next
+        x += 100; // space for next
         return txt;
     }
 
@@ -378,10 +466,6 @@ public class TinhGiaHienTruongForm : Form
         dgvVL.DataSource = new BindingSource { DataSource = _bangTongHop.DanhSachVatLieu };
         dgvNC.DataSource = new BindingSource { DataSource = _bangTongHop.DanhSachNhanCong };
         dgvMay.DataSource = new BindingSource { DataSource = _bangTongHop.DanhSachMay };
-        
-        dgvVL.AutoResizeRows(DataGridViewAutoSizeRowsMode.AllCells);
-        dgvNC.AutoResizeRows(DataGridViewAutoSizeRowsMode.AllCells);
-        dgvMay.AutoResizeRows(DataGridViewAutoSizeRowsMode.AllCells);
     }
 
     private void RecalculateMachinePrices()
@@ -407,13 +491,35 @@ public class TinhGiaHienTruongForm : Form
 
     private void DgvMay_CellPainting(object sender, DataGridViewCellPaintingEventArgs e)
     {
-        // Định mức: cols 5, 6, 7  |  Chi phí: cols 8, 9, 10
-        Helpers.GridHelper.PaintMergedHeader(sender, e, dgvMay, 5, 7, "Định mức", 8, 10, "Chi phí");
+        // Định mức: cols 3, 4, 5  |  Chi phí: cols 10, 11, 12
+        Helpers.GridHelper.PaintMergedHeader(sender, e, dgvMay, 3, 5, "Định mức", 10, 12, "Chi phí");
+    }
+
+    private void DgvMay_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+    {
+        if (e.RowIndex < 0) return;
+        var mayHT = _bangTongHop.DanhSachMay[e.RowIndex];
+        if (mayHT?.DinhMuc != null)
+        {
+            var dbManager = new AIE.Data.DatabaseManager();
+            var mayDmRepo = new AIE.Data.Repositories.DinhMucCaMayRepository(dbManager.Context);
+            using var frm = new NhapDinhMucCaMayForm(mayHT.MaVatTu, mayHT.TenVatTu ?? "", mayDmRepo);
+            if (frm.ShowDialog() == DialogResult.OK)
+            {
+                // Reload the DinhMuc from DB after editing
+                var updatedDm = mayDmRepo.GetByMaMay(mayHT.MaVatTu);
+                if (updatedDm != null)
+                {
+                    mayHT.DinhMuc = updatedDm;
+                }
+                RecalculateMachinePrices();
+            }
+        }
     }
 
     private DataGridView CreateGrid(string gridName)
     {
-        return new DataGridView
+        var dgv = new DataGridView
         {
             Name = gridName,
             Dock = DockStyle.Fill,
@@ -421,82 +527,20 @@ public class TinhGiaHienTruongForm : Form
             AllowUserToAddRows = false,
             AllowUserToDeleteRows = false,
             SelectionMode = DataGridViewSelectionMode.CellSelect,
-            RowHeadersVisible = false,
+            RowHeadersVisible = true,
+            RowHeadersWidth = 25,
+            AllowUserToResizeRows = true,
             BackgroundColor = Color.White,
             BorderStyle = BorderStyle.None,
             Font = new Font("Be Vietnam Pro", 10f, FontStyle.Regular),
-            AlternatingRowsDefaultCellStyle = new DataGridViewCellStyle { BackColor = Color.FromArgb(245, 248, 252) },
-            ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
-            {
-                BackColor = Color.FromArgb(0, 120, 215),
-                ForeColor = Color.White,
-                Font = new Font("Be Vietnam Pro", 10f, FontStyle.Bold),
-                Alignment = DataGridViewContentAlignment.MiddleCenter,
-                Padding = new Padding(0, 5, 0, 5)
-            },
-            EnableHeadersVisualStyles = false,
-            ColumnHeadersHeight = 40,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
             AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells,
             DefaultCellStyle = new DataGridViewCellStyle { WrapMode = DataGridViewTriState.True },
-            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
-            ScrollBars = ScrollBars.Both,
             EditMode = DataGridViewEditMode.EditOnEnter
         };
-    }
 
-    // === Lưu / Khôi phục độ rộng cột ===
-    
-    private void SaveColumnWidths()
-    {
-        try
-        {
-            if (!Directory.Exists(SettingsDir)) Directory.CreateDirectory(SettingsDir);
-            
-            var lines = new List<string>();
-            SaveGridWidths(lines, dgvVL);
-            SaveGridWidths(lines, dgvNC);
-            SaveGridWidths(lines, dgvMay);
-            File.WriteAllLines(SettingsFile, lines);
-        }
-        catch { /* Ignore save errors */ }
-    }
-
-    private void SaveGridWidths(List<string> lines, DataGridView dgv)
-    {
-        foreach (DataGridViewColumn col in dgv.Columns)
-        {
-            lines.Add($"{dgv.Name}|{col.Name}|{col.Width}");
-        }
-    }
-
-    private void RestoreColumnWidths()
-    {
-        try
-        {
-            if (!File.Exists(SettingsFile)) return;
-            
-            var lines = File.ReadAllLines(SettingsFile);
-            var grids = new Dictionary<string, DataGridView>
-            {
-                { dgvVL.Name, dgvVL },
-                { dgvNC.Name, dgvNC },
-                { dgvMay.Name, dgvMay }
-            };
-            
-            foreach (var line in lines)
-            {
-                var parts = line.Split('|');
-                if (parts.Length != 3) continue;
-                
-                if (grids.TryGetValue(parts[0], out var dgv))
-                {
-                    if (dgv.Columns.Contains(parts[1]) && int.TryParse(parts[2], out var width))
-                    {
-                        dgv.Columns[parts[1]].Width = width;
-                    }
-                }
-            }
-        }
-        catch { /* Ignore restore errors */ }
+        AIE.ExcelAddIn.Helpers.UIHelper.ApplyStyle(dgv);
+        
+        return dgv;
     }
 }

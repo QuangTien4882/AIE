@@ -106,6 +106,16 @@ namespace AIE.ExcelAddIn.Services
                             if (!dictNC.ContainsKey(hp.MaHieuHP))
                             {
                                 var ncMaster = _ncRepo.GetByMa(hp.MaHieuHP);
+                                if (ncMaster == null)
+                                {
+                                    // Fallback: try to extract group number from name (e.g. "Nhân công nhóm 2")
+                                    var match = System.Text.RegularExpressions.Regex.Match(hp.TenHaoPhi, @"nhóm\s*(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                                    if (match.Success && int.TryParse(match.Groups[1].Value, out int nhom))
+                                    {
+                                        ncMaster = _ncRepo.GetAll().FirstOrDefault(n => n.LoaiNhanCong == AIE.Core.Enums.LoaiNhanCong.XayDung && n.Nhom == nhom);
+                                    }
+                                }
+
                                 var giaNc = ncMaster?.GetDonGia(duToan.VungApDung) ?? 0;
                                 dictNC[hp.MaHieuHP] = new NhanCongHienTruong
                                 {
