@@ -92,13 +92,22 @@ namespace AIE.ExcelAddIn.Helpers
                         int endCol = isMerged1 ? endCol1 : endCol2;
                         string mainHeader = isMerged1 ? header1 : header2;
 
-                        Rectangle firstRect = dgv.GetCellDisplayRectangle(startCol, -1, false);
-                        Rectangle lastRect = dgv.GetCellDisplayRectangle(endCol, -1, false);
+                        int startX = e.CellBounds.Left;
+                        for (int i = startCol; i < e.ColumnIndex; i++)
+                        {
+                            startX -= dgv.Columns[i].Width;
+                        }
+
+                        int totalWidth = 0;
+                        for (int i = startCol; i <= endCol; i++)
+                        {
+                            totalWidth += dgv.Columns[i].Width;
+                        }
                         
                         Rectangle mainRect = new Rectangle(
-                            firstRect.Left, 
+                            startX, 
                             e.CellBounds.Top, 
-                            lastRect.Right - firstRect.Left, 
+                            totalWidth, 
                             e.CellBounds.Height / 2);
                         
                         e.Graphics.DrawString(mainHeader, e.CellStyle.Font, foreBrush, mainRect, format);
