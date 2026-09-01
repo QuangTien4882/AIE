@@ -59,6 +59,21 @@ public class BoDonGiaRepository
         });
     }
 
+    public void UpdateInfo(int id, string tenBo, decimal giaXang = 0, decimal giaDiezel = 0, decimal giaDien = 0, string ghiChu = "")
+    {
+        using var conn = _context.GetConnection();
+        var sql = @"UPDATE BoDonGia SET TenBo = @TenBo, GiaXang = @GiaXang, GiaDiezel = @GiaDiezel, GiaDien = @GiaDien, GhiChu = @GhiChu WHERE Id = @Id;";
+        conn.Execute(sql, new
+        {
+            Id = id,
+            TenBo = tenBo,
+            GiaXang = giaXang,
+            GiaDiezel = giaDiezel,
+            GiaDien = giaDien,
+            GhiChu = ghiChu
+        });
+    }
+
     public void UpdateName(int boDonGiaId, string newName)
     {
         using var conn = _context.GetConnection();

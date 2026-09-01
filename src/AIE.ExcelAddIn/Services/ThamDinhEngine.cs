@@ -147,22 +147,19 @@ public class ThamDinhEngine
         {
             foreach (var saiLech in kq.DanhSachSaiLech)
             {
-                if (saiLech.HaoPhiDuToan == null) continue;
+                if (saiLech.HaoPhiChuan == null || string.IsNullOrEmpty(saiLech.HaoPhiChuan.MaHieuHP)) continue;
                 
-                // Dùng MaHieuHP làm key nếu có, nếu không thì dùng tên chuẩn hóa
-                string maHieu = saiLech.HaoPhiChuan?.MaHieuHP ?? string.Empty;
-                string key = !string.IsNullOrEmpty(maHieu)
-                    ? maHieu + "_" + saiLech.HaoPhiDuToan.Loai.ToString()
-                    : ChuanHoaTen(saiLech.HaoPhiDuToan.TenHaoPhi) + "_" + saiLech.HaoPhiDuToan.Loai.ToString();
+                string maHieu = saiLech.HaoPhiChuan.MaHieuHP;
+                string key = maHieu + "_" + saiLech.HaoPhiChuan.LoaiHaoPhi.ToString();
 
                 if (!dict.ContainsKey(key))
                 {
                     dict[key] = new VatTuGiaModel
                     {
-                        TenVatTu = saiLech.HaoPhiDuToan.TenHaoPhi,
-                        DonVi = saiLech.HaoPhiDuToan.DonVi,
-                        LoaiHP = saiLech.HaoPhiDuToan.Loai,
-                        GiaDuToan = saiLech.HaoPhiDuToan.DonGia,
+                        TenVatTu = saiLech.HaoPhiChuan.TenHaoPhi,
+                        DonVi = saiLech.HaoPhiChuan.DonVi,
+                        LoaiHP = saiLech.HaoPhiChuan.LoaiHaoPhi,
+                        GiaDuToan = saiLech.HaoPhiDuToan?.DonGia ?? 0,
                         MaHieu = maHieu,
                         GiaChuan = saiLech.DonGiaChuan
                     };

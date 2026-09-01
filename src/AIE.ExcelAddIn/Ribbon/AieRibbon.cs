@@ -1,14 +1,18 @@
-using ExcelDna.Integration;
-using ExcelDna.Integration.CustomUI;
+using System;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using Application = Microsoft.Office.Interop.Excel.Application;
+using ExcelDna.Integration;
+using ExcelDna.Integration.CustomUI;
+using Microsoft.Office.Interop.Excel;
+using AIE.Core.Models;
 using AIE.Data;
 using AIE.Data.ImportExport;
+using AIE.Data.Repositories;
 using AIE.ExcelAddIn.Forms;
-using System.IO;
-using System;
-using Microsoft.Office.Interop.Excel;
-using Application = Microsoft.Office.Interop.Excel.Application;
+using Dapper;
 
 namespace AIE.ExcelAddIn.Ribbon
 {
@@ -46,8 +50,9 @@ namespace AIE.ExcelAddIn.Ribbon
                     </group>
 
                     <group id='groupThamDinh' label='Thẩm định dự toán'>
-                      <button id='btnDonGiaThamDinh' label='Đơn giá thẩm định' screentip='Đơn giá thẩm định' size='normal' showImage='false' onAction='OnDonGiaThamDinhClicked' />
-                      <button id='btnKiemTra' label='Kiểm tra' screentip='Kiểm tra' size='normal' showImage='false' onAction='OnKiemTraClicked' />
+                      <button id='btnDonGiaThamDinh' label='Đơn giá thẩm định' screentip='Lập Bộ Đơn giá thẩm định' size='normal' showImage='false' onAction='OnDonGiaThamDinhClicked' />
+                      <button id='btnMoDonGiaThamDinh' label='Mở Bộ Đơn giá' screentip='Mở lại Bộ Đơn giá Thẩm định' size='normal' showImage='false' onAction='OnMoDonGiaThamDinhClicked' />
+                      <button id='btnKiemTra' label='Kiểm tra' screentip='Kiểm tra dự toán' size='normal' showImage='false' onAction='OnKiemTraClicked' />
                       <button id='btnBaoCaoTD' label='Xuất Báo cáo' screentip='Xuất Báo cáo' size='normal' showImage='false' onAction='OnBaoCaoTDClicked' />
                     </group>
 
@@ -273,12 +278,106 @@ namespace AIE.ExcelAddIn.Ribbon
                     loading.Close();
                     loading.Dispose();
                     
-                    donGiaForm.ShowDialog();
+                    if (donGiaForm.ShowDialog() == DialogResult.OK && donGiaForm.SavedBoDonGiaId.HasValue)
+                    {
+                        var result = MessageBox.Show("Bạn có muốn áp dụng Bộ đơn giá vừa tạo để Thẩm định (Kiểm tra) dự toán này ngay không?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                        if (result == DialogResult.Yes)
+                        {
+                            var loadingKiemTra = new AIE.ExcelAddIn.Forms.LoadingForm("Đang thẩm định lại...");
+                            loadingKiemTra.Show();
+                            System.Windows.Forms.Application.DoEvents();
+                            
+                            var ketQuaMoi = engine.KiemTra(danhSachCongTac, donGiaForm.SavedBoDonGiaId);
+                            var writer = new AIE.ExcelAddIn.Services.ThamDinhExcelWriter();
+                            writer.ExportResult(config, ketQuaMoi);
+                            
+                            loadingKiemTra.Close();
+                            loadingKiemTra.Dispose();
+                            
+                            MessageBox.Show("Đã hoàn tất thẩm định và xuất kết quả ra sheet KQ_ThamDinh.", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                    }
                 }
             }
             catch (Exception ex)
             {
                 MessageBox.Show("Lỗi khi đọc dự toán: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        public void OnMoDonGiaThamDinhClicked(IRibbonControl control)
+        {
+            try
+            {
+                var db = new DatabaseManager();
+                var repo = new BoDonGiaRepository(db.Context);
+                
+                using (var form = new ChonBoDonGiaForm(repo))
+                {
+                    form.Text = "Mở Bộ Đơn Giá Thẩm Định";
+                    if (form.ShowDialog() == DialogResult.OK && form.SelectedBoDonGiaId > 0)
+                    {
+                        var loading = new LoadingForm("Đang tải dữ liệu bộ đơn giá...");
+                        loading.Show();
+                        System.Windows.Forms.Application.DoEvents();
+
+                        int boId = form.SelectedBoDonGiaId;
+                        
+                        // Lấy vùng của bộ đơn giá
+                        var selectedBo = repo.GetAll().FirstOrDefault(x => x.Id == boId);
+                        AIE.Core.Enums.Vung vung = AIE.Core.Enums.Vung.VungII; // Mặc định vì BoDonGia hiện không lưu Vùng
+
+                        var vlRepo = new VatLieuRepository(db.Context);
+                        var ncRepo = new NhanCongRepository(db.Context);
+                        var mayRepo = new MayThiCongRepository(db.Context);
+
+                        // Reconstruct VatTuGiaModel list from the saved sets
+                        var dsVatTu = new System.Collections.Generic.List<VatTuGiaModel>();
+                        
+                        var giaVL = repo.GetGiaVL(boId);
+                        using (var conn = db.Context.GetConnection())
+                        {
+                            foreach(var vl in giaVL)
+                            {
+                                var master = vlRepo.GetByMa(vl.MaVL);
+                                string name = master?.TenVL ?? conn.QueryFirstOrDefault<string>("SELECT TenHaoPhi FROM HaoPhi WHERE MaHieuHP = @Ma", new { Ma = vl.MaVL }) ?? vl.MaVL;
+                                dsVatTu.Add(new VatTuGiaModel { MaHieu = vl.MaVL, TenVatTu = name, DonVi = master?.DonVi ?? "", GiaChuan = vl.GiaGoc, LoaiHP = AIE.Core.Enums.LoaiHaoPhi.VL });
+                            }
+
+                            var giaNC = repo.GetGiaNC(boId);
+                            foreach(var nc in giaNC)
+                            {
+                                var master = ncRepo.GetByMa(nc.MaNC);
+                                string name = master?.TenNC ?? conn.QueryFirstOrDefault<string>("SELECT TenHaoPhi FROM HaoPhi WHERE MaHieuHP = @Ma", new { Ma = nc.MaNC }) ?? nc.MaNC;
+                                dsVatTu.Add(new VatTuGiaModel { MaHieu = nc.MaNC, TenVatTu = name, DonVi = master?.DonVi ?? "", GiaChuan = nc.DonGia, LoaiHP = AIE.Core.Enums.LoaiHaoPhi.NC });
+                            }
+
+                            var giaMay = repo.GetGiaMay(boId);
+                            foreach(var m in giaMay)
+                            {
+                                var master = mayRepo.GetByMa(m.MaMay);
+                                string name = master?.TenMay ?? conn.QueryFirstOrDefault<string>("SELECT TenHaoPhi FROM HaoPhi WHERE MaHieuHP = @Ma", new { Ma = m.MaMay }) ?? m.MaMay;
+                                dsVatTu.Add(new VatTuGiaModel { MaHieu = m.MaMay, TenVatTu = name, DonVi = master?.DonVi ?? "", GiaChuan = m.DonGia, LoaiHP = AIE.Core.Enums.LoaiHaoPhi.MAY });
+                            }
+                        }
+
+                        var donGiaForm = new ThamDinhDonGiaForm(dsVatTu, vung, boId);
+                        if (selectedBo != null)
+                        {
+                            donGiaForm.SetTenBoDonGia(selectedBo.TenBo, selectedBo.GiaXang, selectedBo.GiaDiezel, selectedBo.GiaDien);
+                        }
+
+                        loading.Close();
+                        loading.Dispose();
+
+                        // Không tự động chạy Kiểm tra khi mở lại, người dùng lưu xong tự ấn Kiểm tra
+                        donGiaForm.ShowDialog();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khi mở Bộ Đơn Giá: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
