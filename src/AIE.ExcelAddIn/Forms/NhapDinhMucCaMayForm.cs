@@ -30,9 +30,34 @@ public class NhapDinhMucCaMayForm : Form
     private DataGridView dgvNhanCong;
     private BindingList<WorkerRow> _workerList;
 
+    /// <summary>
+    /// Danh sách chức danh nhân công vận hành, điều khiển máy theo bảng công bố.
+    /// Key = mã chức danh, Value = (Tên hiển thị, Nhóm nhân công vận hành II-x)
+    /// </summary>
+    public static readonly Dictionary<string, (string TenHienThi, int NhomVanHanh)> DanhSachChucDanh = new()
+    {
+        // Nhóm II-1: Nhân công vận hành máy, điều khiển máy
+        { "VH",   ("Nhân công vận hành máy", 1) },
+        // Nhóm II-2: Lái xe
+        { "LX",   ("Lái xe", 2) },
+        // Nhóm II-3: Thủy thủ, thợ máy, thợ điện
+        { "TT",   ("Thủy thủ", 3) },
+        { "TM",   ("Thợ máy", 3) },
+        { "TDIEN",("Thợ điện", 3) },
+        // Nhóm II-4: Máy trưởng, điện trưởng, thuyền trưởng, thuyền phó...
+        { "MTR",  ("Máy trưởng", 4) },
+        { "MAY2", ("Máy II", 4) },
+        { "DTRU", ("Điện trưởng", 4) },
+        { "TTRU", ("Thuyền trưởng", 4) },
+        { "TPHO", ("Thuyền phó", 4) },
+        { "KTV1", ("Kỹ thuật viên cuốc I", 4) },
+        { "KTV2", ("Kỹ thuật viên cuốc II", 4) },
+        { "MAY1", ("Máy I", 4) },
+    };
+
     public class WorkerRow
     {
-        public int Nhom { get; set; }
+        public string ChucDanh { get; set; } = "LX";
         public decimal SoLuong { get; set; }
     }
 
@@ -109,21 +134,18 @@ public class NhapDinhMucCaMayForm : Form
             SelectionMode = DataGridViewSelectionMode.FullRowSelect
         };
         
-        var colNhom = new DataGridViewComboBoxColumn
+        var colChucDanh = new DataGridViewComboBoxColumn
         {
-            Name = "Nhom",
+            Name = "ChucDanh",
             HeaderText = "Nhóm thợ (Vận hành)",
-            DataPropertyName = "Nhom",
-            DataSource = new BindingSource(new Dictionary<int, string>
-            {
-                {1, "Nhóm I"}, {2, "Nhóm II"}, {3, "Nhóm III"},
-                {4, "Nhóm IV"}, {5, "Nhóm V"}, {6, "Nhóm VI"}
-            }, null),
-            DisplayMember = "Value",
+            DataPropertyName = "ChucDanh",
+            DataSource = DanhSachChucDanh.Select(x => new { Key = x.Key, Display = x.Value.TenHienThi }).ToList(),
+            DisplayMember = "Display",
             ValueMember = "Key",
-            ValueType = typeof(int)
+            ValueType = typeof(string),
+            FlatStyle = FlatStyle.Flat
         };
-        dgvNhanCong.Columns.Add(colNhom);
+        dgvNhanCong.Columns.Add(colChucDanh);
 
         dgvNhanCong.Columns.Add(new DataGridViewTextBoxColumn { Name = "SoLuong", HeaderText = "Số lượng", DataPropertyName = "SoLuong", DefaultCellStyle = new DataGridViewCellStyle { Format = "0.##", Alignment = DataGridViewContentAlignment.MiddleRight } });
         
@@ -166,7 +188,7 @@ public class NhapDinhMucCaMayForm : Form
 
     private void BtnAddTho_Click(object? sender, EventArgs e)
     {
-        _workerList.Add(new WorkerRow { Nhom = 1, SoLuong = 1 });
+        _workerList.Add(new WorkerRow { ChucDanh = "LX", SoLuong = 1 });
     }
 
     private void DgvNhanCong_CellContentClick(object? sender, DataGridViewCellEventArgs e)
@@ -193,10 +215,44 @@ public class NhapDinhMucCaMayForm : Form
         
         _workerList = new BindingList<WorkerRow>();
         
-        var tpNC = _dinhMuc.GetThanhPhanNhanCong();
-        foreach (var tp in tpNC)
+        // Parse ThanhPhanNhanCong trực tiếp để hỗ trợ cả format cũ (nhom số) và mới (mã chức danh)
+        if (!string.IsNullOrWhiteSpace(_dinhMuc.ThanhPhanNhanCong))
         {
-            _workerList.Add(new WorkerRow { Nhom = tp.Nhom, SoLuong = tp.SoLuong });
+            foreach (var part in _dinhMuc.ThanhPhanNhanCong.Split(';'))
+            {
+                var kv = part.Trim().Split(':');
+                if (kv.Length == 2 && decimal.TryParse(kv[1], NumberStyles.Any, CultureInfo.InvariantCulture, out decimal sl))
+                {
+                    string key = kv[0].Trim();
+                    // Nếu key là số thuần (format cũ), chuyển sang mã chức danh tương ứng
+                    if (int.TryParse(key, out int nhomCu))
+                    {
+                        key = nhomCu switch
+                        {
+                            1 => "VH",
+                            2 => "LX",
+                            3 => "TT",
+                            4 or 5 or 6 => "MTR",
+                            _ => "VH"
+                        };
+                    }
+                    // Đảm bảo key hợp lệ
+                    if (!DanhSachChucDanh.ContainsKey(key)) key = "VH";
+                    _workerList.Add(new WorkerRow { ChucDanh = key, SoLuong = sl });
+                }
+            }
+        }
+        else if (_dinhMuc.NhomNhanCong > 0 && _dinhMuc.SoLuongNhanCong > 0)
+        {
+            // Legacy fallback
+            string key = _dinhMuc.NhomNhanCong switch
+            {
+                1 => "VH",
+                2 => "LX",
+                3 => "TT",
+                _ => "MTR"
+            };
+            _workerList.Add(new WorkerRow { ChucDanh = key, SoLuong = _dinhMuc.SoLuongNhanCong });
         }
         
         dgvNhanCong.DataSource = _workerList;
@@ -232,8 +288,13 @@ public class NhapDinhMucCaMayForm : Form
             {
                 if (w.SoLuong > 0)
                 {
-                    parts.Add($"{w.Nhom}:{w.SoLuong.ToString("0.##", CultureInfo.InvariantCulture)}");
-                    descParts.Add($"{w.SoLuong.ToString("0.##", viVn)} thợ nhóm {w.Nhom}");
+                    int nhomSo = DanhSachChucDanh.ContainsKey(w.ChucDanh) ? DanhSachChucDanh[w.ChucDanh].NhomVanHanh : 1;
+                    string tenCD = DanhSachChucDanh.ContainsKey(w.ChucDanh) ? DanhSachChucDanh[w.ChucDanh].TenHienThi : w.ChucDanh;
+                    // Rút gọn tên chức danh cho chuỗi hiển thị
+                    string tenNgan = tenCD.Split(',')[0].Trim().ToLower();
+                    
+                    parts.Add($"{w.ChucDanh}:{w.SoLuong.ToString("0.##", CultureInfo.InvariantCulture)}");
+                    descParts.Add($"{w.SoLuong.ToString("0.##", viVn)} {tenNgan}");
                 }
             }
             

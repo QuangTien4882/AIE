@@ -57,10 +57,30 @@ public class DinhMucCaMay_TT37
             return 1.0m;
         }
     }
-    
+    /// <summary>
+    /// Mapping mã chức danh sang nhóm nhân công vận hành (II-x).
+    /// Dùng khi ThanhPhanNhanCong lưu theo format mới "LX:1;TD:2"
+    /// </summary>
+    private static readonly Dictionary<string, int> ChucDanhToNhom = new()
+    {
+        { "VH", 1 },  { "VH1", 1 },  // Nhân công vận hành máy (backward compat)
+        { "LX", 2 },                  // Lái xe
+        { "TT", 3 },  { "TD", 3 },   // Thủy thủ (backward compat)
+        { "TM", 3 },                  // Thợ máy
+        { "TDIEN", 3 },               // Thợ điện
+        { "MTR", 4 },  { "MT", 4 },   // Máy trưởng (backward compat)
+        { "MAY2", 4 },                // Máy II
+        { "DTRU", 4 },                // Điện trưởng
+        { "TTRU", 4 },                // Thuyền trưởng
+        { "TPHO", 4 },                // Thuyền phó
+        { "KTV1", 4 },                // Kỹ thuật viên cuốc I
+        { "KTV2", 4 },                // Kỹ thuật viên cuốc II
+        { "MAY1", 4 },                // Máy I
+    };
+
     /// <summary>
     /// Parse ThanhPhanNhanCong thành danh sách (nhóm, số lượng).
-    /// VD: "6:1;3:3;3:1;3:1" -> [(6,1), (3,3), (3,1), (3,1)]
+    /// Hỗ trợ cả format cũ "6:1;3:3" và format mới "LX:1;TD:2"
     /// </summary>
     public List<(int Nhom, decimal SoLuong)> GetThanhPhanNhanCong()
     {
@@ -81,10 +101,23 @@ public class DinhMucCaMay_TT37
         
         foreach (var part in ThanhPhanNhanCong.Split(';'))
         {
-            var kv = part.Split(':');
-            if (kv.Length == 2 && int.TryParse(kv[0], out int nhom) && decimal.TryParse(kv[1], out decimal sl))
+            var kv = part.Trim().Split(':');
+            if (kv.Length != 2) continue;
+            
+            if (!decimal.TryParse(kv[1], System.Globalization.NumberStyles.Any, 
+                System.Globalization.CultureInfo.InvariantCulture, out decimal sl)) continue;
+            
+            string key = kv[0].Trim();
+            
+            if (int.TryParse(key, out int nhom))
             {
+                // Format cũ: số nhóm trực tiếp
                 result.Add((nhom, sl));
+            }
+            else if (ChucDanhToNhom.TryGetValue(key, out int nhomMapped))
+            {
+                // Format mới: mã chức danh
+                result.Add((nhomMapped, sl));
             }
         }
         return result;

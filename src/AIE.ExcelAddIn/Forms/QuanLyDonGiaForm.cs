@@ -619,6 +619,23 @@ public class QuanLyDonGiaForm : Form
             using var frm = new NhapDinhMucCaMayForm(maMay, tenMay ?? "", _mayDmRepo);
             if (frm.ShowDialog() == DialogResult.OK)
             {
+                var dmMay = _mayDmRepo.GetByMaMay(maMay);
+                var mayM = _mayViewModels.FirstOrDefault(x => x.MaHieu == maMay);
+                if (dmMay != null && mayM != null)
+                {
+                    mayM.SoCaNam = dmMay.SoCaNam > 0 ? dmMay.SoCaNam : 250;
+                    mayM.NguyenGia = dmMay.NguyenGia;
+                    mayM.TyLeKhauHao = dmMay.KhauHao;
+                    mayM.TyLeSuaChua = dmMay.SuaChua;
+                    mayM.TyLeKhac = dmMay.ChiPhiKhac;
+                    mayM.NhomNhanCong = dmMay.NhomNhanCong;
+                    mayM.SoLuongNhanCong = dmMay.SoLuongNhanCong;
+                    mayM.HeSoNhienLieuPhu = dmMay.HeSoNhienLieuPhu;
+                    mayM.NhanCongString = dmMay.NhanCongString;
+                    mayM.DinhMucXang = dmMay.DinhMucXang;
+                    mayM.DinhMucDiezel = dmMay.DinhMucDiezel;
+                    mayM.DinhMucDien = dmMay.DinhMucDien;
+                }
                 RecalculateMachineCosts();
             }
         }

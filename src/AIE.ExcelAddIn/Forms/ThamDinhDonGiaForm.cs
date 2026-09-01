@@ -775,6 +775,28 @@ public class ThamDinhDonGiaForm : Form
             using var frm = new NhapDinhMucCaMayForm(maMay, tenMay ?? "", mayDmRepo);
             if (frm.ShowDialog() == DialogResult.OK)
             {
+                var dmMay = mayDmRepo.GetByMaMay(maMay);
+                var mayM = _mayThiCongList.FirstOrDefault(x => x.MaHieu == maMay);
+                if (dmMay != null && mayM != null)
+                {
+                    mayM.SoCaNam = dmMay.SoCaNam > 0 ? dmMay.SoCaNam : 250;
+                    mayM.NguyenGia = dmMay.NguyenGia;
+                    mayM.TyLeKhauHao = dmMay.KhauHao;
+                    mayM.TyLeSuaChua = dmMay.SuaChua;
+                    mayM.TyLeKhac = dmMay.ChiPhiKhac;
+                    mayM.NhomNhanCong = dmMay.NhomNhanCong;
+                    mayM.SoLuongNhanCong = dmMay.SoLuongNhanCong;
+                    mayM.HeSoNhienLieuPhu = dmMay.HeSoNhienLieuPhu;
+                    mayM.NhanCongString = dmMay.NhanCongString;
+                    mayM.DinhMucXang = dmMay.DinhMucXang;
+                    mayM.DinhMucDiezel = dmMay.DinhMucDiezel;
+                    mayM.DinhMucDien = dmMay.DinhMucDien;
+                    
+                    decimal g_th = dmMay.NguyenGia >= 30000000m ? dmMay.NguyenGia * 0.1m : 0m;
+                    mayM.KhauHao = ((dmMay.NguyenGia - g_th) * dmMay.KhauHao / 100m) / mayM.SoCaNam;
+                    mayM.SuaChua = (dmMay.NguyenGia * dmMay.SuaChua / 100m) / mayM.SoCaNam;
+                    mayM.ChiPhiKhac = (dmMay.NguyenGia * dmMay.ChiPhiKhac / 100m) / mayM.SoCaNam;
+                }
                 RecalculateMachineCosts();
             }
         }
