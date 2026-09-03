@@ -59,7 +59,7 @@ namespace AIE.ExcelAddIn.Ribbon
                     <group id='groupLapDuToan' label='Lập dự toán'>
                       <button id='btnTaoDuToanMoi' label='Tạo Dự toán mới' screentip='Tạo Dự toán mới' size='normal' showImage='false' onAction='OnTaoDuToanMoiClicked' />
                       <button id='btnGoiDonGia' label='Gọi Đơn giá' screentip='Gọi Đơn giá' size='normal' showImage='false' onAction='OnGoiDonGiaClicked' />
-                      <button id='btnTinhGiaHienTruong' label='Tính Giá hiện trường' screentip='Tính Giá vật tư hiện trường' size='normal' showImage='false' onAction='OnTinhGiaHienTruongClicked' />
+                      <button id='btnTinhGiaHienTruong' label='Giá VL, NC, MTC' screentip='Giá VL, NC, MTC' size='normal' showImage='false' onAction='OnTinhGiaHienTruongClicked' />
                       <button id='btnTinhTongHop' label='Tính Tổng hợp' screentip='Tính Tổng hợp' size='normal' showImage='false' onAction='OnTinhTongHopClicked' />
                     </group>
 
@@ -651,7 +651,7 @@ namespace AIE.ExcelAddIn.Ribbon
                 // Lưu vào bộ nhớ chung để có thể Save ra file .dt
                 CurrentDuToan = duToan;
 
-                var loading = new AIE.ExcelAddIn.Forms.LoadingForm("Đang mở Tính giá hiện trường...");
+                var loading = new AIE.ExcelAddIn.Forms.LoadingForm("Đang mở Giá VL, NC, MTC...");
                 loading.Show();
                 System.Windows.Forms.Application.DoEvents();
                 

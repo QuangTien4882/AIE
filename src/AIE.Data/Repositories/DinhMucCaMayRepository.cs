@@ -19,6 +19,12 @@ public class DinhMucCaMayRepository
             "SELECT * FROM DinhMucCaMay_TT37 WHERE MaMay = @MaMay", new { MaMay = maMay });
     }
 
+    public IEnumerable<DinhMucCaMay_TT37> GetAll()
+    {
+        using var connection = _context.GetConnection();
+        return connection.Query<DinhMucCaMay_TT37>("SELECT * FROM DinhMucCaMay_TT37").ToList();
+    }
+
     public void Upsert(DinhMucCaMay_TT37 dm)
     {
         using var connection = _context.GetConnection();

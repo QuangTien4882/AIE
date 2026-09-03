@@ -31,13 +31,30 @@ public class VatTuHienTruongBase
 
 public class VatLieuHienTruong : VatTuHienTruongBase
 {
-    public decimal CuocVanChuyen { get; set; }
+    public decimal ChiPhiBocXep { get; set; }
+    public decimal CuocVCOTo { get; set; }
+    public decimal CuocVCBo { get; set; }
+
+    // Lưu cấu hình bốc xếp để tự động cập nhật lại khi đơn giá máy/nhiên liệu thay đổi
+    public string? MaDinhMucBocXep { get; set; }
+    public int PhamViBocXep { get; set; } = 0; // 0: Cả hai, 1: Bốc lên, 2: Bốc xuống
+    public decimal DmNCBocXep { get; set; }
+    public decimal DmMayBocXep { get; set; }
+    public string? MaMayBocXep { get; set; }
+
+    // Giữ thuộc tính CuocVanChuyen để tương thích ngược
+    public decimal CuocVanChuyen 
+    { 
+        get => ChiPhiBocXep + CuocVCOTo + CuocVCBo; 
+        set => ChiPhiBocXep = value; 
+    }
+
     public string NguonCungCap { get; set; } = string.Empty;
     
-    // Giá hiện trường của vật liệu = Giá mua + Cước vận chuyển
+    // Giá hiện trường của vật liệu = Giá mua + Chi phí bốc xếp + Vận chuyển ô tô + Vận chuyển bộ
     public override decimal GiaHienTruong 
     {
-        get => GiaGoc + CuocVanChuyen;
+        get => GiaGoc + ChiPhiBocXep + CuocVCOTo + CuocVCBo;
         set => base.GiaHienTruong = value;
     }
 }

@@ -93,6 +93,7 @@ public class VatTuGiaModel
     public string TenVatTu { get; set; } = string.Empty;
     public string DonVi { get; set; } = string.Empty;
     public LoaiHaoPhi LoaiHP { get; set; }
+    public decimal KhoiLuong { get; set; }
     public decimal GiaDuToan { get; set; }
     public decimal? GiaChuan { get; set; }
     

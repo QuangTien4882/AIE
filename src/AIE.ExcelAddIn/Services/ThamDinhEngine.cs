@@ -152,6 +152,8 @@ public class ThamDinhEngine
                 string maHieu = saiLech.HaoPhiChuan.MaHieuHP;
                 string key = maHieu + "_" + saiLech.HaoPhiChuan.LoaiHaoPhi.ToString();
 
+                decimal klHaoPhi = saiLech.HaoPhiDuToan?.DinhMuc ?? 0;
+
                 if (!dict.ContainsKey(key))
                 {
                     dict[key] = new VatTuGiaModel
@@ -161,8 +163,13 @@ public class ThamDinhEngine
                         LoaiHP = saiLech.HaoPhiChuan.LoaiHaoPhi,
                         GiaDuToan = saiLech.HaoPhiDuToan?.DonGia ?? 0,
                         MaHieu = maHieu,
-                        GiaChuan = saiLech.DonGiaChuan
+                        GiaChuan = saiLech.DonGiaChuan,
+                        KhoiLuong = klHaoPhi
                     };
+                }
+                else
+                {
+                    dict[key].KhoiLuong += klHaoPhi;
                 }
             }
         }

@@ -126,15 +126,19 @@ public class TinhGiaHienTruongForm : Form
 
         // === Tab Vật liệu ===
         dgvVL = CreateGrid("dgvVL");
-        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "MaVatTu", HeaderText = "Mã VL", DataPropertyName = "MaVatTu", ReadOnly = true, FillWeight = 15 });
-        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "TenVatTu", HeaderText = "Tên vật liệu", DataPropertyName = "TenVatTu", ReadOnly = true, FillWeight = 40 });
+        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "MaVatTu", HeaderText = "Mã VL", DataPropertyName = "MaVatTu", ReadOnly = true, FillWeight = 12 });
+        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "TenVatTu", HeaderText = "Tên vật liệu", DataPropertyName = "TenVatTu", ReadOnly = true, FillWeight = 32 });
         dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "DonVi", HeaderText = "ĐVT", DataPropertyName = "DonVi", ReadOnly = true, FillWeight = 8, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter } });
         dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "TongKhoiLuong", HeaderText = "Khối lượng", DataPropertyName = "TongKhoiLuong", ReadOnly = true, FillWeight = 12, DefaultCellStyle = new DataGridViewCellStyle { Format = "#,##0.00", Alignment = DataGridViewContentAlignment.MiddleRight } });
-        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "GiaGoc", HeaderText = "Giá gốc", DataPropertyName = "GiaGoc", ReadOnly = false, FillWeight = 14, DefaultCellStyle = new DataGridViewCellStyle { Format = "#,##0", Alignment = DataGridViewContentAlignment.MiddleRight, BackColor = Color.FromArgb(255, 255, 200) } });
-        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "CuocVanChuyen", HeaderText = "Cước VC", DataPropertyName = "CuocVanChuyen", FillWeight = 12, DefaultCellStyle = new DataGridViewCellStyle { Format = "#,##0", Alignment = DataGridViewContentAlignment.MiddleRight, BackColor = Color.FromArgb(255, 255, 200) } });
-        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "GiaHienTruong", HeaderText = "Giá hiện trường", DataPropertyName = "GiaHienTruong", ReadOnly = true, FillWeight = 16, DefaultCellStyle = new DataGridViewCellStyle { Format = "#,##0", Alignment = DataGridViewContentAlignment.MiddleRight, ForeColor = Color.Red } });
+        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "GiaGoc", HeaderText = "Giá gốc", DataPropertyName = "GiaGoc", ReadOnly = false, FillWeight = 13, DefaultCellStyle = new DataGridViewCellStyle { Format = "#,##0", Alignment = DataGridViewContentAlignment.MiddleRight, BackColor = Color.FromArgb(255, 255, 200) } });
+        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "ChiPhiBocXep", HeaderText = "Chi phí bốc xếp", DataPropertyName = "ChiPhiBocXep", FillWeight = 14, DefaultCellStyle = new DataGridViewCellStyle { Format = "#,##0", Alignment = DataGridViewContentAlignment.MiddleRight, BackColor = Color.FromArgb(255, 255, 200) } });
+        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "CuocVCOTo", HeaderText = "Vận chuyển ô tô", DataPropertyName = "CuocVCOTo", FillWeight = 14, DefaultCellStyle = new DataGridViewCellStyle { Format = "#,##0", Alignment = DataGridViewContentAlignment.MiddleRight, BackColor = Color.FromArgb(255, 255, 200) } });
+        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "CuocVCBo", HeaderText = "Vận chuyển bộ", DataPropertyName = "CuocVCBo", FillWeight = 13, DefaultCellStyle = new DataGridViewCellStyle { Format = "#,##0", Alignment = DataGridViewContentAlignment.MiddleRight, BackColor = Color.FromArgb(255, 255, 200) } });
+        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "GiaHienTruong", HeaderText = "Giá hiện trường", DataPropertyName = "GiaHienTruong", ReadOnly = true, FillWeight = 15, DefaultCellStyle = new DataGridViewCellStyle { Format = "#,##0", Alignment = DataGridViewContentAlignment.MiddleRight, ForeColor = Color.Red, Font = new Font(dgvVL.Font, FontStyle.Bold) } });
+        dgvVL.Columns.Add(new DataGridViewTextBoxColumn { Name = "ThanhTien", HeaderText = "Thành tiền", DataPropertyName = "ThanhTien", ReadOnly = true, FillWeight = 16, DefaultCellStyle = new DataGridViewCellStyle { Format = "#,##0", Alignment = DataGridViewContentAlignment.MiddleRight, ForeColor = Color.FromArgb(0, 102, 204), Font = new Font(dgvVL.Font, FontStyle.Bold) } });
         dgvVL.CellValueChanged += DgvVL_CellValueChanged;
         dgvVL.CellParsing += DgvVL_CellParsing;
+        dgvVL.CellDoubleClick += DgvVL_CellDoubleClick;
         tabVL.Controls.Add(dgvVL);
 
         // === Tab Nhân công ===
@@ -286,8 +290,46 @@ public class TinhGiaHienTruongForm : Form
             dgvNC.EndEdit();
             dgvMay.EndEdit();
 
+            decimal ParseVnLocal(string text)
+            {
+                if (string.IsNullOrWhiteSpace(text)) return 0;
+                var clean = text.Replace(".", "");
+                return decimal.TryParse(clean, NumberStyles.Any, CultureInfo.InvariantCulture, out var val) ? val : 0;
+            }
+
+            decimal xang = ParseVnLocal(txtGiaXang.Text);
+            decimal diezel = ParseVnLocal(txtGiaDiezel.Text);
+            decimal dien = ParseVnLocal(txtGiaDien.Text);
+
+            _bangTongHop.GiaXang = xang;
+            _bangTongHop.GiaDiezel = diezel;
+            _bangTongHop.GiaDien = dien;
+
+            _service.TinhGiaMayThiCong(_bangTongHop);
+            CapNhatLaiChiPhiBocXepTheoGiaMay();
+
+            if (_duToan.BoDonGiaId.HasValue)
+            {
+                var db = new AIE.Data.DatabaseManager();
+                var boRepo = new AIE.Data.Repositories.BoDonGiaRepository(db.Context);
+                int bId = _duToan.BoDonGiaId.Value;
+                boRepo.UpdateFuelPrices(bId, xang, diezel, dien);
+
+                foreach (var vl in _bangTongHop.DanhSachVatLieu)
+                    boRepo.SaveGiaVL(bId, vl.MaVatTu, vl.GiaGoc, vl.CuocVanChuyen, vl.GiaHienTruong);
+
+                foreach (var nc in _bangTongHop.DanhSachNhanCong)
+                    boRepo.SaveGiaNC(bId, nc.MaVatTu, nc.GiaGoc);
+
+                foreach (var may in _bangTongHop.DanhSachMay)
+                    boRepo.SaveGiaMay(bId, may.MaVatTu, may.GiaGoc);
+            }
+
             _service.UpdateMasterDatabase(_bangTongHop);
-            MessageBox.Show("Đã lưu đơn giá hiện tại vào cơ sở dữ liệu!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            dgvMay.Refresh();
+            dgvVL.Refresh();
+
+            MessageBox.Show("Đã lưu đơn giá và chi phí nhiên liệu thành công vào cơ sở dữ liệu!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
@@ -392,7 +434,10 @@ public class TinhGiaHienTruongForm : Form
 
     private void DgvVL_CellParsing(object sender, DataGridViewCellParsingEventArgs e)
     {
-        if (e.ColumnIndex == dgvVL.Columns["CuocVanChuyen"].Index || e.ColumnIndex == dgvVL.Columns["GiaGoc"].Index)
+        if (e.ColumnIndex == dgvVL.Columns["ChiPhiBocXep"]?.Index || 
+            e.ColumnIndex == dgvVL.Columns["CuocVCOTo"]?.Index || 
+            e.ColumnIndex == dgvVL.Columns["CuocVCBo"]?.Index || 
+            e.ColumnIndex == dgvVL.Columns["GiaGoc"]?.Index)
         {
             if (e.Value != null)
             {
@@ -408,9 +453,164 @@ public class TinhGiaHienTruongForm : Form
 
     private void DgvVL_CellValueChanged(object sender, DataGridViewCellEventArgs e)
     {
-        if (e.RowIndex >= 0 && (e.ColumnIndex == dgvVL.Columns["CuocVanChuyen"].Index || e.ColumnIndex == dgvVL.Columns["GiaGoc"].Index))
+        if (e.RowIndex >= 0)
         {
             dgvVL.InvalidateRow(e.RowIndex);
+        }
+    }
+
+    private void DgvVL_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+    {
+        if (e.RowIndex < 0 || e.RowIndex >= _bangTongHop.DanhSachVatLieu.Count) return;
+        var vl = _bangTongHop.DanhSachVatLieu[e.RowIndex];
+        if (vl == null) return;
+
+        string colName = dgvVL.Columns[e.ColumnIndex].Name;
+
+        if (colName == "ChiPhiBocXep")
+        {
+            var savedCfg = AIE.ExcelAddIn.Services.BocXepStorage.GetConfig(vl.TenVatTu);
+            string? maDm = vl.MaDinhMucBocXep ?? savedCfg?.MaDinhMuc;
+            int phamVi = vl.PhamViBocXep != 0 ? vl.PhamViBocXep : (savedCfg?.PhamVi ?? 0);
+            decimal dmNC = vl.DmNCBocXep > 0 ? vl.DmNCBocXep : (savedCfg?.DmNC ?? 0);
+            decimal dmMay = vl.DmMayBocXep > 0 ? vl.DmMayBocXep : (savedCfg?.DmMay ?? 0);
+
+            var matchedDm = !string.IsNullOrEmpty(maDm) 
+                ? DinhMucBocXepDatabase.DanhSach.FirstOrDefault(x => x.MaHieu == maDm)
+                : DinhMucBocXepDatabase.NhanDienDinhMuc(vl.TenVatTu, vl.DonVi);
+
+            if (matchedDm == null && vl.ChiPhiBocXep == 0)
+            {
+                var res = MessageBox.Show(
+                    $"Vật liệu \"{vl.TenVatTu}\" không thuộc danh mục có định mức bốc xếp quy định trong Chương XII (Định mức Thông tư số 38/2026/TT-BXD).\n\nBạn có muốn tự chọn một định mức bốc xếp để tính không?",
+                    "Thông báo định mức bốc xếp",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Information);
+                if (res != DialogResult.Yes) return;
+            }
+
+            // 1. Đơn giá nhân công nhóm I: tìm trong danh sách hoặc truy vấn từ CSDL
+            var ncNhom1 = _bangTongHop.DanhSachNhanCong.FirstOrDefault(n => 
+                n.LoaiNhanCong == AIE.Core.Enums.LoaiNhanCong.XayDung && 
+                (n.TenVatTu.ToLower().Contains("nhóm 1") || n.TenVatTu.ToLower().Contains("nhóm i") || n.MaVatTu.EndsWith(".01")));
+            
+            decimal giaNC1 = 0;
+            if (ncNhom1 != null && ncNhom1.GiaHienTruong > 0)
+            {
+                giaNC1 = ncNhom1.GiaHienTruong;
+            }
+            else
+            {
+                var db = new AIE.Data.DatabaseManager();
+                var ncRepo = new AIE.Data.Repositories.NhanCongRepository(db.Context);
+                var ncDb = ncRepo.GetAll().FirstOrDefault(x => x.LoaiNhanCong == AIE.Core.Enums.LoaiNhanCong.XayDung && x.Nhom == 1);
+                if (ncDb != null)
+                {
+                    giaNC1 = ncDb.GetDonGia(_duToan.VungApDung);
+                    
+                    // Tự động bổ sung dòng Nhân công nhóm I vào tab Nhân công
+                    var ncMoi = new NhanCongHienTruong
+                    {
+                        MaVatTu = ncDb.MaNC,
+                        TenVatTu = ncDb.TenNC,
+                        DonVi = "công",
+                        TongKhoiLuong = 0,
+                        GiaGoc = giaNC1,
+                        GiaHienTruong = giaNC1,
+                        LoaiNhanCong = AIE.Core.Enums.LoaiNhanCong.XayDung
+                    };
+                    _bangTongHop.DanhSachNhanCong.Add(ncMoi);
+                    dgvNC.DataSource = new BindingSource { DataSource = _bangTongHop.DanhSachNhanCong };
+                    dgvNC.Refresh();
+                }
+            }
+
+            // Dọn dẹp dòng M103.0101 cũ nếu có do phiên bản trước chèn nhầm
+            var oldWrongCrane = _bangTongHop.DanhSachMay.FirstOrDefault(m => m.MaVatTu == "M103.0101");
+            if (oldWrongCrane != null)
+            {
+                _bangTongHop.DanhSachMay.Remove(oldWrongCrane);
+                dgvMay.DataSource = new BindingSource { DataSource = _bangTongHop.DanhSachMay };
+                dgvMay.Refresh();
+            }
+
+            // Đảm bảo tính toán lại giá máy thi công mới nhất theo giá nhiên liệu hiện tại
+            _service.TinhGiaMayThiCong(_bangTongHop);
+
+            // 2. Đơn giá máy thi công (Cần cẩu bánh hơi - sức nâng: 6 T - M102.0201)
+            var cau6t = _bangTongHop.DanhSachMay.FirstOrDefault(m => 
+                m.MaVatTu == "M102.0201" || 
+                (m.TenVatTu != null && m.TenVatTu.ToLower().Contains("cần cẩu") && (m.TenVatTu.Contains("6 T") || m.TenVatTu.Contains("6 t") || m.TenVatTu.Contains("6t"))));
+
+            decimal giaMay = cau6t != null && cau6t.GiaHienTruong > 0 ? cau6t.GiaHienTruong : 0;
+            if (giaMay == 0)
+            {
+                var db = new AIE.Data.DatabaseManager();
+                var dmMayRepo = new AIE.Data.Repositories.DinhMucCaMayRepository(db.Context);
+                var dmCau = dmMayRepo.GetByMaMay("M102.0201");
+                if (dmCau != null)
+                {
+                    var mayMoi = new MayThiCongHienTruong
+                    {
+                        MaVatTu = dmCau.MaMay,
+                        TenVatTu = "Cần cẩu bánh hơi - sức nâng: 6 T",
+                        DonVi = "ca",
+                        TongKhoiLuong = 0,
+                        DinhMuc = dmCau,
+                        NguyenGia = dmCau.NguyenGia
+                    };
+                    _bangTongHop.DanhSachMay.Add(mayMoi);
+                    _service.TinhGiaMayThiCong(_bangTongHop);
+                    giaMay = mayMoi.GiaHienTruong;
+                    dgvMay.DataSource = new BindingSource { DataSource = _bangTongHop.DanhSachMay };
+                    dgvMay.Refresh();
+                }
+            }
+
+            // 3. Mở form tính chi phí bốc xếp
+            dgvVL.EndEdit();
+            using var frm = new TinhChiPhiBocXepForm(
+                vl.TenVatTu, 
+                vl.DonVi, 
+                giaNC1, 
+                giaMay, 
+                vl.ChiPhiBocXep, 
+                maDm, 
+                phamVi, 
+                dmNC, 
+                dmMay);
+
+            if (frm.ShowDialog() == DialogResult.OK)
+            {
+                vl.ChiPhiBocXep = frm.KetQuaChiPhiBocXep;
+                vl.MaDinhMucBocXep = frm.SelectedDinhMuc?.MaHieu;
+                vl.PhamViBocXep = frm.SelectedPhamVi;
+                vl.DmNCBocXep = frm.DmNC;
+                vl.DmMayBocXep = frm.DmMay;
+                vl.MaMayBocXep = frm.MaMay;
+
+                AIE.ExcelAddIn.Services.BocXepStorage.SaveConfig(
+                    vl.TenVatTu, 
+                    vl.MaDinhMucBocXep, 
+                    vl.PhamViBocXep, 
+                    vl.DmNCBocXep, 
+                    vl.DmMayBocXep, 
+                    vl.MaMayBocXep, 
+                    vl.ChiPhiBocXep);
+
+                dgvVL.EndEdit();
+                dgvVL[e.ColumnIndex, e.RowIndex].Value = frm.KetQuaChiPhiBocXep;
+                dgvVL.InvalidateRow(e.RowIndex);
+                dgvVL.Refresh();
+            }
+        }
+        else if (colName == "CuocVCOTo")
+        {
+            MessageBox.Show("Tính năng Tính cước vận chuyển ô tô sẽ được áp dụng trong bước triển khai tiếp theo.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        else if (colName == "CuocVCBo")
+        {
+            MessageBox.Show("Tính năng Tính cước vận chuyển bộ sẽ được áp dụng trong bước triển khai tiếp theo.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
 
@@ -458,10 +658,49 @@ public class TinhGiaHienTruongForm : Form
     private void LoadData()
     {
         _suppressRecalc = true;
+
+        // Nếu giá nhiên liệu trong BangTongHop bằng 0, tự động khôi phục từ BoDonGia hoặc fuel_prices.json
+        if (_bangTongHop.GiaXang == 0 && _bangTongHop.GiaDiezel == 0 && _bangTongHop.GiaDien == 0)
+        {
+            if (_duToan.BoDonGiaId.HasValue)
+            {
+                var db = new AIE.Data.DatabaseManager();
+                var boRepo = new AIE.Data.Repositories.BoDonGiaRepository(db.Context);
+                var bo = boRepo.GetById(_duToan.BoDonGiaId.Value);
+                if (bo != null && (bo.GiaXang > 0 || bo.GiaDiezel > 0 || bo.GiaDien > 0))
+                {
+                    _bangTongHop.GiaXang = bo.GiaXang;
+                    _bangTongHop.GiaDiezel = bo.GiaDiezel;
+                    _bangTongHop.GiaDien = bo.GiaDien;
+                }
+            }
+
+            if (_bangTongHop.GiaXang == 0 && _bangTongHop.GiaDiezel == 0 && _bangTongHop.GiaDien == 0)
+            {
+                try
+                {
+                    var settingsDir = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData), "AIE_DuToan");
+                    var fuelFile = System.IO.Path.Combine(settingsDir, "fuel_prices.json");
+                    if (System.IO.File.Exists(fuelFile))
+                    {
+                        var json = System.IO.File.ReadAllText(fuelFile);
+                        dynamic doc = Newtonsoft.Json.JsonConvert.DeserializeObject(json);
+                        _bangTongHop.GiaXang = (decimal)doc.GiaXang;
+                        _bangTongHop.GiaDiezel = (decimal)doc.GiaDiezel;
+                        _bangTongHop.GiaDien = (decimal)doc.GiaDien;
+                    }
+                }
+                catch { }
+            }
+        }
+
         txtGiaXang.Text = _bangTongHop.GiaXang.ToString("N0", ViVn);
         txtGiaDiezel.Text = _bangTongHop.GiaDiezel.ToString("N0", ViVn);
         txtGiaDien.Text = _bangTongHop.GiaDien.ToString("N0", ViVn);
         _suppressRecalc = false;
+
+        _service.TinhGiaMayThiCong(_bangTongHop);
+        CapNhatLaiChiPhiBocXepTheoGiaMay();
 
         dgvVL.DataSource = new BindingSource { DataSource = _bangTongHop.DanhSachVatLieu };
         dgvNC.DataSource = new BindingSource { DataSource = _bangTongHop.DanhSachNhanCong };
@@ -475,10 +714,8 @@ public class TinhGiaHienTruongForm : Form
         decimal ParseVn(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return 0;
-            // Xóa dấu chấm phân cách hàng ngàn, giữ lại số
             var clean = text.Replace(".", "");
-            if (decimal.TryParse(clean, NumberStyles.Any, CultureInfo.InvariantCulture, out var val)) return val;
-            return 0;
+            return decimal.TryParse(clean, NumberStyles.Any, CultureInfo.InvariantCulture, out var val) ? val : 0;
         }
 
         _bangTongHop.GiaXang = ParseVn(txtGiaXang.Text);
@@ -486,7 +723,60 @@ public class TinhGiaHienTruongForm : Form
         _bangTongHop.GiaDien = ParseVn(txtGiaDien.Text);
 
         _service.TinhGiaMayThiCong(_bangTongHop);
+        CapNhatLaiChiPhiBocXepTheoGiaMay();
         dgvMay.Refresh();
+        dgvVL.Refresh();
+    }
+
+    private void CapNhatLaiChiPhiBocXepTheoGiaMay()
+    {
+        bool hasChanges = false;
+        foreach (var vl in _bangTongHop.DanhSachVatLieu)
+        {
+            var savedCfg = AIE.ExcelAddIn.Services.BocXepStorage.GetConfig(vl.TenVatTu);
+            string? maDm = vl.MaDinhMucBocXep ?? savedCfg?.MaDinhMuc;
+            decimal dmNC = vl.DmNCBocXep > 0 ? vl.DmNCBocXep : (savedCfg?.DmNC ?? 0);
+            decimal dmMay = vl.DmMayBocXep > 0 ? vl.DmMayBocXep : (savedCfg?.DmMay ?? 0);
+
+            if (!string.IsNullOrEmpty(maDm))
+            {
+                var dm = DinhMucBocXepDatabase.DanhSach.FirstOrDefault(x => x.MaHieu == maDm);
+                if (dm == null) continue;
+
+                decimal giaMay = 0;
+                if (dm.CoMay)
+                {
+                    var may = _bangTongHop.DanhSachMay.FirstOrDefault(m => 
+                        m.MaVatTu == dm.MaMay || 
+                        m.MaVatTu == "M102.0201" || 
+                        (m.TenVatTu != null && m.TenVatTu.ToLower().Contains("cần cẩu") && (m.TenVatTu.Contains("6 T") || m.TenVatTu.Contains("6 t") || m.TenVatTu.Contains("6t"))));
+                    if (may != null) giaMay = may.GiaHienTruong;
+                }
+
+                var ncNhom1 = _bangTongHop.DanhSachNhanCong.FirstOrDefault(n => 
+                    n.LoaiNhanCong == AIE.Core.Enums.LoaiNhanCong.XayDung && 
+                    (n.TenVatTu.ToLower().Contains("nhóm 1") || n.TenVatTu.ToLower().Contains("nhóm i") || n.MaVatTu.EndsWith(".01")));
+                decimal giaNC = ncNhom1 != null && ncNhom1.GiaHienTruong > 0 ? ncNhom1.GiaHienTruong : 254498m;
+
+                decimal ttNC = dmNC * giaNC;
+                decimal ttMay = dmMay * giaMay;
+                decimal heSoQuyDoi = DinhMucBocXepDatabase.TinhHeSoQuyDoi(vl.DonVi, dm.DonViDinhMuc);
+                decimal chiPhiMoi = Math.Round((ttNC + ttMay) * heSoQuyDoi, 0, MidpointRounding.AwayFromZero);
+
+                if (chiPhiMoi > 0 && vl.ChiPhiBocXep != chiPhiMoi)
+                {
+                    vl.ChiPhiBocXep = chiPhiMoi;
+                    vl.MaDinhMucBocXep = maDm;
+                    vl.DmNCBocXep = dmNC;
+                    vl.DmMayBocXep = dmMay;
+                    hasChanges = true;
+                }
+            }
+        }
+        if (hasChanges)
+        {
+            dgvVL.Refresh();
+        }
     }
 
     private void DgvMay_CellPainting(object sender, DataGridViewCellPaintingEventArgs e)
