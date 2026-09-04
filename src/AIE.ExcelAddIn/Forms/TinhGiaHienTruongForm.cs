@@ -139,6 +139,7 @@ public class TinhGiaHienTruongForm : Form
         dgvVL.CellValueChanged += DgvVL_CellValueChanged;
         dgvVL.CellParsing += DgvVL_CellParsing;
         dgvVL.CellDoubleClick += DgvVL_CellDoubleClick;
+        dgvVL.CellEndEdit += DgvVL_CellEndEdit;
         tabVL.Controls.Add(dgvVL);
 
         // === Tab Nhân công ===
@@ -254,6 +255,19 @@ public class TinhGiaHienTruongForm : Form
             // Cập nhật giá vật liệu
             foreach (var vl in _bangTongHop.DanhSachVatLieu)
             {
+                if (vl.ChiPhiBocXep > 0)
+                    AIE.ExcelAddIn.Services.BocXepStorage.SaveConfig(vl.TenVatTu, vl.MaDinhMucBocXep ?? "MANUAL", vl.PhamViBocXep, vl.DmNCBocXep, vl.DmMayBocXep, vl.MaMayBocXep, vl.ChiPhiBocXep);
+                if (vl.CuocVCOTo > 0)
+                {
+                    var existing = AIE.ExcelAddIn.Services.VanChuyenStorage.GetConfigOTo(vl.TenVatTu);
+                    AIE.ExcelAddIn.Services.VanChuyenStorage.SaveConfigOTo(vl.TenVatTu, vl.MaDinhMucVCOTo ?? existing?.MaDinhMuc ?? "", vl.MaMayVCOTo ?? existing?.MaMay ?? "", existing?.DonGiaCaMay ?? 0, existing?.CungDuongs ?? new(), vl.CuocVCOTo);
+                }
+                if (vl.CuocVCBo > 0)
+                {
+                    var existing = AIE.ExcelAddIn.Services.VanChuyenStorage.GetConfigBo(vl.TenVatTu);
+                    AIE.ExcelAddIn.Services.VanChuyenStorage.SaveConfigBo(vl.TenVatTu, vl.MaDinhMucVCBo ?? existing?.MaDinhMuc ?? "", existing?.CuLyMet ?? 0, existing?.HeSoDiaHinh ?? 1, existing?.SoTang ?? 0, vl.CuocVCBo);
+                }
+
                 var vlMaster = vlRepo.GetByMa(vl.MaVatTu);
                 if (vlMaster != null)
                 {
@@ -308,6 +322,44 @@ public class TinhGiaHienTruongForm : Form
             _service.TinhGiaMayThiCong(_bangTongHop);
             CapNhatLaiChiPhiBocXepTheoGiaMay();
 
+            // Đồng bộ cước vào Storage để đảm bảo mở lại luôn có đầy đủ
+            foreach (var vl in _bangTongHop.DanhSachVatLieu)
+            {
+                if (vl.ChiPhiBocXep > 0)
+                {
+                    AIE.ExcelAddIn.Services.BocXepStorage.SaveConfig(
+                        vl.TenVatTu, 
+                        vl.MaDinhMucBocXep ?? "MANUAL", 
+                        vl.PhamViBocXep, 
+                        vl.DmNCBocXep, 
+                        vl.DmMayBocXep, 
+                        vl.MaMayBocXep, 
+                        vl.ChiPhiBocXep);
+                }
+                if (vl.CuocVCOTo > 0)
+                {
+                    var existing = AIE.ExcelAddIn.Services.VanChuyenStorage.GetConfigOTo(vl.TenVatTu);
+                    AIE.ExcelAddIn.Services.VanChuyenStorage.SaveConfigOTo(
+                        vl.TenVatTu, 
+                        vl.MaDinhMucVCOTo ?? existing?.MaDinhMuc ?? "", 
+                        vl.MaMayVCOTo ?? existing?.MaMay ?? "", 
+                        existing?.DonGiaCaMay ?? 0, 
+                        existing?.CungDuongs ?? new(), 
+                        vl.CuocVCOTo);
+                }
+                if (vl.CuocVCBo > 0)
+                {
+                    var existing = AIE.ExcelAddIn.Services.VanChuyenStorage.GetConfigBo(vl.TenVatTu);
+                    AIE.ExcelAddIn.Services.VanChuyenStorage.SaveConfigBo(
+                        vl.TenVatTu, 
+                        vl.MaDinhMucVCBo ?? existing?.MaDinhMuc ?? "", 
+                        existing?.CuLyMet ?? 0, 
+                        existing?.HeSoDiaHinh ?? 1, 
+                        existing?.SoTang ?? 0, 
+                        vl.CuocVCBo);
+                }
+            }
+
             if (_duToan.BoDonGiaId.HasValue)
             {
                 var db = new AIE.Data.DatabaseManager();
@@ -316,7 +368,7 @@ public class TinhGiaHienTruongForm : Form
                 boRepo.UpdateFuelPrices(bId, xang, diezel, dien);
 
                 foreach (var vl in _bangTongHop.DanhSachVatLieu)
-                    boRepo.SaveGiaVL(bId, vl.MaVatTu, vl.GiaGoc, vl.CuocVanChuyen, vl.GiaHienTruong);
+                    boRepo.SaveGiaVL(bId, vl.MaVatTu, vl.GiaGoc, vl.CuocVanChuyen, vl.GiaHienTruong, vl.ChiPhiBocXep, vl.CuocVCOTo, vl.CuocVCBo);
 
                 foreach (var nc in _bangTongHop.DanhSachNhanCong)
                     boRepo.SaveGiaNC(bId, nc.MaVatTu, nc.GiaGoc);
@@ -357,7 +409,22 @@ public class TinhGiaHienTruongForm : Form
                 int bId = _duToan.BoDonGiaId.Value;
 
                 foreach (var vl in _duToan.BangTongHop.DanhSachVatLieu)
-                    boDonGiaRepo.SaveGiaVL(bId, vl.MaVatTu, vl.GiaGoc, vl.CuocVanChuyen, vl.GiaHienTruong);
+                {
+                    if (vl.ChiPhiBocXep > 0)
+                        AIE.ExcelAddIn.Services.BocXepStorage.SaveConfig(vl.TenVatTu, vl.MaDinhMucBocXep ?? "MANUAL", vl.PhamViBocXep, vl.DmNCBocXep, vl.DmMayBocXep, vl.MaMayBocXep, vl.ChiPhiBocXep);
+                    if (vl.CuocVCOTo > 0)
+                    {
+                        var existing = AIE.ExcelAddIn.Services.VanChuyenStorage.GetConfigOTo(vl.TenVatTu);
+                        AIE.ExcelAddIn.Services.VanChuyenStorage.SaveConfigOTo(vl.TenVatTu, vl.MaDinhMucVCOTo ?? existing?.MaDinhMuc ?? "", vl.MaMayVCOTo ?? existing?.MaMay ?? "", existing?.DonGiaCaMay ?? 0, existing?.CungDuongs ?? new(), vl.CuocVCOTo);
+                    }
+                    if (vl.CuocVCBo > 0)
+                    {
+                        var existing = AIE.ExcelAddIn.Services.VanChuyenStorage.GetConfigBo(vl.TenVatTu);
+                        AIE.ExcelAddIn.Services.VanChuyenStorage.SaveConfigBo(vl.TenVatTu, vl.MaDinhMucVCBo ?? existing?.MaDinhMuc ?? "", existing?.CuLyMet ?? 0, existing?.HeSoDiaHinh ?? 1, existing?.SoTang ?? 0, vl.CuocVCBo);
+                    }
+
+                    boDonGiaRepo.SaveGiaVL(bId, vl.MaVatTu, vl.GiaGoc, vl.CuocVanChuyen, vl.GiaHienTruong, vl.ChiPhiBocXep, vl.CuocVCOTo, vl.CuocVCBo);
+                }
 
                 foreach (var nc in _duToan.BangTongHop.DanhSachNhanCong)
                     boDonGiaRepo.SaveGiaNC(bId, nc.MaVatTu, nc.GiaGoc); // Giá gốc của nhân công là đơn giá
@@ -457,6 +524,48 @@ public class TinhGiaHienTruongForm : Form
         {
             dgvVL.InvalidateRow(e.RowIndex);
         }
+    }
+
+    private void DgvVL_CellEndEdit(object sender, DataGridViewCellEventArgs e)
+    {
+        if (e.RowIndex < 0 || e.RowIndex >= _bangTongHop.DanhSachVatLieu.Count) return;
+        var vl = _bangTongHop.DanhSachVatLieu[e.RowIndex];
+        string colName = dgvVL.Columns[e.ColumnIndex].Name;
+
+        if (colName == "ChiPhiBocXep")
+        {
+            AIE.ExcelAddIn.Services.BocXepStorage.SaveConfig(
+                vl.TenVatTu, 
+                vl.MaDinhMucBocXep ?? "MANUAL", 
+                vl.PhamViBocXep, 
+                vl.DmNCBocXep, 
+                vl.DmMayBocXep, 
+                vl.MaMayBocXep, 
+                vl.ChiPhiBocXep);
+        }
+        else if (colName == "CuocVCOTo")
+        {
+            var existing = AIE.ExcelAddIn.Services.VanChuyenStorage.GetConfigOTo(vl.TenVatTu);
+            AIE.ExcelAddIn.Services.VanChuyenStorage.SaveConfigOTo(
+                vl.TenVatTu, 
+                vl.MaDinhMucVCOTo ?? existing?.MaDinhMuc ?? "", 
+                vl.MaMayVCOTo ?? existing?.MaMay ?? "", 
+                existing?.DonGiaCaMay ?? 0, 
+                existing?.CungDuongs ?? new(), 
+                vl.CuocVCOTo);
+        }
+        else if (colName == "CuocVCBo")
+        {
+            var existing = AIE.ExcelAddIn.Services.VanChuyenStorage.GetConfigBo(vl.TenVatTu);
+            AIE.ExcelAddIn.Services.VanChuyenStorage.SaveConfigBo(
+                vl.TenVatTu, 
+                vl.MaDinhMucVCBo ?? existing?.MaDinhMuc ?? "", 
+                existing?.CuLyMet ?? 0, 
+                existing?.HeSoDiaHinh ?? 1, 
+                existing?.SoTang ?? 0, 
+                vl.CuocVCBo);
+        }
+        dgvVL.InvalidateRow(e.RowIndex);
     }
 
     private void DgvVL_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
@@ -787,6 +896,43 @@ public class TinhGiaHienTruongForm : Form
         txtGiaDien.Text = _bangTongHop.GiaDien.ToString("N0", ViVn);
         _suppressRecalc = false;
 
+        // Tự động khôi phục cước vận chuyển & bốc xếp từ storage nếu chưa có giá trị
+        foreach (var vl in _bangTongHop.DanhSachVatLieu)
+        {
+            if (vl.ChiPhiBocXep == 0)
+            {
+                var bxCfg = AIE.ExcelAddIn.Services.BocXepStorage.GetConfig(vl.TenVatTu);
+                if (bxCfg != null && bxCfg.ChiPhiBocXep > 0)
+                {
+                    vl.ChiPhiBocXep = bxCfg.ChiPhiBocXep;
+                    vl.MaDinhMucBocXep = bxCfg.MaDinhMuc;
+                    vl.PhamViBocXep = bxCfg.PhamVi;
+                    vl.DmNCBocXep = bxCfg.DmNC;
+                    vl.DmMayBocXep = bxCfg.DmMay;
+                    vl.MaMayBocXep = bxCfg.MaMay;
+                }
+            }
+            if (vl.CuocVCOTo == 0)
+            {
+                var otoCfg = AIE.ExcelAddIn.Services.VanChuyenStorage.GetConfigOTo(vl.TenVatTu);
+                if (otoCfg != null && otoCfg.CuocVCOTo > 0)
+                {
+                    vl.CuocVCOTo = otoCfg.CuocVCOTo;
+                    vl.MaDinhMucVCOTo = otoCfg.MaDinhMuc;
+                    vl.MaMayVCOTo = otoCfg.MaMay;
+                }
+            }
+            if (vl.CuocVCBo == 0)
+            {
+                var boCfg = AIE.ExcelAddIn.Services.VanChuyenStorage.GetConfigBo(vl.TenVatTu);
+                if (boCfg != null && boCfg.CuocVCBo > 0)
+                {
+                    vl.CuocVCBo = boCfg.CuocVCBo;
+                    vl.MaDinhMucVCBo = boCfg.MaDinhMuc;
+                }
+            }
+        }
+
         _service.TinhGiaMayThiCong(_bangTongHop);
         CapNhatLaiChiPhiBocXepTheoGiaMay();
 
@@ -821,6 +967,7 @@ public class TinhGiaHienTruongForm : Form
         bool hasChanges = false;
         foreach (var vl in _bangTongHop.DanhSachVatLieu)
         {
+            // 1. Chi phí bốc xếp
             var savedCfg = AIE.ExcelAddIn.Services.BocXepStorage.GetConfig(vl.TenVatTu);
             string? maDm = vl.MaDinhMucBocXep ?? savedCfg?.MaDinhMuc;
             decimal dmNC = vl.DmNCBocXep > 0 ? vl.DmNCBocXep : (savedCfg?.DmNC ?? 0);
@@ -829,39 +976,53 @@ public class TinhGiaHienTruongForm : Form
             if (!string.IsNullOrEmpty(maDm))
             {
                 var dm = DinhMucBocXepDatabase.DanhSach.FirstOrDefault(x => x.MaHieu == maDm);
-                if (dm == null) continue;
-
-                decimal giaMay = 0;
-                if (dm.CoMay)
+                if (dm != null)
                 {
-                    var may = _bangTongHop.DanhSachMay.FirstOrDefault(m => 
-                        m.MaVatTu == dm.MaMay || 
-                        m.MaVatTu == "M102.0201" || 
-                        (m.TenVatTu != null && m.TenVatTu.ToLower().Contains("cần cẩu") && (m.TenVatTu.Contains("6 T") || m.TenVatTu.Contains("6 t") || m.TenVatTu.Contains("6t"))));
-                    if (may != null) giaMay = may.GiaHienTruong;
-                }
+                    decimal giaMay = 0;
+                    if (dm.CoMay)
+                    {
+                        var may = _bangTongHop.DanhSachMay.FirstOrDefault(m => 
+                            m.MaVatTu == dm.MaMay || 
+                            m.MaVatTu == "M102.0201" || 
+                            (m.TenVatTu != null && m.TenVatTu.ToLower().Contains("cần cẩu") && (m.TenVatTu.Contains("6 T") || m.TenVatTu.Contains("6 t") || m.TenVatTu.Contains("6t"))));
+                        if (may != null) giaMay = may.GiaHienTruong;
+                        else giaMay = LayDonGiaMayThiCong("M102.0201", "Cần cẩu bánh hơi - sức nâng: 6 T");
+                    }
 
-                var ncNhom1 = _bangTongHop.DanhSachNhanCong.FirstOrDefault(n => 
-                    n.LoaiNhanCong == AIE.Core.Enums.LoaiNhanCong.XayDung && 
-                    (n.TenVatTu.ToLower().Contains("nhóm 1") || n.TenVatTu.ToLower().Contains("nhóm i") || n.MaVatTu.EndsWith(".01")));
-                decimal giaNC = ncNhom1 != null && ncNhom1.GiaHienTruong > 0 ? ncNhom1.GiaHienTruong : 254498m;
+                    var ncNhom1 = _bangTongHop.DanhSachNhanCong.FirstOrDefault(n => 
+                        n.LoaiNhanCong == AIE.Core.Enums.LoaiNhanCong.XayDung && 
+                        (n.TenVatTu.ToLower().Contains("nhóm 1") || n.TenVatTu.ToLower().Contains("nhóm i") || n.MaVatTu.EndsWith(".01")));
+                    decimal giaNC = ncNhom1 != null && ncNhom1.GiaHienTruong > 0 ? ncNhom1.GiaHienTruong : 254498m;
 
-                decimal ttNC = dmNC * giaNC;
-                decimal ttMay = dmMay * giaMay;
-                decimal heSoQuyDoi = DinhMucBocXepDatabase.TinhHeSoQuyDoi(vl.DonVi, dm.DonViDinhMuc);
-                decimal chiPhiMoi = Math.Round((ttNC + ttMay) * heSoQuyDoi, 0, MidpointRounding.AwayFromZero);
+                    decimal ttNC = dmNC * giaNC;
+                    decimal ttMay = dmMay * giaMay;
+                    decimal heSoQuyDoi = DinhMucBocXepDatabase.TinhHeSoQuyDoi(vl.DonVi, dm.DonViDinhMuc);
+                    decimal chiPhiMoi = Math.Round((ttNC + ttMay) * heSoQuyDoi, 0, MidpointRounding.AwayFromZero);
 
-                if (chiPhiMoi > 0 && vl.ChiPhiBocXep != chiPhiMoi)
-                {
-                    vl.ChiPhiBocXep = chiPhiMoi;
-                    vl.MaDinhMucBocXep = maDm;
-                    vl.DmNCBocXep = dmNC;
-                    vl.DmMayBocXep = dmMay;
-                    hasChanges = true;
+                    if (chiPhiMoi > 0 && vl.ChiPhiBocXep != chiPhiMoi)
+                    {
+                        vl.ChiPhiBocXep = chiPhiMoi;
+                        vl.MaDinhMucBocXep = maDm;
+                        vl.DmNCBocXep = dmNC;
+                        vl.DmMayBocXep = dmMay;
+                        hasChanges = true;
+                    }
+                    else if (vl.ChiPhiBocXep == 0 && savedCfg != null && savedCfg.ChiPhiBocXep > 0)
+                    {
+                        vl.ChiPhiBocXep = savedCfg.ChiPhiBocXep;
+                        vl.MaDinhMucBocXep = maDm;
+                        hasChanges = true;
+                    }
                 }
             }
+            else if (vl.ChiPhiBocXep == 0 && savedCfg != null && savedCfg.ChiPhiBocXep > 0)
+            {
+                vl.ChiPhiBocXep = savedCfg.ChiPhiBocXep;
+                vl.MaDinhMucBocXep = savedCfg.MaDinhMuc;
+                hasChanges = true;
+            }
 
-            // Cập nhật lại CuocVCOTo nếu có cấu hình ô tô
+            // 2. Cập nhật lại CuocVCOTo nếu có cấu hình ô tô
             var savedCfgOTo = AIE.ExcelAddIn.Services.VanChuyenStorage.GetConfigOTo(vl.TenVatTu);
             string? maDmOTo = vl.MaDinhMucVCOTo ?? savedCfgOTo?.MaDinhMuc;
             string? maMayOTo = vl.MaMayVCOTo ?? savedCfgOTo?.MaMay;
@@ -871,11 +1032,14 @@ public class TinhGiaHienTruongForm : Form
                 if (dmOTo != null)
                 {
                     string mm = maMayOTo ?? dmOTo.MaMay;
-                    var mayXe = _bangTongHop.DanhSachMay.FirstOrDefault(m => m.MaVatTu == mm);
-                    if (mayXe != null && mayXe.GiaHienTruong > 0)
+                    string tenMayDefault = dmOTo.TenMay ?? "Ô tô tự đổ - trọng tải: 7 T";
+                    decimal giaMayXe = LayDonGiaMayThiCong(mm, tenMayDefault);
+                    if (giaMayXe <= 0 && savedCfgOTo.DonGiaCaMay > 0) giaMayXe = savedCfgOTo.DonGiaCaMay;
+
+                    if (giaMayXe > 0)
                     {
                         var (caXe, _, _, _, _) = DinhMucVanChuyenDatabase.TinhHaoPhiCaXeOTo(dmOTo, savedCfgOTo.CungDuongs);
-                        decimal gia1Dm = (caXe * mayXe.GiaHienTruong) / 10m;
+                        decimal gia1Dm = (caXe * giaMayXe) / 10m;
                         decimal heSoQuyDoi = DinhMucVanChuyenDatabase.TinhHeSoQuyDoiOTo(vl.DonVi, dmOTo.DonViDinhMuc);
                         decimal cuocMoi = Math.Round(gia1Dm * heSoQuyDoi * 10m, 0, MidpointRounding.AwayFromZero);
                         if (cuocMoi > 0 && vl.CuocVCOTo != cuocMoi)
@@ -886,7 +1050,68 @@ public class TinhGiaHienTruongForm : Form
                             hasChanges = true;
                         }
                     }
+                    else if (vl.CuocVCOTo == 0 && savedCfgOTo.CuocVCOTo > 0)
+                    {
+                        vl.CuocVCOTo = savedCfgOTo.CuocVCOTo;
+                        vl.MaDinhMucVCOTo = maDmOTo;
+                        vl.MaMayVCOTo = mm;
+                        hasChanges = true;
+                    }
                 }
+                else if (vl.CuocVCOTo == 0 && savedCfgOTo.CuocVCOTo > 0)
+                {
+                    vl.CuocVCOTo = savedCfgOTo.CuocVCOTo;
+                    hasChanges = true;
+                }
+            }
+            else if (vl.CuocVCOTo == 0 && savedCfgOTo != null && savedCfgOTo.CuocVCOTo > 0)
+            {
+                vl.CuocVCOTo = savedCfgOTo.CuocVCOTo;
+                vl.MaDinhMucVCOTo = savedCfgOTo.MaDinhMuc;
+                vl.MaMayVCOTo = savedCfgOTo.MaMay;
+                hasChanges = true;
+            }
+
+            // 3. Cập nhật lại CuocVCBo nếu có cấu hình vận chuyển bộ
+            var savedCfgBo = AIE.ExcelAddIn.Services.VanChuyenStorage.GetConfigBo(vl.TenVatTu);
+            string? maDmBo = vl.MaDinhMucVCBo ?? savedCfgBo?.MaDinhMuc;
+            if (!string.IsNullOrEmpty(maDmBo) && savedCfgBo != null)
+            {
+                var dmBo = DinhMucVanChuyenDatabase.DanhSachBo.FirstOrDefault(x => x.MaHieu == maDmBo);
+                if (dmBo != null)
+                {
+                    var ncNhom1 = _bangTongHop.DanhSachNhanCong.FirstOrDefault(n => 
+                        n.LoaiNhanCong == AIE.Core.Enums.LoaiNhanCong.XayDung && 
+                        (n.TenVatTu.ToLower().Contains("nhóm 1") || n.TenVatTu.ToLower().Contains("nhóm i") || n.MaVatTu.EndsWith(".01")));
+                    decimal giaNC = ncNhom1 != null && ncNhom1.GiaHienTruong > 0 ? ncNhom1.GiaHienTruong : 254498m;
+
+                    decimal cong = DinhMucVanChuyenDatabase.TinhHaoPhiNhanCongBo(dmBo, savedCfgBo.CuLyMet, savedCfgBo.HeSoDiaHinh, savedCfgBo.SoTang);
+                    decimal heSoQuyDoi = DinhMucVanChuyenDatabase.TinhHeSoQuyDoiBo(vl.DonVi, dmBo.DonViDinhMuc);
+                    decimal cuocMoi = Math.Round(cong * giaNC * heSoQuyDoi, 0, MidpointRounding.AwayFromZero);
+                    if (cuocMoi > 0 && vl.CuocVCBo != cuocMoi)
+                    {
+                        vl.CuocVCBo = cuocMoi;
+                        vl.MaDinhMucVCBo = maDmBo;
+                        hasChanges = true;
+                    }
+                    else if (vl.CuocVCBo == 0 && savedCfgBo.CuocVCBo > 0)
+                    {
+                        vl.CuocVCBo = savedCfgBo.CuocVCBo;
+                        vl.MaDinhMucVCBo = maDmBo;
+                        hasChanges = true;
+                    }
+                }
+                else if (vl.CuocVCBo == 0 && savedCfgBo.CuocVCBo > 0)
+                {
+                    vl.CuocVCBo = savedCfgBo.CuocVCBo;
+                    hasChanges = true;
+                }
+            }
+            else if (vl.CuocVCBo == 0 && savedCfgBo != null && savedCfgBo.CuocVCBo > 0)
+            {
+                vl.CuocVCBo = savedCfgBo.CuocVCBo;
+                vl.MaDinhMucVCBo = savedCfgBo.MaDinhMuc;
+                hasChanges = true;
             }
         }
         if (hasChanges)

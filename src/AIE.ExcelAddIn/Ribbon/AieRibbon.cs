@@ -631,6 +631,33 @@ namespace AIE.ExcelAddIn.Ribbon
                 var service = new AIE.ExcelAddIn.Services.PhanTichVatTuService(ctRepo, mayRepo, dinhMucMayRepo, vlRepo, ncRepo);
                 service.PhanTich(duToan);
 
+                // Bảo toàn thông tin cước và cấu hình đã tính từ phiên trước nếu có
+                if (CurrentDuToan?.BangTongHop?.DanhSachVatLieu != null)
+                {
+                    var oldVlDict = CurrentDuToan.BangTongHop.DanhSachVatLieu
+                        .GroupBy(x => x.MaVatTu)
+                        .ToDictionary(g => g.Key, g => g.First());
+
+                    foreach (var vl in duToan.BangTongHop.DanhSachVatLieu)
+                    {
+                        if (oldVlDict.TryGetValue(vl.MaVatTu, out var oldVl))
+                        {
+                            vl.GiaGoc = oldVl.GiaGoc;
+                            vl.ChiPhiBocXep = oldVl.ChiPhiBocXep;
+                            vl.CuocVCOTo = oldVl.CuocVCOTo;
+                            vl.CuocVCBo = oldVl.CuocVCBo;
+                            vl.MaDinhMucBocXep = oldVl.MaDinhMucBocXep;
+                            vl.PhamViBocXep = oldVl.PhamViBocXep;
+                            vl.DmNCBocXep = oldVl.DmNCBocXep;
+                            vl.DmMayBocXep = oldVl.DmMayBocXep;
+                            vl.MaMayBocXep = oldVl.MaMayBocXep;
+                            vl.MaDinhMucVCOTo = oldVl.MaDinhMucVCOTo;
+                            vl.MaMayVCOTo = oldVl.MaMayVCOTo;
+                            vl.MaDinhMucVCBo = oldVl.MaDinhMucVCBo;
+                        }
+                    }
+                }
+
                 // Load giá từ Bộ Đơn Giá vừa chọn (Ghi đè giá gốc từ thư viện chung)
                 var boDonGiaRepo2 = new AIE.Data.Repositories.BoDonGiaRepository(db.Context);
                 var giaVl = boDonGiaRepo2.GetGiaVL(duToan.BoDonGiaId.Value).GroupBy(x => x.MaVL).ToDictionary(g => g.Key, g => g.First());
@@ -638,7 +665,22 @@ namespace AIE.ExcelAddIn.Ribbon
                 var giaMay = boDonGiaRepo2.GetGiaMay(duToan.BoDonGiaId.Value).GroupBy(x => x.MaMay).ToDictionary(g => g.Key, g => g.First());
 
                 foreach (var vl in duToan.BangTongHop.DanhSachVatLieu)
-                    if (giaVl.TryGetValue(vl.MaVatTu, out var g)) { vl.GiaGoc = g.GiaGoc; vl.CuocVanChuyen = g.CuocVC; }
+                {
+                    if (giaVl.TryGetValue(vl.MaVatTu, out var g))
+                    {
+                        vl.GiaGoc = g.GiaGoc;
+                        if (g.ChiPhiBocXep > 0 || g.CuocVCOTo > 0 || g.CuocVCBo > 0)
+                        {
+                            vl.ChiPhiBocXep = g.ChiPhiBocXep;
+                            vl.CuocVCOTo = g.CuocVCOTo;
+                            vl.CuocVCBo = g.CuocVCBo;
+                        }
+                        else if (vl.ChiPhiBocXep == 0 && vl.CuocVCOTo == 0 && vl.CuocVCBo == 0 && g.CuocVC > 0)
+                        {
+                            vl.CuocVanChuyen = g.CuocVC;
+                        }
+                    }
+                }
                 
                 foreach (var nc in duToan.BangTongHop.DanhSachNhanCong)
                     if (giaNc.TryGetValue(nc.MaVatTu, out var g)) nc.GiaGoc = g.DonGia;

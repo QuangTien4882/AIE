@@ -915,6 +915,18 @@ public class ThamDinhDonGiaForm : Form
                     vl.DmMayBocXep = dmMay;
                     hasChanges = true;
                 }
+                else if (vl.ChiPhiBocXep == 0 && savedCfg != null && savedCfg.ChiPhiBocXep > 0)
+                {
+                    vl.ChiPhiBocXep = savedCfg.ChiPhiBocXep;
+                    vl.MaDinhMucBocXep = maDm;
+                    hasChanges = true;
+                }
+            }
+            else if (vl.ChiPhiBocXep == 0 && savedCfg != null && savedCfg.ChiPhiBocXep > 0)
+            {
+                vl.ChiPhiBocXep = savedCfg.ChiPhiBocXep;
+                vl.MaDinhMucBocXep = savedCfg.MaDinhMuc;
+                hasChanges = true;
             }
 
             // Cập nhật lại CuocVCOTo nếu có cấu hình ô tô
@@ -928,10 +940,11 @@ public class ThamDinhDonGiaForm : Form
                 {
                     string mm = maMayOTo ?? dmOTo.MaMay;
                     var mayXe = _mayThiCongList.FirstOrDefault(m => m.MaHieu == mm);
-                    if (mayXe != null && mayXe.GiaHienTruong > 0)
+                    decimal giaMayXe = (mayXe != null && mayXe.GiaHienTruong > 0) ? mayXe.GiaHienTruong : (savedCfgOTo.DonGiaCaMay > 0 ? savedCfgOTo.DonGiaCaMay : 0);
+                    if (giaMayXe > 0)
                     {
                         var (caXe, _, _, _, _) = DinhMucVanChuyenDatabase.TinhHaoPhiCaXeOTo(dmOTo, savedCfgOTo.CungDuongs);
-                        decimal gia1Dm = (caXe * mayXe.GiaHienTruong) / 10m;
+                        decimal gia1Dm = (caXe * giaMayXe) / 10m;
                         decimal heSoQuyDoi = DinhMucVanChuyenDatabase.TinhHeSoQuyDoiOTo(vl.DonVi, dmOTo.DonViDinhMuc);
                         decimal cuocMoi = Math.Round(gia1Dm * heSoQuyDoi * 10m, 0, MidpointRounding.AwayFromZero);
                         if (cuocMoi > 0 && vl.CuocVCOTo != cuocMoi)
@@ -942,7 +955,68 @@ public class ThamDinhDonGiaForm : Form
                             hasChanges = true;
                         }
                     }
+                    else if (vl.CuocVCOTo == 0 && savedCfgOTo.CuocVCOTo > 0)
+                    {
+                        vl.CuocVCOTo = savedCfgOTo.CuocVCOTo;
+                        vl.MaDinhMucVCOTo = maDmOTo;
+                        vl.MaMayVCOTo = mm;
+                        hasChanges = true;
+                    }
                 }
+                else if (vl.CuocVCOTo == 0 && savedCfgOTo.CuocVCOTo > 0)
+                {
+                    vl.CuocVCOTo = savedCfgOTo.CuocVCOTo;
+                    hasChanges = true;
+                }
+            }
+            else if (vl.CuocVCOTo == 0 && savedCfgOTo != null && savedCfgOTo.CuocVCOTo > 0)
+            {
+                vl.CuocVCOTo = savedCfgOTo.CuocVCOTo;
+                vl.MaDinhMucVCOTo = savedCfgOTo.MaDinhMuc;
+                vl.MaMayVCOTo = savedCfgOTo.MaMay;
+                hasChanges = true;
+            }
+
+            // Cập nhật lại CuocVCBo nếu có cấu hình bộ
+            var savedCfgBo = AIE.ExcelAddIn.Services.VanChuyenStorage.GetConfigBo(vl.Ten);
+            string? maDmBo = vl.MaDinhMucVCBo ?? savedCfgBo?.MaDinhMuc;
+            if (!string.IsNullOrEmpty(maDmBo) && savedCfgBo != null)
+            {
+                var dmBo = DinhMucVanChuyenDatabase.DanhSachBo.FirstOrDefault(x => x.MaHieu == maDmBo);
+                if (dmBo != null)
+                {
+                    var ncNhom1 = _nhanCongList.FirstOrDefault(n => 
+                        n.NhomNhanCong == 1 || 
+                        (n.Ten.ToLower().Contains("nhóm 1") || n.Ten.ToLower().Contains("nhóm i") || n.MaHieu.EndsWith(".01")));
+                    decimal giaNC = ncNhom1 != null && ncNhom1.GiaHienTruong > 0 ? ncNhom1.GiaHienTruong : 254498m;
+
+                    decimal cong = DinhMucVanChuyenDatabase.TinhHaoPhiNhanCongBo(dmBo, savedCfgBo.CuLyMet, savedCfgBo.HeSoDiaHinh, savedCfgBo.SoTang);
+                    decimal heSoQuyDoi = DinhMucVanChuyenDatabase.TinhHeSoQuyDoiBo(vl.DonVi, dmBo.DonViDinhMuc);
+                    decimal cuocMoi = Math.Round(cong * giaNC * heSoQuyDoi, 0, MidpointRounding.AwayFromZero);
+                    if (cuocMoi > 0 && vl.CuocVCBo != cuocMoi)
+                    {
+                        vl.CuocVCBo = cuocMoi;
+                        vl.MaDinhMucVCBo = maDmBo;
+                        hasChanges = true;
+                    }
+                    else if (vl.CuocVCBo == 0 && savedCfgBo.CuocVCBo > 0)
+                    {
+                        vl.CuocVCBo = savedCfgBo.CuocVCBo;
+                        vl.MaDinhMucVCBo = maDmBo;
+                        hasChanges = true;
+                    }
+                }
+                else if (vl.CuocVCBo == 0 && savedCfgBo.CuocVCBo > 0)
+                {
+                    vl.CuocVCBo = savedCfgBo.CuocVCBo;
+                    hasChanges = true;
+                }
+            }
+            else if (vl.CuocVCBo == 0 && savedCfgBo != null && savedCfgBo.CuocVCBo > 0)
+            {
+                vl.CuocVCBo = savedCfgBo.CuocVCBo;
+                vl.MaDinhMucVCBo = savedCfgBo.MaDinhMuc;
+                hasChanges = true;
             }
         }
         if (hasChanges)
@@ -1080,7 +1154,7 @@ public class ThamDinhDonGiaForm : Form
 
             // 2. Save VL
             foreach (var vl in _vatLieuList)
-                repo.SaveGiaVL(id, vl.MaHieu, vl.GiaGoc, vl.CuocVC, vl.GiaHienTruong);
+                repo.SaveGiaVL(id, vl.MaHieu, vl.GiaGoc, vl.CuocVC, vl.GiaHienTruong, vl.ChiPhiBocXep, vl.CuocVCOTo, vl.CuocVCBo);
 
             // 3. Save NC
             foreach (var nc in _nhanCongList)

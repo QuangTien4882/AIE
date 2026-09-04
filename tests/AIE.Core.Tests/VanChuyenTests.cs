@@ -119,6 +119,33 @@ public class VanChuyenTests
         Assert.NotNull(oToCong);
         Assert.Equal("AM.2611", oToCong.MaHieu);
 
+        // Kiểm thử các vật liệu mới mở rộng trong từ điển
+        var oToSon = DinhMucVanChuyenDatabase.NhanDienOTo("Sơn nước nội thất Dulux");
+        Assert.NotNull(oToSon);
+        Assert.Equal("AM.2451", oToSon.MaHieu);
+
+        var oToOngNhua = DinhMucVanChuyenDatabase.NhanDienOTo("Ống nhựa PVC D110 dày 3.2mm");
+        Assert.NotNull(oToOngNhua);
+        Assert.Equal("AM.2511", oToOngNhua.MaHieu);
+
+        var oToDaXay = DinhMucVanChuyenDatabase.NhanDienOTo("Đá xây chẻ 15x20x25");
+        Assert.NotNull(oToDaXay);
+        Assert.Equal("AM.2351", oToDaXay.MaHieu);
+
+        var oToCocLyTam = DinhMucVanChuyenDatabase.NhanDienOTo("Cọc bê tông cốt thép ly tâm PHC D500");
+        Assert.NotNull(oToCocLyTam);
+        Assert.Equal("AM.2711", oToCocLyTam.MaHieu);
+
+        var oToTon = DinhMucVanChuyenDatabase.NhanDienOTo("Tôn mạ màu dày 0.45mm");
+        Assert.NotNull(oToTon);
+        Assert.Equal("AM.2451", oToTon.MaHieu);
+
+        var oToNuoc = DinhMucVanChuyenDatabase.NhanDienOTo("Nước sinh hoạt");
+        Assert.Null(oToNuoc);
+
+        var oToBeTongTuoi = DinhMucVanChuyenDatabase.NhanDienOTo("Bê tông tươi thương phẩm M250");
+        Assert.Null(oToBeTongTuoi);
+
         var boGach = DinhMucVanChuyenDatabase.NhanDienBo("Gạch đất sét nung 6 lỗ");
         Assert.NotNull(boGach);
         Assert.Equal("AM.2105", boGach.MaHieu);

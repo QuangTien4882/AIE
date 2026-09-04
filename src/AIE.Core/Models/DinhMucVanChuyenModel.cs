@@ -317,6 +317,13 @@ public static class DinhMucVanChuyenDatabase
         if (string.IsNullOrWhiteSpace(tenVatLieu)) return null;
         var t = tenVatLieu.Trim().ToLower();
 
+        // Các loại bỏ qua (nước, vữa, bê tông tươi... trừ khi là sơn nước)
+        if (!t.Contains("sơn") && !t.Contains("son") && (t.Contains("nước") || t.Contains("nuoc")))
+            return null;
+
+        if (t.Contains("vữa") || t.Contains("bê tông tươi") || t.Contains("bê tông thương phẩm"))
+            return null;
+
         // 1. Cát
         if (t.Contains("cát") || t.Contains("cat"))
             return DanhSachOTo.FirstOrDefault(x => x.MaHieu == "AM.2311"); // 7t default
@@ -325,8 +332,8 @@ public static class DinhMucVanChuyenDatabase
         if (t.Contains("đá 1x2") || t.Contains("đá 2x4") || t.Contains("đá 4x6") || t.Contains("đá dăm") || t.Contains("sỏi"))
             return DanhSachOTo.FirstOrDefault(x => x.MaHieu == "AM.2341"); // 7t
 
-        // 3. Đá hộc
-        if (t.Contains("đá hộc"))
+        // 3. Đá hộc / đá xây / đá chẻ
+        if (t.Contains("đá hộc") || t.Contains("đá xây") || t.Contains("đá chẻ"))
             return DanhSachOTo.FirstOrDefault(x => x.MaHieu == "AM.2351");
 
         // 4. Đất
@@ -337,33 +344,42 @@ public static class DinhMucVanChuyenDatabase
         if (t.Contains("xi măng") || t.Contains("xi mang") || t.Contains("pcb"))
             return DanhSachOTo.FirstOrDefault(x => x.MaHieu == "AM.2441");
 
-        // 6. Thép
-        if (t.Contains("thép") || t.Contains("thep") || t.Contains("sắt") || t.Contains("dây thép") || t.Contains("que hàn"))
-            return DanhSachOTo.FirstOrDefault(x => x.MaHieu == "AM.2451");
-
-        // 7. Gạch xây
-        if (t.Contains("gạch") && !t.Contains("lát") && !t.Contains("ốp"))
-            return DanhSachOTo.FirstOrDefault(x => x.MaHieu == "AM.2411");
-
-        // 8. Gạch ốp lát
-        if (t.Contains("gạch") && (t.Contains("lát") || t.Contains("ốp") || t.Contains("ceramic")))
-            return DanhSachOTo.FirstOrDefault(x => x.MaHieu == "AM.2421");
-
-        // 9. Ngói
-        if (t.Contains("ngói") || t.Contains("ngoi"))
-            return DanhSachOTo.FirstOrDefault(x => x.MaHieu == "AM.2431");
-
-        // 10. Ống cống
+        // 6. Ống cống
         if (t.Contains("cống") || t.Contains("cong"))
             return DanhSachOTo.FirstOrDefault(x => x.MaHieu == "AM.2611");
 
-        // 11. Cọc, cột bê tông
-        if (t.Contains("cọc") || t.Contains("cột") || t.Contains("cot") || t.Contains("coc"))
+        // 7. Cọc, cột bê tông, ly tâm, PHC (kể cả cọc BT cốt thép)
+        if (t.Contains("cọc") || t.Contains("cột") || t.Contains("cot") || t.Contains("coc") || t.Contains("ly tâm") || t.Contains("phc"))
             return DanhSachOTo.FirstOrDefault(x => x.MaHieu == "AM.2711");
 
-        // 12. Cấu kiện bê tông
-        if (t.Contains("cấu kiện") || t.Contains("bê tông") || t.Contains("tam đan") || t.Contains("gối cống"))
+        // 8. Cấu kiện bê tông, ống nhựa, phụ kiện
+        if (t.Contains("cấu kiện") || t.Contains("bê tông") || t.Contains("tam đan") || t.Contains("gối cống")
+            || t.Contains("ống nhựa") || t.Contains("pvc") || t.Contains("hdpe") || t.Contains("ống pe")
+            || t.Contains("phụ kiện") || t.Contains("co ") || t.Contains("tê ") || t.Contains("van "))
             return DanhSachOTo.FirstOrDefault(x => x.MaHieu == "AM.2511");
+
+        // 9. Thép, sắt, que hàn, dây điện, cáp, sơn, keo, tôn, tấm lợp, cấu kiện thép
+        if (t.Contains("thép") || t.Contains("thep") || t.Contains("sắt") || t.Contains("dây thép") || t.Contains("que hàn")
+            || t.Contains("cấu kiện thép") || t.Contains("dầm thép") || t.Contains("kết cấu thép")
+            || t.Contains("dây điện") || t.Contains("cáp") || t.Contains("dây dẫn")
+            || t.Contains("sơn") || t.Contains("son ") || t.StartsWith("son ")
+            || t.Contains("keo") || t.Contains("silicon")
+            || t.Contains("tấm tôn") || t.Contains("mái tôn") || t.Contains("tôn lợp") || t.Contains("tôn mạ") 
+            || t.Contains("tôn kẽm") || t.Contains("tôn sóng") || t.Contains("tole")
+            || t.Contains("tấm lợp") || t.Contains("fibrô"))
+            return DanhSachOTo.FirstOrDefault(x => x.MaHieu == "AM.2451");
+
+        // 10. Gạch xây
+        if (t.Contains("gạch") && !t.Contains("lát") && !t.Contains("ốp"))
+            return DanhSachOTo.FirstOrDefault(x => x.MaHieu == "AM.2411");
+
+        // 11. Gạch ốp lát
+        if (t.Contains("gạch") && (t.Contains("lát") || t.Contains("ốp") || t.Contains("ceramic")))
+            return DanhSachOTo.FirstOrDefault(x => x.MaHieu == "AM.2421");
+
+        // 12. Ngói
+        if (t.Contains("ngói") || t.Contains("ngoi"))
+            return DanhSachOTo.FirstOrDefault(x => x.MaHieu == "AM.2431");
 
         // 13. Nhựa đường
         if (t.Contains("nhựa đường") || t.Contains("bitum"))
@@ -381,13 +397,19 @@ public static class DinhMucVanChuyenDatabase
         if (string.IsNullOrWhiteSpace(tenVatLieu)) return null;
         var t = tenVatLieu.Trim().ToLower();
 
+        if (!t.Contains("sơn") && !t.Contains("son") && (t.Contains("nước") || t.Contains("nuoc"))) return null;
+        if (t.Contains("vữa") || t.Contains("bê tông")) return null;
+
         if (t.Contains("cát") || t.Contains("cat")) return DanhSachBo.FirstOrDefault(x => x.MaHieu == "AM.2101");
+        if (t.Contains("đá hộc") || t.Contains("đá xây") || t.Contains("đá chẻ")) return DanhSachBo.FirstOrDefault(x => x.MaHieu == "AM.2104");
+        if (t.Contains("đá") || t.Contains("sỏi")) return DanhSachBo.FirstOrDefault(x => x.MaHieu == "AM.2103");
         if (t.Contains("gạch") && (t.Contains("lát") || t.Contains("ốp"))) return DanhSachBo.FirstOrDefault(x => x.MaHieu == "AM.2106");
         if (t.Contains("gạch")) return DanhSachBo.FirstOrDefault(x => x.MaHieu == "AM.2105");
         if (t.Contains("ngói")) return DanhSachBo.FirstOrDefault(x => x.MaHieu == "AM.2107");
         if (t.Contains("đất") || t.Contains("dat")) return DanhSachBo.FirstOrDefault(x => x.MaHieu == "AM.2102");
         if (t.Contains("xi măng") || t.Contains("pcb")) return DanhSachBo.FirstOrDefault(x => x.MaHieu == "AM.2108");
-        if (t.Contains("thép") || t.Contains("sắt") || t.Contains("que hàn") || t.Contains("dây thép")) return DanhSachBo.FirstOrDefault(x => x.MaHieu == "AM.2112");
+        if (t.Contains("thép") || t.Contains("sắt") || t.Contains("que hàn") || t.Contains("dây thép")
+            || t.Contains("dây điện") || t.Contains("cáp") || t.Contains("sơn") || t.Contains("keo")) return DanhSachBo.FirstOrDefault(x => x.MaHieu == "AM.2112");
         if (t.Contains("cọc") || t.Contains("cừ")) return DanhSachBo.FirstOrDefault(x => x.MaHieu == "AM.2110");
         if (t.Contains("tre") || t.Contains("cây chống")) return DanhSachBo.FirstOrDefault(x => x.MaHieu == "AM.2111");
         if (t.Contains("gỗ")) return DanhSachBo.FirstOrDefault(x => x.MaHieu == "AM.2109");
@@ -418,6 +440,10 @@ public static class DinhMucVanChuyenDatabase
             if (dvVT == "kg") return 0.0001m; // 1 kg = 0.001 tấn = 0.0001 x 10tấn
             if (dvVT == "tạ") return 0.01m;
             if (dvVT == "bao") return 0.005m; // 1 bao 50kg = 0.05 tấn = 0.005 x 10tấn
+            if (dvVT == "thùng" || dvVT == "thung") return 0.002m; // ~20kg
+            if (dvVT == "m2" || dvVT == "m²") return 0.0005m; // ~5kg/m2
+            if (dvVT == "m" || dvVT == "md") return 0.0001m; // ~1kg/m
+            if (dvVT == "cái" || dvVT == "bộ" || dvVT == "cuộn") return 0.0005m;
             if (dvVT == "viên" || dvVT == "v") return 0.000015m; // Ước tính 1 viên gạch 1.5kg
             if (dvVT == "1000v" || dvVT == "nghìn viên") return 0.015m;
             if (dvVT == "đoạn" || dvVT == "cấu kiện" || dvVT == "ống" || dvVT == "cột" || dvVT == "cọc") return 0.1m; // Mặc định 1 cấu kiện = 1 tấn nếu tính theo tấn

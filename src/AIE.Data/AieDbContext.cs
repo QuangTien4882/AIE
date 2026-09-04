@@ -180,10 +180,18 @@ namespace AIE.Data
                     CuocVC REAL,
                     GiaHienTruong REAL,
                     DuocChon INTEGER,
+                    ChiPhiBocXep REAL DEFAULT 0,
+                    CuocVCOTo REAL DEFAULT 0,
+                    CuocVCBo REAL DEFAULT 0,
                     FOREIGN KEY(BoDonGiaId) REFERENCES BoDonGia(Id)
                 );
             ";
             command.ExecuteNonQuery();
+
+            // Migration cho GiaVatLieuTheoBo (nếu bảng đã tồn tại từ trước)
+            try { command.CommandText = "ALTER TABLE GiaVatLieuTheoBo ADD COLUMN ChiPhiBocXep REAL DEFAULT 0;"; command.ExecuteNonQuery(); } catch { }
+            try { command.CommandText = "ALTER TABLE GiaVatLieuTheoBo ADD COLUMN CuocVCOTo REAL DEFAULT 0;"; command.ExecuteNonQuery(); } catch { }
+            try { command.CommandText = "ALTER TABLE GiaVatLieuTheoBo ADD COLUMN CuocVCBo REAL DEFAULT 0;"; command.ExecuteNonQuery(); } catch { }
 
             // Bảng Định mức Ca máy theo TT 37
             command.CommandText = @"

@@ -47,6 +47,9 @@ public class TinhCuocVCOToForm : Form
     private Label lblDmInfo;
 
     private DataGridView dgvCungDuong;
+    private ComboBox cbTemplates;
+    private Button btnLuuTemplate;
+    private Button btnXoaTemplate;
     private Button btnThemDoan;
     private Button btnChenDoan;
     private Button btnXoaDoan;
@@ -343,7 +346,7 @@ public class TinhCuocVCOToForm : Form
         var cardCungDuong = new Panel
         {
             Location = new Point(25, y),
-            Size = new Size(pnlContent.ClientSize.Width - 50, 290),
+            Size = new Size(pnlContent.ClientSize.Width - 50, 325),
             Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
             BackColor = Color.White
         };
@@ -367,10 +370,90 @@ public class TinhCuocVCOToForm : Form
         };
         cardCungDuong.Controls.Add(lblCard2Title);
 
+        // Thanh công cụ mẫu tuyến đường (Dùng FlowLayoutPanel để các nút không bao giờ bị đè lấn nhau)
+        var pnlTemplateBar = new FlowLayoutPanel
+        {
+            Location = new Point(16, 42),
+            Size = new Size(cardCungDuong.ClientSize.Width - 32, 34),
+            Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+            BackColor = Color.Transparent,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            AutoScroll = false
+        };
+
+        var lblTuyenMau = new Label
+        {
+            Text = "Mẫu tuyến đường:",
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+            ForeColor = Color.FromArgb(0, 85, 170),
+            AutoSize = true,
+            Margin = new Padding(0, 5, 8, 0)
+        };
+
+        cbTemplates = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
+            Width = 280,
+            DropDownWidth = 450,
+            Margin = new Padding(0, 1, 10, 0)
+        };
+        cbTemplates.SelectedIndexChanged += (s, e) =>
+        {
+            if (cbTemplates.SelectedItem is TuyenDuongTemplate t)
+            {
+                if (t.CungDuongs != null && t.CungDuongs.Count > 0)
+                {
+                    bool needConfirm = dgvCungDuong.Rows.Count > 0;
+                    if (needConfirm)
+                    {
+                        var confirm = MessageBox.Show(
+                            $"Áp dụng mẫu tuyến \"{t.TenTemplate}\" ({t.CungDuongs.Count} đoạn, cự ly {t.TongCuLyKm:0.###} km)?\nCác đoạn đường hiện tại trong bảng sẽ được thay thế.",
+                            "Áp dụng mẫu tuyến đường",
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Question);
+                        if (confirm != DialogResult.Yes) return;
+                    }
+                    ApDungTemplate(t);
+                }
+            }
+        };
+
+        btnLuuTemplate = new Button
+        {
+            Text = "💾 Lưu mẫu tuyến...",
+            Size = new Size(145, 28),
+            Margin = new Padding(0, 0, 8, 0),
+            BackColor = Color.FromArgb(23, 162, 184),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            Cursor = Cursors.Hand
+        };
+        btnLuuTemplate.FlatAppearance.BorderSize = 0;
+        btnLuuTemplate.Click += (s, e) => OnLuuTemplateClicked();
+
+        btnXoaTemplate = new Button
+        {
+            Text = "🗑 Xóa mẫu",
+            Size = new Size(100, 28),
+            Margin = new Padding(0, 0, 0, 0),
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 9f),
+            ForeColor = Color.FromArgb(220, 53, 69),
+            Cursor = Cursors.Hand
+        };
+        btnXoaTemplate.FlatAppearance.BorderColor = Color.FromArgb(220, 53, 69);
+        btnXoaTemplate.Click += (s, e) => OnXoaTemplateClicked();
+
+        pnlTemplateBar.Controls.AddRange(new Control[] { lblTuyenMau, cbTemplates, btnLuuTemplate, btnXoaTemplate });
+        cardCungDuong.Controls.Add(pnlTemplateBar);
+
         dgvCungDuong = new DataGridView
         {
-            Location = new Point(16, 45),
-            Size = new Size(cardCungDuong.ClientSize.Width - 32, 185),
+            Location = new Point(16, 78),
+            Size = new Size(cardCungDuong.ClientSize.Width - 32, 182),
             Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
             AllowUserToAddRows = false,
             AllowUserToDeleteRows = false,
@@ -450,7 +533,7 @@ public class TinhCuocVCOToForm : Form
         // Thanh nút bấm tinh gọn, đúng chức năng
         var pnlButtons = new FlowLayoutPanel
         {
-            Location = new Point(16, 240),
+            Location = new Point(16, 268),
             Size = new Size(cardCungDuong.ClientSize.Width - 32, 42),
             Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
             WrapContents = false,
@@ -544,7 +627,7 @@ public class TinhCuocVCOToForm : Form
         cardCungDuong.Controls.Add(dgvCungDuong);
         cardCungDuong.Controls.Add(pnlButtons);
         pnlContent.Controls.Add(cardCungDuong);
-        y += 305;
+        y += 340;
 
         // =========================================================================
         // CARD 3: TỔNG HỢP CHIẾT TÍNH THEO THÔNG TƯ SỐ 38/2026/TT-BXD
@@ -701,6 +784,7 @@ public class TinhCuocVCOToForm : Form
 
         // 3. Nạp danh sách cung đoạn
         dgvCungDuong.Rows.Clear();
+        LoadTemplatesToCombo();
         if (savedCfg != null && savedCfg.TongCuLyKm > 0 && savedCfg.CungDuongs != null && savedCfg.CungDuongs.Count > 0)
         {
             TongCuLyKm = savedCfg.TongCuLyKm;
@@ -945,6 +1029,115 @@ public class TinhCuocVCOToForm : Form
                 CuLyKm = cuLy,
                 LoaiDuong = loai
             });
+        }
+    }
+
+    private void LoadTemplatesToCombo()
+    {
+        if (cbTemplates == null) return;
+        cbTemplates.Items.Clear();
+        cbTemplates.Items.Add("-- Chọn mẫu tuyến đường đã lưu --");
+        var templates = VanChuyenStorage.GetAllTemplates();
+        foreach (var t in templates)
+        {
+            cbTemplates.Items.Add(t);
+        }
+        cbTemplates.SelectedIndex = 0;
+    }
+
+    private void ApDungTemplate(TuyenDuongTemplate t)
+    {
+        _isUpdatingGridFromCode = true;
+        try
+        {
+            dgvCungDuong.Rows.Clear();
+            foreach (var cd in t.CungDuongs)
+            {
+                ThemCungDuongMoi(cd.DiemDau, cd.DiemCuoi, cd.TenDoanDuong, cd.CuLyKm, cd.LoaiDuong, insertIndex: -1);
+            }
+            CapNhatTongCuLyTuBang();
+            TinhToan();
+        }
+        finally
+        {
+            _isUpdatingGridFromCode = false;
+        }
+    }
+
+    private void OnLuuTemplateClicked()
+    {
+        ReadCungDuongsFromGrid();
+        if (CungDuongs.Count == 0 || CungDuongs.All(c => c.CuLyKm <= 0))
+        {
+            MessageBox.Show("Vui lòng nhập ít nhất một đoạn đường có cự ly trước khi lưu mẫu!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        string defaultName = "";
+        var first = CungDuongs.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c.DiemDau));
+        var last = CungDuongs.LastOrDefault(c => !string.IsNullOrWhiteSpace(c.DiemCuoi));
+        if (first != null && last != null)
+        {
+            defaultName = $"{first.DiemDau} → {last.DiemCuoi}";
+        }
+        else
+        {
+            defaultName = $"Tuyến {TongCuLyKm:0.###}km ({_tenVatLieu})";
+        }
+
+        using var inputForm = new Form
+        {
+            Text = "Lưu mẫu tuyến đường",
+            Size = new Size(480, 185),
+            StartPosition = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            Font = new Font("Segoe UI", 9.5f)
+        };
+        var lblPrompt = new Label { Text = "Nhập tên gợi nhớ cho mẫu tuyến đường vận chuyển:", Location = new Point(20, 15), AutoSize = true };
+        var txtName = new TextBox { Text = defaultName, Location = new Point(20, 44), Width = 420, Font = new Font("Segoe UI", 10f) };
+        var btnOk = new Button { Text = "✔ Lưu mẫu", DialogResult = DialogResult.OK, Location = new Point(245, 90), Width = 100, Height = 34, BackColor = Color.FromArgb(0, 120, 215), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        var btnCancel = new Button { Text = "Hủy", DialogResult = DialogResult.Cancel, Location = new Point(355, 90), Width = 85, Height = 34 };
+        inputForm.Controls.AddRange(new Control[] { lblPrompt, txtName, btnOk, btnCancel });
+        inputForm.AcceptButton = btnOk;
+        inputForm.CancelButton = btnCancel;
+
+        if (inputForm.ShowDialog(this) == DialogResult.OK && !string.IsNullOrWhiteSpace(txtName.Text))
+        {
+            var tenMoi = txtName.Text.Trim();
+            VanChuyenStorage.SaveTemplate(tenMoi, CungDuongs);
+            LoadTemplatesToCombo();
+            for (int i = 0; i < cbTemplates.Items.Count; i++)
+            {
+                if (cbTemplates.Items[i] is TuyenDuongTemplate temp && temp.TenTemplate.Equals(tenMoi, StringComparison.OrdinalIgnoreCase))
+                {
+                    cbTemplates.SelectedIndex = i;
+                    break;
+                }
+            }
+            MessageBox.Show($"Đã lưu mẫu tuyến đường \"{tenMoi}\" thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+    }
+
+    private void OnXoaTemplateClicked()
+    {
+        if (cbTemplates.SelectedItem is TuyenDuongTemplate t)
+        {
+            var confirm = MessageBox.Show(
+                $"Bạn có chắc chắn muốn xóa mẫu tuyến đường \"{t.TenTemplate}\"?",
+                "Xác nhận xóa mẫu tuyến",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+            if (confirm == DialogResult.Yes)
+            {
+                VanChuyenStorage.DeleteTemplate(t.TenTemplate);
+                LoadTemplatesToCombo();
+            }
+        }
+        else
+        {
+            MessageBox.Show("Vui lòng chọn một mẫu tuyến đường trong danh sách để xóa!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 

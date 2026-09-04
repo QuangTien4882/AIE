@@ -16,6 +16,11 @@ public class GiaVatLieuTheoBo
     // Tổng giá
     public decimal GiaHienTruong { get; set; }
     
+    // Chi tiết cước vận chuyển & bốc xếp
+    public decimal ChiPhiBocXep { get; set; }
+    public decimal CuocVCOTo { get; set; }
+    public decimal CuocVCBo { get; set; }
+
     /// <summary>
     /// 1 = Nguồn có giá thấp nhất được chọn để tính toán
     /// 0 = Các nguồn khác

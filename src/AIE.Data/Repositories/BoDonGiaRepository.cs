@@ -105,23 +105,26 @@ public class BoDonGiaRepository
         public decimal GiaGoc { get; set; }
         public decimal CuocVC { get; set; }
         public decimal GiaHienTruong { get; set; }
+        public decimal ChiPhiBocXep { get; set; }
+        public decimal CuocVCOTo { get; set; }
+        public decimal CuocVCBo { get; set; }
     }
 
-    public void SaveGiaVL(int boDonGiaId, string maVL, decimal giaGoc, decimal cuocVC, decimal giaHienTruong)
+    public void SaveGiaVL(int boDonGiaId, string maVL, decimal giaGoc, decimal cuocVC, decimal giaHienTruong, decimal chiPhiBocXep = 0, decimal cuocVCOTo = 0, decimal cuocVCBo = 0)
     {
         using var conn = _context.GetConnection();
         var exists = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM GiaVatLieuTheoBo WHERE BoDonGiaId = @BoDonGiaId AND MaVL = @MaVL", new { BoDonGiaId = boDonGiaId, MaVL = maVL });
         if (exists > 0)
         {
-            conn.Execute("UPDATE GiaVatLieuTheoBo SET GiaGoc = @GiaGoc, CuocVC = @CuocVC, GiaHienTruong = @GiaHienTruong WHERE BoDonGiaId = @BoDonGiaId AND MaVL = @MaVL", 
-                new { BoDonGiaId = boDonGiaId, MaVL = maVL, GiaGoc = giaGoc, CuocVC = cuocVC, GiaHienTruong = giaHienTruong });
+            conn.Execute("UPDATE GiaVatLieuTheoBo SET GiaGoc = @GiaGoc, CuocVC = @CuocVC, GiaHienTruong = @GiaHienTruong, ChiPhiBocXep = @ChiPhiBocXep, CuocVCOTo = @CuocVCOTo, CuocVCBo = @CuocVCBo WHERE BoDonGiaId = @BoDonGiaId AND MaVL = @MaVL", 
+                new { BoDonGiaId = boDonGiaId, MaVL = maVL, GiaGoc = giaGoc, CuocVC = cuocVC, GiaHienTruong = giaHienTruong, ChiPhiBocXep = chiPhiBocXep, CuocVCOTo = cuocVCOTo, CuocVCBo = cuocVCBo });
         }
         else
         {
             var sql = @"INSERT INTO GiaVatLieuTheoBo 
-                        (BoDonGiaId, MaVL, GiaGoc, CuocVC, GiaHienTruong, DuocChon) 
-                        VALUES (@BoDonGiaId, @MaVL, @GiaGoc, @CuocVC, @GiaHienTruong, 1)";
-            conn.Execute(sql, new { BoDonGiaId = boDonGiaId, MaVL = maVL, GiaGoc = giaGoc, CuocVC = cuocVC, GiaHienTruong = giaHienTruong });
+                        (BoDonGiaId, MaVL, GiaGoc, CuocVC, GiaHienTruong, DuocChon, ChiPhiBocXep, CuocVCOTo, CuocVCBo) 
+                        VALUES (@BoDonGiaId, @MaVL, @GiaGoc, @CuocVC, @GiaHienTruong, 1, @ChiPhiBocXep, @CuocVCOTo, @CuocVCBo)";
+            conn.Execute(sql, new { BoDonGiaId = boDonGiaId, MaVL = maVL, GiaGoc = giaGoc, CuocVC = cuocVC, GiaHienTruong = giaHienTruong, ChiPhiBocXep = chiPhiBocXep, CuocVCOTo = cuocVCOTo, CuocVCBo = cuocVCBo });
         }
     }
 
@@ -129,7 +132,7 @@ public class BoDonGiaRepository
     {
         using var conn = _context.GetConnection();
         return conn.Query<GiaVatLieuBo>(
-            "SELECT MaVL, GiaGoc, CuocVC, GiaHienTruong FROM GiaVatLieuTheoBo WHERE BoDonGiaId = @Id",
+            "SELECT MaVL, GiaGoc, CuocVC, GiaHienTruong, COALESCE(ChiPhiBocXep, 0) AS ChiPhiBocXep, COALESCE(CuocVCOTo, 0) AS CuocVCOTo, COALESCE(CuocVCBo, 0) AS CuocVCBo FROM GiaVatLieuTheoBo WHERE BoDonGiaId = @Id",
             new { Id = boDonGiaId }).ToList();
     }
 
@@ -193,7 +196,7 @@ public class BoDonGiaRepository
         // Copy VL
         var vlPrices = GetGiaVL(fromBoDonGiaId);
         foreach (var vl in vlPrices)
-            SaveGiaVL(toBoDonGiaId, vl.MaVL, vl.GiaGoc, vl.CuocVC, vl.GiaHienTruong);
+            SaveGiaVL(toBoDonGiaId, vl.MaVL, vl.GiaGoc, vl.CuocVC, vl.GiaHienTruong, vl.ChiPhiBocXep, vl.CuocVCOTo, vl.CuocVCBo);
 
         // Copy NC
         var ncPrices = GetGiaNC(fromBoDonGiaId);

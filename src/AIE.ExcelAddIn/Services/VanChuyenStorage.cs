@@ -27,10 +27,21 @@ public class VanChuyenBoSavedConfig
     public decimal CuocVCBo { get; set; }
 }
 
+public class TuyenDuongTemplate
+{
+    public string TenTemplate { get; set; } = string.Empty;
+    public decimal TongCuLyKm { get; set; }
+    public List<CungDuongVanChuyen> CungDuongs { get; set; } = new();
+    public DateTime NgayTao { get; set; } = DateTime.Now;
+
+    public override string ToString() => $"{TenTemplate} ({TongCuLyKm:0.###} km)";
+}
+
 public static class VanChuyenStorage
 {
     private static Dictionary<string, VanChuyenOToSavedConfig>? _cacheOTo;
     private static Dictionary<string, VanChuyenBoSavedConfig>? _cacheBo;
+    private static List<TuyenDuongTemplate>? _templates;
     private static readonly object _lock = new();
 
     private static string GetDir()
@@ -95,6 +106,7 @@ public static class VanChuyenStorage
                 MaDinhMuc = maDinhMuc,
                 MaMay = maMay,
                 DonGiaCaMay = donGiaCaMay,
+                TongCuLyKm = cungDuongs != null ? cungDuongs.Sum(c => c.CuLyKm) : 0,
                 CungDuongs = cungDuongs ?? new List<CungDuongVanChuyen>(),
                 CuocVCOTo = cuocVCOTo
             };
@@ -103,6 +115,90 @@ public static class VanChuyenStorage
             {
                 var file = Path.Combine(GetDir(), "van_chuyen_oto_config.json");
                 var json = JsonConvert.SerializeObject(_cacheOTo, Formatting.Indented);
+                File.WriteAllText(file, json);
+            }
+            catch { }
+        }
+    }
+
+    // ================= MẪU TUYẾN ĐƯỜNG (TEMPLATE) =================
+    private static void EnsureLoadedTemplates()
+    {
+        if (_templates != null) return;
+        lock (_lock)
+        {
+            if (_templates != null) return;
+            _templates = new List<TuyenDuongTemplate>();
+            try
+            {
+                var file = Path.Combine(GetDir(), "tuyen_duong_templates.json");
+                if (File.Exists(file))
+                {
+                    var json = File.ReadAllText(file);
+                    var list = JsonConvert.DeserializeObject<List<TuyenDuongTemplate>>(json);
+                    if (list != null) _templates = list;
+                }
+            }
+            catch { }
+        }
+    }
+
+    public static List<TuyenDuongTemplate> GetAllTemplates()
+    {
+        EnsureLoadedTemplates();
+        lock (_lock)
+        {
+            return _templates != null ? new List<TuyenDuongTemplate>(_templates) : new List<TuyenDuongTemplate>();
+        }
+    }
+
+    public static void SaveTemplate(string tenTemplate, List<CungDuongVanChuyen> cungDuongs)
+    {
+        if (string.IsNullOrWhiteSpace(tenTemplate) || cungDuongs == null) return;
+        EnsureLoadedTemplates();
+        lock (_lock)
+        {
+            _templates ??= new List<TuyenDuongTemplate>();
+            var existing = _templates.Find(t => t.TenTemplate.Equals(tenTemplate.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (existing != null)
+            {
+                existing.CungDuongs = new List<CungDuongVanChuyen>(cungDuongs);
+                existing.TongCuLyKm = cungDuongs.Sum(c => c.CuLyKm);
+                existing.NgayTao = DateTime.Now;
+            }
+            else
+            {
+                _templates.Add(new TuyenDuongTemplate
+                {
+                    TenTemplate = tenTemplate.Trim(),
+                    TongCuLyKm = cungDuongs.Sum(c => c.CuLyKm),
+                    CungDuongs = new List<CungDuongVanChuyen>(cungDuongs),
+                    NgayTao = DateTime.Now
+                });
+            }
+
+            try
+            {
+                var file = Path.Combine(GetDir(), "tuyen_duong_templates.json");
+                var json = JsonConvert.SerializeObject(_templates, Formatting.Indented);
+                File.WriteAllText(file, json);
+            }
+            catch { }
+        }
+    }
+
+    public static void DeleteTemplate(string tenTemplate)
+    {
+        if (string.IsNullOrWhiteSpace(tenTemplate)) return;
+        EnsureLoadedTemplates();
+        lock (_lock)
+        {
+            if (_templates == null) return;
+            _templates.RemoveAll(t => t.TenTemplate.Equals(tenTemplate.Trim(), StringComparison.OrdinalIgnoreCase));
+            try
+            {
+                var file = Path.Combine(GetDir(), "tuyen_duong_templates.json");
+                var json = JsonConvert.SerializeObject(_templates, Formatting.Indented);
                 File.WriteAllText(file, json);
             }
             catch { }
