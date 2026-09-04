@@ -89,8 +89,9 @@ public class QuanLyDonGiaForm : Form
                 vm.SoLuongNhanCong = dm.SoLuongNhanCong;
                 vm.NhomNhanCong = dm.NhomNhanCong;
 
-                // Calculate cost components
-                vm.ChiPhiKhauHao = dm.NguyenGia * dm.KhauHao / 100m / vm.SoCaNam;
+                // Calculate cost components theo TT 38/2026 và TT 13/2021: Nguyên giá >= 30 triệu thì trừ G_TH = 10%
+                decimal g_th = dm.NguyenGia >= 30000000m ? dm.NguyenGia * 0.1m : 0m;
+                vm.ChiPhiKhauHao = ((dm.NguyenGia - g_th) * dm.KhauHao / 100m) / vm.SoCaNam;
                 vm.ChiPhiSuaChua = dm.NguyenGia * dm.SuaChua / 100m / vm.SoCaNam;
                 vm.ChiPhiKhac = dm.NguyenGia * dm.ChiPhiKhac / 100m / vm.SoCaNam;
 
@@ -486,10 +487,11 @@ public class QuanLyDonGiaForm : Form
         _suppressRecalc = true;
         foreach (var m in _mayViewModels)
         {
-            // Tính chi phí khấu hao, sửa chữa, khác
+            // Tính chi phí khấu hao, sửa chữa, khác (trừ G_TH = 10% nếu nguyên giá >= 30 triệu)
             if (m.SoCaNam > 0 && m.NguyenGia > 0)
             {
-                m.ChiPhiKhauHao = m.NguyenGia * m.TyLeKhauHao / 100m / m.SoCaNam;
+                decimal g_th = m.NguyenGia >= 30000000m ? m.NguyenGia * 0.1m : 0m;
+                m.ChiPhiKhauHao = ((m.NguyenGia - g_th) * m.TyLeKhauHao / 100m) / m.SoCaNam;
                 m.ChiPhiSuaChua = m.NguyenGia * m.TyLeSuaChua / 100m / m.SoCaNam;
                 m.ChiPhiKhac = m.NguyenGia * m.TyLeKhac / 100m / m.SoCaNam;
             }
@@ -543,7 +545,8 @@ public class QuanLyDonGiaForm : Form
                 _mayDmRepo.Upsert(dm);
                 RecalculateMachineCosts();
                 
-                vm.ChiPhiKhauHao = dm.NguyenGia * dm.KhauHao / 100m / vm.SoCaNam;
+                decimal g_th = dm.NguyenGia >= 30000000m ? dm.NguyenGia * 0.1m : 0m;
+                vm.ChiPhiKhauHao = ((dm.NguyenGia - g_th) * dm.KhauHao / 100m) / vm.SoCaNam;
                 vm.ChiPhiSuaChua = dm.NguyenGia * dm.SuaChua / 100m / vm.SoCaNam;
                 vm.ChiPhiKhac = dm.NguyenGia * dm.ChiPhiKhac / 100m / vm.SoCaNam;
                 

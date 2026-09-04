@@ -664,48 +664,8 @@ public class ThamDinhDonGiaForm : Form
             // Đảm bảo tính toán lại giá máy thi công mới nhất
             RecalculateMachineCosts();
 
-            // 2. Tìm đơn giá Máy thi công (Cần cẩu bánh hơi - sức nâng: 6 T - M102.0201)
-            var cau6t = _mayThiCongList.FirstOrDefault(m => 
-                m.MaHieu == "M102.0201" || 
-                (m.Ten != null && m.Ten.ToLower().Contains("cần cẩu") && (m.Ten.Contains("6 T") || m.Ten.Contains("6 t") || m.Ten.Contains("6t"))));
-
-            decimal giaMay = cau6t != null && cau6t.GiaHienTruong > 0 ? cau6t.GiaHienTruong : 0;
-            if (giaMay == 0)
-            {
-                var db = new DatabaseManager();
-                var dmMayRepo = new DinhMucCaMayRepository(db.Context);
-                var dmCau = dmMayRepo.GetByMaMay("M102.0201");
-                if (dmCau != null)
-                {
-                    var mayM = new DgMayThiCongModel
-                    {
-                        MaHieu = dmCau.MaMay,
-                        Ten = "Cần cẩu bánh hơi - sức nâng: 6 T",
-                        DonVi = "ca",
-                        SoCaNam = dmCau.SoCaNam > 0 ? dmCau.SoCaNam : 240,
-                        NguyenGia = dmCau.NguyenGia,
-                        TyLeKhauHao = dmCau.KhauHao,
-                        TyLeSuaChua = dmCau.SuaChua,
-                        TyLeKhac = dmCau.ChiPhiKhac,
-                        HeSoNhienLieuPhu = dmCau.HeSoNhienLieuPhu,
-                        NhanCongString = dmCau.NhanCongString,
-                        DinhMucXang = dmCau.DinhMucXang,
-                        DinhMucDiezel = dmCau.DinhMucDiezel,
-                        DinhMucDien = dmCau.DinhMucDien
-                    };
-
-                    decimal g_th = dmCau.NguyenGia >= 30000000m ? dmCau.NguyenGia * 0.1m : 0m;
-                    mayM.KhauHao = ((dmCau.NguyenGia - g_th) * dmCau.KhauHao / 100m) / mayM.SoCaNam;
-                    mayM.SuaChua = (dmCau.NguyenGia * dmCau.SuaChua / 100m) / mayM.SoCaNam;
-                    mayM.ChiPhiKhac = (dmCau.NguyenGia * dmCau.ChiPhiKhac / 100m) / mayM.SoCaNam;
-
-                    _mayThiCongList.Add(mayM);
-                    RecalculateMachineCosts();
-                    giaMay = mayM.GiaHienTruong;
-                    dgvMay.DataSource = new BindingSource { DataSource = _mayThiCongList };
-                    dgvMay.Refresh();
-                }
-            }
+            // 2. Đơn giá máy thi công (Cần cẩu bánh hơi 6T - M102.0201)
+            decimal giaMay = LayDonGiaMayThiCong("M102.0201", "Cần cẩu bánh hơi - sức nâng: 6 T");
 
             // 3. Mở modal tính bốc xếp
             dgvVL.EndEdit();
@@ -746,12 +706,134 @@ public class ThamDinhDonGiaForm : Form
         }
         else if (colName == "CuocVCOTo")
         {
-            MessageBox.Show("Tính năng Tính cước vận chuyển ô tô sẽ được áp dụng trong bước triển khai tiếp theo.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            var savedCfg = AIE.ExcelAddIn.Services.VanChuyenStorage.GetConfigOTo(vl.Ten);
+            string? maDm = vl.MaDinhMucVCOTo ?? savedCfg?.MaDinhMuc;
+            var matchedDm = !string.IsNullOrEmpty(maDm) 
+                ? DinhMucVanChuyenDatabase.DanhSachOTo.FirstOrDefault(x => x.MaHieu == maDm) 
+                : DinhMucVanChuyenDatabase.NhanDienOTo(vl.Ten);
+
+            if (matchedDm == null && vl.CuocVCOTo == 0)
+            {
+                var res = MessageBox.Show(
+                    $"Vật liệu \"{vl.Ten}\" không thuộc danh mục có định mức vận chuyển ô tô quy định trong Chương XII (Định mức Thông tư 12/2021/TT-BXD & TT 38/2026/TT-BXD).\n\nBạn có muốn tự chọn một định mức vận chuyển ô tô để tính không?",
+                    "Thông báo định mức vận chuyển ô tô",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Information);
+                if (res != DialogResult.Yes) return;
+            }
+
+            string maMay = matchedDm?.MaMay ?? vl.MaMayVCOTo ?? savedCfg?.MaMay ?? "M106.0203";
+            string tenMay = matchedDm?.TenMay ?? "Ô tô tự đổ - trọng tải: 7 T";
+            decimal giaMay = LayDonGiaMayThiCong(maMay, tenMay);
+
+            dgvVL.EndEdit();
+            using var frm = new TinhCuocVCOToForm(
+                vl.Ten,
+                vl.DonVi,
+                giaMay,
+                vl.CuocVCOTo,
+                maDm,
+                maMay,
+                (m, t) => LayDonGiaMayThiCong(m, t));
+
+            if (frm.ShowDialog(this) == DialogResult.OK)
+            {
+                vl.CuocVCOTo = frm.KetQuaCuocOTo;
+                vl.MaDinhMucVCOTo = frm.SelectedDinhMuc?.MaHieu;
+                vl.MaMayVCOTo = frm.MaMay;
+
+                dgvVL.EndEdit();
+                dgvVL[e.ColumnIndex, e.RowIndex].Value = frm.KetQuaCuocOTo;
+                dgvVL.InvalidateRow(e.RowIndex);
+                dgvVL.Refresh();
+            }
         }
         else if (colName == "CuocVCBo")
         {
-            MessageBox.Show("Tính năng Tính cước vận chuyển bộ sẽ được áp dụng trong bước triển khai tiếp theo.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            var savedCfg = AIE.ExcelAddIn.Services.VanChuyenStorage.GetConfigBo(vl.Ten);
+            string? maDm = vl.MaDinhMucVCBo ?? savedCfg?.MaDinhMuc;
+            var matchedDm = !string.IsNullOrEmpty(maDm) 
+                ? DinhMucVanChuyenDatabase.DanhSachBo.FirstOrDefault(x => x.MaHieu == maDm) 
+                : DinhMucVanChuyenDatabase.NhanDienBo(vl.Ten);
+
+            if (matchedDm == null && vl.CuocVCBo == 0)
+            {
+                var res = MessageBox.Show(
+                    $"Vật liệu \"{vl.Ten}\" không thuộc danh mục có định mức vận chuyển bộ quy định trong Chương XII (Định mức Thông tư 12/2021/TT-BXD & TT 38/2026/TT-BXD).\n\nBạn có muốn tự chọn một định mức vận chuyển bộ để tính không?",
+                    "Thông báo định mức vận chuyển bộ",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Information);
+                if (res != DialogResult.Yes) return;
+            }
+
+            var ncNhom1 = _nhanCongList.FirstOrDefault(n => 
+                n.NhomNhanCong == 1 || n.Ten.ToLower().Contains("nhóm 1") || n.Ten.ToLower().Contains("nhóm i") || n.MaHieu.EndsWith(".01"));
+            decimal giaNC = ncNhom1 != null && ncNhom1.GiaHienTruong > 0 ? ncNhom1.GiaHienTruong : 254498m;
+
+            dgvVL.EndEdit();
+            using var frm = new TinhCuocVCBoForm(
+                vl.Ten,
+                vl.DonVi,
+                giaNC,
+                vl.CuocVCBo,
+                maDm);
+
+            if (frm.ShowDialog(this) == DialogResult.OK)
+            {
+                vl.CuocVCBo = frm.KetQuaCuocBo;
+                vl.MaDinhMucVCBo = frm.SelectedDinhMuc?.MaHieu;
+
+                dgvVL.EndEdit();
+                dgvVL[e.ColumnIndex, e.RowIndex].Value = frm.KetQuaCuocBo;
+                dgvVL.InvalidateRow(e.RowIndex);
+                dgvVL.Refresh();
+            }
         }
+    }
+
+    private decimal LayDonGiaMayThiCong(string maMay, string tenMayDefault)
+    {
+        RecalculateMachineCosts();
+        var may = _mayThiCongList.FirstOrDefault(m => m.MaHieu == maMay);
+        if (may != null && may.GiaHienTruong > 0) return may.GiaHienTruong;
+
+        var db = new DatabaseManager();
+        var dmMayRepo = new DinhMucCaMayRepository(db.Context);
+        var dm = dmMayRepo.GetByMaMay(maMay);
+        if (dm != null)
+        {
+            if (may == null)
+            {
+                may = new DgMayThiCongModel
+                {
+                    MaHieu = dm.MaMay,
+                    Ten = tenMayDefault,
+                    DonVi = "ca",
+                    SoCaNam = dm.SoCaNam > 0 ? dm.SoCaNam : 240,
+                    NguyenGia = dm.NguyenGia,
+                    TyLeKhauHao = dm.KhauHao,
+                    TyLeSuaChua = dm.SuaChua,
+                    TyLeKhac = dm.ChiPhiKhac,
+                    HeSoNhienLieuPhu = dm.HeSoNhienLieuPhu,
+                    NhanCongString = dm.NhanCongString,
+                    DinhMucXang = dm.DinhMucXang,
+                    DinhMucDiezel = dm.DinhMucDiezel,
+                    DinhMucDien = dm.DinhMucDien
+                };
+
+                decimal g_th = dm.NguyenGia >= 30000000m ? dm.NguyenGia * 0.1m : 0m;
+                may.KhauHao = ((dm.NguyenGia - g_th) * dm.KhauHao / 100m) / may.SoCaNam;
+                may.SuaChua = (dm.NguyenGia * dm.SuaChua / 100m) / may.SoCaNam;
+                may.ChiPhiKhac = (dm.NguyenGia * dm.ChiPhiKhac / 100m) / may.SoCaNam;
+
+                _mayThiCongList.Add(may);
+            }
+            RecalculateMachineCosts();
+            dgvMay.DataSource = new BindingSource { DataSource = _mayThiCongList };
+            dgvMay.Refresh();
+            return may.GiaHienTruong;
+        }
+        return may?.GiaHienTruong ?? 0;
     }
 
     private void RecalculateMachineCosts()
@@ -832,6 +914,34 @@ public class ThamDinhDonGiaForm : Form
                     vl.DmNCBocXep = dmNC;
                     vl.DmMayBocXep = dmMay;
                     hasChanges = true;
+                }
+            }
+
+            // Cập nhật lại CuocVCOTo nếu có cấu hình ô tô
+            var savedCfgOTo = AIE.ExcelAddIn.Services.VanChuyenStorage.GetConfigOTo(vl.Ten);
+            string? maDmOTo = vl.MaDinhMucVCOTo ?? savedCfgOTo?.MaDinhMuc;
+            string? maMayOTo = vl.MaMayVCOTo ?? savedCfgOTo?.MaMay;
+            if (!string.IsNullOrEmpty(maDmOTo) && savedCfgOTo != null && savedCfgOTo.CungDuongs != null && savedCfgOTo.CungDuongs.Count > 0)
+            {
+                var dmOTo = DinhMucVanChuyenDatabase.DanhSachOTo.FirstOrDefault(x => x.MaHieu == maDmOTo);
+                if (dmOTo != null)
+                {
+                    string mm = maMayOTo ?? dmOTo.MaMay;
+                    var mayXe = _mayThiCongList.FirstOrDefault(m => m.MaHieu == mm);
+                    if (mayXe != null && mayXe.GiaHienTruong > 0)
+                    {
+                        var (caXe, _, _, _, _) = DinhMucVanChuyenDatabase.TinhHaoPhiCaXeOTo(dmOTo, savedCfgOTo.CungDuongs);
+                        decimal gia1Dm = (caXe * mayXe.GiaHienTruong) / 10m;
+                        decimal heSoQuyDoi = DinhMucVanChuyenDatabase.TinhHeSoQuyDoiOTo(vl.DonVi, dmOTo.DonViDinhMuc);
+                        decimal cuocMoi = Math.Round(gia1Dm * heSoQuyDoi * 10m, 0, MidpointRounding.AwayFromZero);
+                        if (cuocMoi > 0 && vl.CuocVCOTo != cuocMoi)
+                        {
+                            vl.CuocVCOTo = cuocMoi;
+                            vl.MaDinhMucVCOTo = maDmOTo;
+                            vl.MaMayVCOTo = mm;
+                            hasChanges = true;
+                        }
+                    }
                 }
             }
         }
@@ -1074,6 +1184,11 @@ public class DgVatLieuModel
     public decimal DmNCBocXep { get; set; }
     public decimal DmMayBocXep { get; set; }
     public string? MaMayBocXep { get; set; }
+
+    // Lưu cấu hình vận chuyển ô tô và vận chuyển bộ
+    public string? MaDinhMucVCOTo { get; set; }
+    public string? MaMayVCOTo { get; set; }
+    public string? MaDinhMucVCBo { get; set; }
 
     // Giữ thuộc tính CuocVC để tương thích ngược
     public decimal CuocVC

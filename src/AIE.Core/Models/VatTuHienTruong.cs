@@ -42,6 +42,11 @@ public class VatLieuHienTruong : VatTuHienTruongBase
     public decimal DmMayBocXep { get; set; }
     public string? MaMayBocXep { get; set; }
 
+    // Lưu cấu hình vận chuyển ô tô và vận chuyển bộ
+    public string? MaDinhMucVCOTo { get; set; }
+    public string? MaMayVCOTo { get; set; }
+    public string? MaDinhMucVCBo { get; set; }
+
     // Giữ thuộc tính CuocVanChuyen để tương thích ngược
     public decimal CuocVanChuyen 
     { 
