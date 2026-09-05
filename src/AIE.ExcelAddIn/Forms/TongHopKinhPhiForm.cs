@@ -432,21 +432,26 @@ namespace AIE.ExcelAddIn.Forms
             tblInputs.Controls.Add(cboSoBuocThietKe, 5, 0);
 
             var lblVAT = new Label { Text = "Thuế VAT chung:", AutoSize = true, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = UIHelper.GetFont(10.5f, FontStyle.Bold), ForeColor = Color.FromArgb(0, 51, 102), Margin = new Padding(2, 0, 6, 0) };
-            var pnlVAT = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, Margin = new Padding(0, 5, 0, 5) };
+            var pnlVAT = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, Margin = new Padding(0, 4, 0, 4) };
             cboVATChung = new ComboBox { Width = 75, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.GetFont(10.5f, FontStyle.Bold), Margin = new Padding(0, 2, 6, 0) };
             cboVATChung.Items.AddRange(new object[] { "10%", "8%", "5%", "0%" });
             cboVATChung.SelectedIndex = 0;
+            cboVATChung.SelectedIndexChanged += CboVATChung_SelectedIndexChanged;
+
             btnApDungVATChung = new Button
             {
                 Text = "Áp dụng",
-                Size = new Size(92, 30),
+                Size = new Size(100, 32),
                 BackColor = Color.FromArgb(0, 102, 204),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = UIHelper.GetFont(9.5f, FontStyle.Bold),
                 Cursor = Cursors.Hand,
+                TextAlign = ContentAlignment.MiddleCenter,
+                UseCompatibleTextRendering = true,
                 Margin = new Padding(0)
             };
+            btnApDungVATChung.FlatAppearance.BorderSize = 0;
             btnApDungVATChung.Click += BtnApDungVATChung_Click;
             pnlVAT.Controls.Add(cboVATChung);
             pnlVAT.Controls.Add(btnApDungVATChung);
@@ -697,8 +702,8 @@ namespace AIE.ExcelAddIn.Forms
             var bottomPanel = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 54,
-                Padding = new Padding(15, 8, 15, 8),
+                Height = 62,
+                Padding = new Padding(16, 11, 16, 11),
                 BackColor = Color.FromArgb(245, 248, 252)
             };
 
@@ -723,39 +728,45 @@ namespace AIE.ExcelAddIn.Forms
             btnDong = new Button
             {
                 Text = "Đóng",
-                Size = new Size(95, 38),
+                Size = new Size(100, 40),
                 BackColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = UIHelper.GetFont(10f),
                 Margin = new Padding(0, 0, 10, 0),
-                Cursor = Cursors.Hand
+                Cursor = Cursors.Hand,
+                UseCompatibleTextRendering = true
             };
+            btnDong.FlatAppearance.BorderColor = Color.FromArgb(209, 213, 219);
             btnDong.Click += (s, e) => this.Close();
 
             btnLuu = new Button
             {
                 Text = "💾 Lưu cấu hình",
-                Size = new Size(130, 38),
+                Size = new Size(155, 40),
                 BackColor = Color.FromArgb(43, 87, 154),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = UIHelper.GetFont(10f, FontStyle.Bold),
                 Margin = new Padding(0, 0, 10, 0),
-                Cursor = Cursors.Hand
+                Cursor = Cursors.Hand,
+                UseCompatibleTextRendering = true
             };
+            btnLuu.FlatAppearance.BorderSize = 0;
             btnLuu.Click += BtnLuu_Click;
 
             btnXuatExcelChinh = new Button
             {
                 Text = "📥 Xuất Excel theo lựa chọn",
-                Size = new Size(230, 38),
+                Size = new Size(260, 40),
                 BackColor = Color.FromArgb(33, 115, 70),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = UIHelper.GetFont(10.5f, FontStyle.Bold),
                 Margin = new Padding(0),
-                Cursor = Cursors.Hand
+                Cursor = Cursors.Hand,
+                UseCompatibleTextRendering = true
             };
+            btnXuatExcelChinh.FlatAppearance.BorderSize = 0;
             btnXuatExcelChinh.Click += (s, e) => XuatExcelTongHop();
 
             pnlActions.Controls.Add(btnDong);
@@ -836,7 +847,7 @@ namespace AIE.ExcelAddIn.Forms
             // =========================================================================
             tabChiPhiXD = new TabPage
             {
-                Text = "  📁 1. Chi phí Xây dựng (Bảng 3.8 TT 36)  ",
+                Text = "1. Chi phí Xây dựng (Bảng 3.8 TT 36/2026)",
                 Padding = new Padding(10),
                 BackColor = Color.FromArgb(248, 250, 253),
                 Font = UIHelper.GetFont(10.5f)
@@ -1000,7 +1011,7 @@ namespace AIE.ExcelAddIn.Forms
             // =========================================================================
             tabTMDT = new TabPage
             {
-                Text = "  📊 2. Tổng mức đầu tư & TH Dự toán (Bảng 1.2 & 2.1)  ",
+                Text = "2. Tổng mức đầu tư & TH Dự toán (Bảng 1.2 & 2.1)",
                 Padding = new Padding(0),
                 BackColor = Color.FromArgb(248, 250, 253),
                 Font = UIHelper.GetFont(10.5f)
@@ -1018,7 +1029,7 @@ namespace AIE.ExcelAddIn.Forms
             {
                 Dock = DockStyle.Fill,
                 Font = UIHelper.GetFont(11f, FontStyle.Bold),
-                ItemSize = new Size(340, 38),
+                ItemSize = new Size(440, 42),
                 SizeMode = TabSizeMode.Fixed,
                 DrawMode = TabDrawMode.OwnerDrawFixed
             };
@@ -1131,7 +1142,9 @@ namespace AIE.ExcelAddIn.Forms
             using var sf = new StringFormat
             {
                 Alignment = StringAlignment.Center,
-                LineAlignment = StringAlignment.Center
+                LineAlignment = StringAlignment.Center,
+                FormatFlags = StringFormatFlags.NoWrap,
+                Trimming = StringTrimming.EllipsisCharacter
             };
 
             if (isSelected)
@@ -1336,8 +1349,21 @@ namespace AIE.ExcelAddIn.Forms
                 string vatText = $"{gtgt:0}%";
                 if (cboVATChung.Items.Contains(vatText))
                 {
+                    _isUpdating = true;
                     cboVATChung.SelectedItem = vatText;
+                    _isUpdating = false;
                 }
+            }
+
+            // Đồng bộ thuế GTGT cho toàn bộ các khoản mục chi phí chịu thuế trên bảng
+            foreach (var item in _model.Items)
+            {
+                // Giữ 0% cho các khoản phí ngân sách nhà nước không chịu thuế VAT
+                if (item.MaChiPhi == "K_TD_DA" || item.MaChiPhi == "K_TD_TK" || item.MaChiPhi == "K_TD_DT" || item.MaChiPhi == "K_TT_QUYETTOAN")
+                {
+                    continue;
+                }
+                item.ThueSuatGTGT = vatRate;
             }
 
             var itemXD = _model.Items.FirstOrDefault(x => x.MaChiPhi == "G_XD");
@@ -1609,32 +1635,43 @@ namespace AIE.ExcelAddIn.Forms
             HienThiDuLieuLenGrid();
         }
 
+        private void CboVATChung_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_isUpdating) return;
+            ApDungVATToanBang();
+        }
+
         /// <summary>
         /// Yêu cầu 7: Áp dụng thuế VAT chung cho toàn bộ bảng
         /// </summary>
         private void BtnApDungVATChung_Click(object sender, EventArgs e)
         {
-            string vatSel = cboVATChung.SelectedItem?.ToString() ?? "10%";
+            ApDungVATToanBang();
+        }
+
+        private void ApDungVATToanBang()
+        {
+            if (_model == null) return;
+
+            string vatSel = cboVATChung?.SelectedItem?.ToString() ?? "10%";
             decimal newVAT = 0.10m;
             if (vatSel == "8%") newVAT = 0.08m;
             else if (vatSel == "5%") newVAT = 0.05m;
             else if (vatSel == "0%") newVAT = 0m;
 
-            if (MessageBox.Show($"Bạn có muốn áp dụng mức thuế VAT {vatSel} cho toàn bộ các khoản mục chi phí trên bảng?\n(Lưu ý: Các khoản phí ngân sách nhà nước như Phí thẩm định sẽ tự động giữ nguyên 0%)", "Xác nhận áp dụng VAT", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            foreach (var item in _model.Items)
             {
-                foreach (var item in _model.Items)
+                // Giữ 0% cho phí ngân sách nhà nước
+                if (item.MaChiPhi == "K_TD_DA" || item.MaChiPhi == "K_TD_TK" || item.MaChiPhi == "K_TD_DT" || item.MaChiPhi == "K_TT_QUYETTOAN")
                 {
-                    // Giữ 0% cho phí ngân sách nhà nước
-                    if (item.MaChiPhi == "K_TD_DA" || item.MaChiPhi == "K_TD_TK" || item.MaChiPhi == "K_TD_DT" || item.MaChiPhi == "K_TT_QUYETTOAN")
-                    {
-                        continue;
-                    }
-                    item.ThueSuatGTGT = newVAT;
+                    continue;
                 }
-
-                _model.TinhToanLai();
-                HienThiDuLieuLenGrid();
+                item.ThueSuatGTGT = newVAT;
             }
+
+            _model.TinhToanLai();
+            HienThiDuLieuLenGrid();
+            CapNhatThanhTongCong();
         }
 
         private void DgvChiPhi_CellValueChanged(object sender, DataGridViewCellEventArgs e)

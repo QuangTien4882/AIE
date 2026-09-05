@@ -43,7 +43,7 @@ namespace AIE.ExcelAddIn.Forms
         private void InitializeComponent()
         {
             this.Text = "Tùy chọn Bảng biểu Xuất sang Excel (AIE Dự Toán)";
-            this.Size = new Size(680, 680);
+            this.ClientSize = new Size(740, 640);
             this.StartPosition = FormStartPosition.CenterParent;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -58,7 +58,7 @@ namespace AIE.ExcelAddIn.Forms
             var pnlHeader = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 65,
+                Height = 62,
                 BackColor = Color.FromArgb(16, 124, 65), // Excel Green
                 Padding = new Padding(20, 10, 20, 10)
             };
@@ -67,7 +67,7 @@ namespace AIE.ExcelAddIn.Forms
             {
                 Text = "📥 TÙY CHỌN BẢNG BIỂU XUẤT SANG EXCEL",
                 Dock = DockStyle.Top,
-                Height = 26,
+                Height = 24,
                 Font = UIHelper.GetFont(12f, FontStyle.Bold),
                 ForeColor = Color.White
             };
@@ -108,6 +108,7 @@ namespace AIE.ExcelAddIn.Forms
                 Cursor = Cursors.Hand,
                 Margin = new Padding(0, 0, 8, 0)
             };
+            btnChonTatCa.FlatAppearance.BorderColor = Color.FromArgb(209, 213, 219);
             btnChonTatCa.Click += (s, e) => SetAllCheckboxes(true);
 
             btnBoChonTatCa = new Button
@@ -121,6 +122,7 @@ namespace AIE.ExcelAddIn.Forms
                 Cursor = Cursors.Hand,
                 Margin = new Padding(0, 0, 8, 0)
             };
+            btnBoChonTatCa.FlatAppearance.BorderColor = Color.FromArgb(209, 213, 219);
             btnBoChonTatCa.Click += (s, e) => SetAllCheckboxes(false);
 
             btnMacDinh = new Button
@@ -135,6 +137,7 @@ namespace AIE.ExcelAddIn.Forms
                 Cursor = Cursors.Hand,
                 Margin = new Padding(0, 0, 8, 0)
             };
+            btnMacDinh.FlatAppearance.BorderColor = Color.FromArgb(0, 102, 204);
             btnMacDinh.Click += (s, e) => ApDungMacDinh();
 
             pnlToolbar.Controls.Add(btnChonTatCa);
@@ -143,51 +146,63 @@ namespace AIE.ExcelAddIn.Forms
             this.Controls.Add(pnlToolbar);
 
             // =========================================================================
-            // 3. BOTTOM PANEL: NÚT XUẤT & HỦY
+            // 3. BOTTOM PANEL: NÚT XUẤT & HỦY (CỐ ĐỊNH CHÂN MODAL, ANCHOR RIGHT)
             // =========================================================================
             var pnlBottom = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 60,
-                BackColor = Color.White,
-                Padding = new Padding(15, 10, 20, 10)
+                Height = 65,
+                BackColor = Color.White
+            };
+            pnlBottom.Paint += (s, e) =>
+            {
+                using var pen = new Pen(Color.FromArgb(226, 232, 240));
+                e.Graphics.DrawLine(pen, 0, 0, pnlBottom.Width, 0);
             };
 
-            var pnlBottomActions = new FlowLayoutPanel
+            var lblBottomTip = new Label
             {
-                Dock = DockStyle.Right,
-                FlowDirection = FlowDirection.LeftToRight,
-                AutoSize = true
+                Text = "💡 Chỉ xuất các bảng biểu được tích chọn ở trên sang Excel.",
+                AutoSize = true,
+                Location = new Point(18, 22),
+                Font = UIHelper.GetFont(9.5f, FontStyle.Italic),
+                ForeColor = Color.FromArgb(100, 116, 139)
             };
 
             btnDong = new Button
             {
                 Text = "Đóng",
-                Size = new Size(100, 38),
+                Size = new Size(110, 40),
+                Location = new Point(pnlBottom.ClientSize.Width - 365, 12),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 BackColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = UIHelper.GetFont(10f),
                 Cursor = Cursors.Hand,
-                Margin = new Padding(0, 0, 10, 0)
+                UseCompatibleTextRendering = true
             };
+            btnDong.FlatAppearance.BorderColor = Color.FromArgb(209, 213, 219);
             btnDong.Click += (s, e) => { this.DialogResult = DialogResult.Cancel; this.Close(); };
 
             btnXuat = new Button
             {
                 Text = "📥 Bắt đầu xuất Excel",
-                Size = new Size(200, 38),
-                BackColor = Color.FromArgb(16, 124, 65),
+                Size = new Size(230, 40),
+                Location = new Point(pnlBottom.ClientSize.Width - 245, 12),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                BackColor = Color.FromArgb(16, 124, 65), // Excel Green
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = UIHelper.GetFont(10.5f, FontStyle.Bold),
                 Cursor = Cursors.Hand,
-                Margin = new Padding(0)
+                UseCompatibleTextRendering = true
             };
+            btnXuat.FlatAppearance.BorderSize = 0;
             btnXuat.Click += BtnXuat_Click;
 
-            pnlBottomActions.Controls.Add(btnDong);
-            pnlBottomActions.Controls.Add(btnXuat);
-            pnlBottom.Controls.Add(pnlBottomActions);
+            pnlBottom.Controls.Add(lblBottomTip);
+            pnlBottom.Controls.Add(btnDong);
+            pnlBottom.Controls.Add(btnXuat);
             this.Controls.Add(pnlBottom);
 
             // =========================================================================
@@ -197,7 +212,7 @@ namespace AIE.ExcelAddIn.Forms
             {
                 Dock = DockStyle.Fill,
                 AutoScroll = true,
-                Padding = new Padding(20, 10, 20, 10)
+                Padding = new Padding(18, 8, 18, 8)
             };
 
             // GROUP 1: BẢNG TỔNG HỢP KINH PHÍ (TT 36/2026/TT-BXD)
@@ -205,11 +220,11 @@ namespace AIE.ExcelAddIn.Forms
             {
                 Text = "  1. BẢNG TỔNG HỢP KINH PHÍ (THÔNG TƯ 36/2026/TT-BXD)  ",
                 Dock = DockStyle.Top,
-                Height = 150,
+                Height = 135,
                 Font = UIHelper.GetFont(10f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(0, 51, 102),
-                Padding = new Padding(15, 12, 15, 10),
-                Margin = new Padding(0, 0, 0, 10)
+                Padding = new Padding(15, 10, 15, 8),
+                Margin = new Padding(0, 0, 0, 8)
             };
 
             var pnlGrp1 = new FlowLayoutPanel
@@ -234,11 +249,11 @@ namespace AIE.ExcelAddIn.Forms
             {
                 Text = "  2. HỆ THỐNG BẢNG BIỂU KỸ THUẬT & DỰ TOÁN CHI TIẾT  ",
                 Dock = DockStyle.Top,
-                Height = 295,
+                Height = 280,
                 Font = UIHelper.GetFont(10f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(0, 51, 102),
-                Padding = new Padding(15, 12, 15, 10),
-                Margin = new Padding(0, 10, 0, 0)
+                Padding = new Padding(15, 10, 15, 8),
+                Margin = new Padding(0, 8, 0, 0)
             };
 
             var pnlGrp2 = new FlowLayoutPanel
@@ -286,8 +301,9 @@ namespace AIE.ExcelAddIn.Forms
                 AutoSize = true,
                 Font = UIHelper.GetFont(10f, FontStyle.Regular),
                 ForeColor = tagColor,
-                Margin = new Padding(4, 5, 4, 5),
-                Cursor = Cursors.Hand
+                Margin = new Padding(4, 3, 4, 3),
+                Cursor = Cursors.Hand,
+                UseCompatibleTextRendering = true
             };
             return chk;
         }
