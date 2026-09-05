@@ -101,9 +101,7 @@ namespace AIE.ExcelAddIn.Forms
         private Button btnTraLaiDinhMuc;
 
         // Controls Bottom Action Bar
-        private CheckBox chkXuat7Bang;
-        private CheckBox chkXuatTMDT;
-        private CheckBox chkXuatTHDT;
+        private TableLayoutPanel pnlSummary;
         private Button btnXuatExcelChinh;
         private Button btnLuu;
         private Button btnDong;
@@ -664,15 +662,17 @@ namespace AIE.ExcelAddIn.Forms
             // =========================================================================
             // 3. BOTTOM PANEL: TỔNG KẾT & CÁC NÚT XUẤT EXCEL ĐỒNG BỘ 42px (Yêu cầu 2, 3)
             // =========================================================================
-            var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 110, Padding = new Padding(15, 10, 15, 10), BackColor = Color.FromArgb(245, 248, 252) };
-
-            // Dòng thống kê tổng cộng
-            var pnlSummary = new TableLayoutPanel
+            // =========================================================================
+            // 3. KHỐI TỔNG KẾT (ĐƯA VÀO TAB 2 - DOCK BOTTOM DƯỚI LƯỚI CHI PHÍ)
+            // =========================================================================
+            pnlSummary = new TableLayoutPanel
             {
-                Dock = DockStyle.Top,
-                Height = 36,
+                Dock = DockStyle.Bottom,
+                Height = 44,
                 ColumnCount = 3,
-                RowCount = 1
+                RowCount = 1,
+                BackColor = Color.FromArgb(240, 245, 252),
+                Padding = new Padding(12, 4, 12, 4)
             };
             pnlSummary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
             pnlSummary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
@@ -690,82 +690,44 @@ namespace AIE.ExcelAddIn.Forms
             pnlSummary.Controls.Add(lblTongTruocThue, 0, 0);
             pnlSummary.Controls.Add(lblTongGTGT, 1, 0);
             pnlSummary.Controls.Add(pnlGrandTotal, 2, 0);
-            bottomPanel.Controls.Add(pnlSummary);
 
-            // Dòng các nút hành động & Tùy chọn xuất bảng
-            var tblBottomActions = new TableLayoutPanel
+            // =========================================================================
+            // 4. BOTTOM PANEL: THANH TÁC VỤ CHUNG Ở ĐÁY MODAL (GỌN GÀNG, KHÔNG CHECKBOX)
+            // =========================================================================
+            var bottomPanel = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 48,
-                ColumnCount = 2,
-                RowCount = 1,
-                Padding = new Padding(0)
+                Height = 54,
+                Padding = new Padding(15, 8, 15, 8),
+                BackColor = Color.FromArgb(245, 248, 252)
             };
-            tblBottomActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58));
-            tblBottomActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42));
 
-            chkXuat7Bang = new CheckBox
+            var lblBottomTip = new Label
             {
-                Text = "7 Bảng kỹ thuật (TH_ChiPhiXD, DuToan...)",
+                Text = "💡 Bấm 'Xuất Excel theo lựa chọn' để chọn các sheet cần xuất sang Workbook hiện hành.",
                 AutoSize = true,
-                Checked = true,
-                Font = UIHelper.GetFont(10.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(0, 51, 102),
-                Margin = new Padding(4, 12, 12, 0),
-                Cursor = Cursors.Hand
+                Dock = DockStyle.Left,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = UIHelper.GetFont(9.5f, FontStyle.Italic),
+                ForeColor = Color.FromArgb(100, 116, 139)
             };
-
-            chkXuatTMDT = new CheckBox
-            {
-                Text = "Bảng 1.2: TMĐT (TongMucDauTu)",
-                AutoSize = true,
-                Checked = true,
-                Font = UIHelper.GetFont(10.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(153, 51, 0),
-                Margin = new Padding(0, 12, 12, 0),
-                Cursor = Cursors.Hand
-            };
-
-            chkXuatTHDT = new CheckBox
-            {
-                Text = "Bảng 2.1: THDT (TH_DuToan)",
-                AutoSize = true,
-                Checked = false,
-                Font = UIHelper.GetFont(10.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(0, 102, 204),
-                Margin = new Padding(0, 12, 12, 0),
-                Cursor = Cursors.Hand
-            };
-
-            var pnlCheckboxes = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
-                Padding = new Padding(0)
-            };
-            pnlCheckboxes.Controls.Add(chkXuat7Bang);
-            pnlCheckboxes.Controls.Add(chkXuatTMDT);
-            pnlCheckboxes.Controls.Add(chkXuatTHDT);
 
             var pnlActions = new FlowLayoutPanel
             {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.RightToLeft,
+                Dock = DockStyle.Right,
+                FlowDirection = FlowDirection.LeftToRight,
+                AutoSize = true,
                 WrapContents = false
             };
 
             btnDong = new Button
             {
                 Text = "Đóng",
-                AutoSize = true,
-                MinimumSize = new Size(90, 40),
-                Height = 40,
-                Padding = new Padding(12, 0, 12, 0),
+                Size = new Size(95, 38),
                 BackColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Font = UIHelper.GetFont(10.5f),
-                Margin = new Padding(8, 2, 0, 0),
+                Font = UIHelper.GetFont(10f),
+                Margin = new Padding(0, 0, 10, 0),
                 Cursor = Cursors.Hand
             };
             btnDong.Click += (s, e) => this.Close();
@@ -773,15 +735,12 @@ namespace AIE.ExcelAddIn.Forms
             btnLuu = new Button
             {
                 Text = "💾 Lưu cấu hình",
-                AutoSize = true,
-                MinimumSize = new Size(130, 40),
-                Height = 40,
-                Padding = new Padding(12, 0, 12, 0),
+                Size = new Size(130, 38),
                 BackColor = Color.FromArgb(43, 87, 154),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Font = UIHelper.GetFont(10.5f, FontStyle.Bold),
-                Margin = new Padding(8, 2, 0, 0),
+                Font = UIHelper.GetFont(10f, FontStyle.Bold),
+                Margin = new Padding(0, 0, 10, 0),
                 Cursor = Cursors.Hand
             };
             btnLuu.Click += BtnLuu_Click;
@@ -789,15 +748,12 @@ namespace AIE.ExcelAddIn.Forms
             btnXuatExcelChinh = new Button
             {
                 Text = "📥 Xuất Excel theo lựa chọn",
-                AutoSize = true,
-                MinimumSize = new Size(240, 40),
-                Height = 40,
-                Padding = new Padding(16, 0, 16, 0),
+                Size = new Size(230, 38),
                 BackColor = Color.FromArgb(33, 115, 70),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = UIHelper.GetFont(10.5f, FontStyle.Bold),
-                Margin = new Padding(8, 2, 0, 0),
+                Margin = new Padding(0),
                 Cursor = Cursors.Hand
             };
             btnXuatExcelChinh.Click += (s, e) => XuatExcelTongHop();
@@ -806,9 +762,8 @@ namespace AIE.ExcelAddIn.Forms
             pnlActions.Controls.Add(btnLuu);
             pnlActions.Controls.Add(btnXuatExcelChinh);
 
-            tblBottomActions.Controls.Add(pnlCheckboxes, 0, 0);
-            tblBottomActions.Controls.Add(pnlActions, 1, 0);
-            bottomPanel.Controls.Add(tblBottomActions);
+            bottomPanel.Controls.Add(pnlActions);
+            bottomPanel.Controls.Add(lblBottomTip);
 
             // =========================================================================
             // 4. CENTER: DATAGRIDVIEW CO GIÃN TỰ ĐỘNG 100% (Yêu cầu 1, 3, 4, 6, 7)
@@ -890,7 +845,7 @@ namespace AIE.ExcelAddIn.Forms
             var pnlLeftXD = new Panel
             {
                 Dock = DockStyle.Left,
-                Width = 430,
+                Width = 475,
                 Padding = new Padding(8, 8, 12, 8),
                 AutoScroll = true
             };
@@ -899,31 +854,32 @@ namespace AIE.ExcelAddIn.Forms
             {
                 Text = "  1. Thông số phân loại công trình  ",
                 Dock = DockStyle.Top,
-                Height = 140,
+                Height = 150,
                 Font = UIHelper.GetFont(10.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(0, 51, 102),
                 Padding = new Padding(10, 12, 10, 10)
             };
 
-            var lblLoaiCTXD = new Label { Text = "Loại công trình:", Location = new Point(12, 30), Width = 140, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
-            cboLoaiCongTrinhXD = new ComboBox { Location = new Point(160, 26), Width = 240, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.GetFont(10f) };
+            var lblLoaiCTXD = new Label { Text = "Loại công trình:", Location = new Point(14, 30), Width = 150, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
+            cboLoaiCongTrinhXD = new ComboBox { Location = new Point(170, 26), Width = 280, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.GetFont(10f) };
             cboLoaiCongTrinhXD.SelectedIndexChanged += CboLoaiCongTrinhXD_SelectedIndexChanged;
 
-            var lblPhanLoaiXD = new Label { Text = "Phân loại chi tiết:", Location = new Point(12, 65), Width = 140, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
-            cboPhanLoaiPhuXD = new ComboBox { Location = new Point(160, 61), Width = 240, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.GetFont(10f) };
+            var lblPhanLoaiXD = new Label { Text = "Phân loại chi tiết:", Location = new Point(14, 68), Width = 150, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
+            cboPhanLoaiPhuXD = new ComboBox { Location = new Point(170, 64), Width = 280, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.GetFont(10f) };
             cboPhanLoaiPhuXD.SelectedIndexChanged += (s, e) => TuDongTraTiLeXD();
 
-            var lblQuyMoXD = new Label { Text = "CP XD trong TMĐT (tỷ):", Location = new Point(12, 100), Width = 140, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
-            txtQuyMoXD = new TextBox { Location = new Point(160, 96), Width = 120, Font = UIHelper.GetFont(10f), Text = "15", TextAlign = HorizontalAlignment.Right };
+            var lblQuyMoXD = new Label { Text = "CP XD trong TMĐT:", Location = new Point(14, 106), Width = 150, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
+            txtQuyMoXD = new TextBox { Location = new Point(170, 102), Width = 110, Font = UIHelper.GetFont(10f), Text = "15", TextAlign = HorizontalAlignment.Right };
+            var lblDonViQuyMo = new Label { Text = "(tỷ đồng)", Location = new Point(288, 106), Width = 80, Font = UIHelper.GetFont(10f), ForeColor = Color.FromArgb(74, 85, 104) };
             txtQuyMoXD.TextChanged += (s, e) => TuDongTraTiLeXD();
 
-            grpThongSoXD.Controls.AddRange(new Control[] { lblLoaiCTXD, cboLoaiCongTrinhXD, lblPhanLoaiXD, cboPhanLoaiPhuXD, lblQuyMoXD, txtQuyMoXD });
+            grpThongSoXD.Controls.AddRange(new Control[] { lblLoaiCTXD, cboLoaiCongTrinhXD, lblPhanLoaiXD, cboPhanLoaiPhuXD, lblQuyMoXD, txtQuyMoXD, lblDonViQuyMo });
 
             var grpTyLeXD = new GroupBox
             {
-                Text = "  2. Tỷ lệ % định mức áp dụng (TT 36/2026/TT-BXD)  ",
+                Text = "  2. Tỷ lệ % định mức áp dụng (TT 36/2026)  ",
                 Dock = DockStyle.Top,
-                Height = 235,
+                Height = 245,
                 Font = UIHelper.GetFont(10.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(0, 51, 102),
                 Padding = new Padding(10, 12, 10, 10),
@@ -931,29 +887,29 @@ namespace AIE.ExcelAddIn.Forms
             };
 
             int gy = 28;
-            var lblCPC = new Label { Text = "Chi phí chung (CPC):", Location = new Point(12, gy), Width = 200, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
-            txtCPCXD = new TextBox { Location = new Point(220, gy - 2), Width = 70, Font = UIHelper.GetFont(10f), TextAlign = HorizontalAlignment.Right };
-            var lblDonViCPC = new Label { Text = "%", Location = new Point(295, gy), Width = 30, Font = UIHelper.GetFont(10f) };
+            var lblCPC = new Label { Text = "Chi phí chung (CPC):", Location = new Point(14, gy), Width = 180, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
+            txtCPCXD = new TextBox { Location = new Point(200, gy - 2), Width = 85, Font = UIHelper.GetFont(10f), TextAlign = HorizontalAlignment.Right };
+            var lblDonViCPC = new Label { Text = "%", Location = new Point(295, gy), Width = 35, Font = UIHelper.GetFont(10f) };
 
             gy += 38;
-            var lblTT = new Label { Text = "Chi phí ko XĐ KL (TT):", Location = new Point(12, gy), Width = 200, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
-            txtTTXD = new TextBox { Location = new Point(220, gy - 2), Width = 70, Font = UIHelper.GetFont(10f), TextAlign = HorizontalAlignment.Right };
-            var lblDonViTT = new Label { Text = "%", Location = new Point(295, gy), Width = 30, Font = UIHelper.GetFont(10f) };
+            var lblTT = new Label { Text = "Chi phí ko XĐ KL (TT):", Location = new Point(14, gy), Width = 180, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
+            txtTTXD = new TextBox { Location = new Point(200, gy - 2), Width = 85, Font = UIHelper.GetFont(10f), TextAlign = HorizontalAlignment.Right };
+            var lblDonViTT = new Label { Text = "%", Location = new Point(295, gy), Width = 35, Font = UIHelper.GetFont(10f) };
 
             gy += 38;
-            var lblTL = new Label { Text = "Lợi nhuận (TNCTTT):", Location = new Point(12, gy), Width = 200, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
-            txtTNCTTTXD = new TextBox { Location = new Point(220, gy - 2), Width = 70, Font = UIHelper.GetFont(10f), Text = "5,5", TextAlign = HorizontalAlignment.Right };
-            var lblDonViTL = new Label { Text = "%", Location = new Point(295, gy), Width = 30, Font = UIHelper.GetFont(10f) };
+            var lblTL = new Label { Text = "Lợi nhuận (TNCTTT):", Location = new Point(14, gy), Width = 180, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
+            txtTNCTTTXD = new TextBox { Location = new Point(200, gy - 2), Width = 85, Font = UIHelper.GetFont(10f), Text = "5,5", TextAlign = HorizontalAlignment.Right };
+            var lblDonViTL = new Label { Text = "%", Location = new Point(295, gy), Width = 35, Font = UIHelper.GetFont(10f) };
 
             gy += 38;
-            var lblGTGT = new Label { Text = "Thuế GTGT:", Location = new Point(12, gy), Width = 200, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
-            txtGTGTXD = new TextBox { Location = new Point(220, gy - 2), Width = 70, Font = UIHelper.GetFont(10f), Text = "8", TextAlign = HorizontalAlignment.Right };
-            var lblDonViGTGT = new Label { Text = "%", Location = new Point(295, gy), Width = 30, Font = UIHelper.GetFont(10f) };
+            var lblGTGT = new Label { Text = "Thuế GTGT:", Location = new Point(14, gy), Width = 180, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
+            txtGTGTXD = new TextBox { Location = new Point(200, gy - 2), Width = 85, Font = UIHelper.GetFont(10f), Text = "8", TextAlign = HorizontalAlignment.Right };
+            var lblDonViGTGT = new Label { Text = "%", Location = new Point(295, gy), Width = 35, Font = UIHelper.GetFont(10f) };
 
             gy += 38;
-            var lblNhaTamXDLabel = new Label { Text = "Chi phí nhà tạm (LT):", Location = new Point(12, gy), Width = 200, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
-            txtNhaTamXD = new TextBox { Location = new Point(220, gy - 2), Width = 70, Font = UIHelper.GetFont(10f), Text = "1,1", TextAlign = HorizontalAlignment.Right };
-            var lblDonViNT = new Label { Text = "%", Location = new Point(295, gy), Width = 30, Font = UIHelper.GetFont(10f) };
+            var lblNhaTamXDLabel = new Label { Text = "Chi phí nhà tạm (LT):", Location = new Point(14, gy), Width = 180, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
+            txtNhaTamXD = new TextBox { Location = new Point(200, gy - 2), Width = 85, Font = UIHelper.GetFont(10f), Text = "1,1", TextAlign = HorizontalAlignment.Right };
+            var lblDonViNT = new Label { Text = "%", Location = new Point(295, gy), Width = 35, Font = UIHelper.GetFont(10f) };
 
             grpTyLeXD.Controls.AddRange(new Control[] {
                 lblCPC, txtCPCXD, lblDonViCPC,
@@ -971,15 +927,15 @@ namespace AIE.ExcelAddIn.Forms
 
             btnChuyenSangTab2 = new Button
             {
-                Text = "👉 Tiếp tục sang Tab 2: Lập Tổng mức đầu tư / TH Dự toán",
+                Text = "Tiếp tục sang Tab 2: Lập TMĐT / TH Dự toán  ➜",
                 Dock = DockStyle.Top,
-                Height = 44,
+                Height = 48,
                 BackColor = Color.FromArgb(0, 102, 204),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = UIHelper.GetFont(10.5f, FontStyle.Bold),
                 Cursor = Cursors.Hand,
-                Margin = new Padding(0, 16, 0, 0)
+                Margin = new Padding(0, 14, 0, 0)
             };
             btnChuyenSangTab2.Click += (s, e) => { tabMain.SelectedTab = tabTMDT; };
 
@@ -997,7 +953,7 @@ namespace AIE.ExcelAddIn.Forms
             {
                 Text = "BẢNG TỔNG HỢP CHI PHÍ XÂY DỰNG (BẢNG 3.8 TT 36/2026/TT-BXD)",
                 Dock = DockStyle.Top,
-                Height = 32,
+                Height = 36,
                 Font = UIHelper.GetFont(12f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(0, 51, 102),
                 TextAlign = ContentAlignment.MiddleCenter
@@ -1013,10 +969,12 @@ namespace AIE.ExcelAddIn.Forms
                 RowHeadersVisible = false,
                 BackgroundColor = Color.White,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None,
                 Font = UIHelper.GetFont(10.5f)
             };
             UIHelper.ApplyStyle(dgvPreviewChiPhiXD);
-            dgvPreviewChiPhiXD.RowTemplate.Height = 34;
+            dgvPreviewChiPhiXD.RowTemplate.Height = 36;
+            dgvPreviewChiPhiXD.DefaultCellStyle.Padding = new Padding(4, 3, 4, 3);
 
             dgvPreviewChiPhiXD.Columns.Add("DienGiai", "Nội dung chi phí");
             dgvPreviewChiPhiXD.Columns.Add("KyHieu", "Ký hiệu");
@@ -1049,6 +1007,7 @@ namespace AIE.ExcelAddIn.Forms
             };
 
             tabTMDT.Controls.Add(dgvChiPhi);
+            tabTMDT.Controls.Add(pnlSummary);
             tabTMDT.Controls.Add(toolPanel);
             tabTMDT.Controls.Add(topPanel);
 
@@ -1059,9 +1018,12 @@ namespace AIE.ExcelAddIn.Forms
             {
                 Dock = DockStyle.Fill,
                 Font = UIHelper.GetFont(11f, FontStyle.Bold),
-                ItemSize = new Size(340, 36),
-                SizeMode = TabSizeMode.Fixed
+                ItemSize = new Size(340, 38),
+                SizeMode = TabSizeMode.Fixed,
+                DrawMode = TabDrawMode.OwnerDrawFixed
             };
+            tabMain.DrawItem += TabMain_DrawItem;
+            tabMain.SelectedIndexChanged += (s, e) => tabMain.Invalidate();
             tabMain.TabPages.Add(tabChiPhiXD);
             tabMain.TabPages.Add(tabTMDT);
 
@@ -1159,18 +1121,63 @@ namespace AIE.ExcelAddIn.Forms
             }
         }
 
+        private void TabMain_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            var tabCtrl = (TabControl)sender;
+            var page = tabCtrl.TabPages[e.Index];
+            var rect = tabCtrl.GetTabRect(e.Index);
+            bool isSelected = (tabCtrl.SelectedIndex == e.Index);
+
+            using var sf = new StringFormat
+            {
+                Alignment = StringAlignment.Center,
+                LineAlignment = StringAlignment.Center
+            };
+
+            if (isSelected)
+            {
+                // Tab active: Nền xanh dương thương hiệu nổi bật
+                using var brushBg = new SolidBrush(Color.FromArgb(0, 102, 204));
+                e.Graphics.FillRectangle(brushBg, rect);
+
+                // Đường viền nhấn màu vàng cam ở chân tab
+                using var brushIndicator = new SolidBrush(Color.FromArgb(255, 152, 0));
+                e.Graphics.FillRectangle(brushIndicator, rect.X, rect.Bottom - 4, rect.Width, 4);
+
+                // Chữ trắng in đậm
+                using var fontBold = UIHelper.GetFont(11f, FontStyle.Bold);
+                using var brushText = new SolidBrush(Color.White);
+                e.Graphics.DrawString(page.Text, fontBold, brushText, rect, sf);
+            }
+            else
+            {
+                // Tab inactive: Nền xám nhạt, chữ xám đen
+                using var brushBg = new SolidBrush(Color.FromArgb(238, 242, 246));
+                e.Graphics.FillRectangle(brushBg, rect);
+
+                using var penBorder = new Pen(Color.FromArgb(209, 213, 219));
+                e.Graphics.DrawRectangle(penBorder, rect.X, rect.Y, rect.Width - 1, rect.Height - 1);
+
+                using var fontNormal = UIHelper.GetFont(10.5f, FontStyle.Regular);
+                using var brushText = new SolidBrush(Color.FromArgb(74, 85, 104));
+                e.Graphics.DrawString(page.Text, fontNormal, brushText, rect, sf);
+            }
+        }
+
         private void LoadLoaiCongTrinhXD()
         {
-            if (_cpcRepo == null) return;
-            var data = _cpcRepo.GetAll();
-            var distinctTypes = data.Select(x => x.LoaiCongTrinh).Distinct().ToList();
-            cboLoaiCongTrinhXD.DataSource = distinctTypes;
+            cboLoaiCongTrinhXD.DataSource = null;
+            cboLoaiCongTrinhXD.Items.Clear();
+            cboLoaiCongTrinhXD.Items.AddRange(new object[] { "Dân dụng", "Công nghiệp", "Giao thông", "Nông nghiệp & PTNT", "Hạ tầng kỹ thuật" });
 
-            if (!string.IsNullOrEmpty(_duToan.LoaiCongTrinh) && distinctTypes.Contains(_duToan.LoaiCongTrinh))
+            string target = !string.IsNullOrEmpty(_duToan.LoaiCongTrinh) ? _duToan.LoaiCongTrinh : "Dân dụng";
+            if (target == "Nông nghiệp và môi trường") target = "Nông nghiệp & PTNT";
+
+            if (cboLoaiCongTrinhXD.Items.Contains(target))
             {
-                cboLoaiCongTrinhXD.SelectedItem = _duToan.LoaiCongTrinh;
+                cboLoaiCongTrinhXD.SelectedItem = target;
             }
-            else if (distinctTypes.Count > 0)
+            else
             {
                 cboLoaiCongTrinhXD.SelectedIndex = 0;
             }
@@ -1189,11 +1196,15 @@ namespace AIE.ExcelAddIn.Forms
             _duToan.LoaiCongTrinh = loaiCT;
             if (_model != null) _model.LoaiCongTrinh = loaiCT;
 
-            var data = _cpcRepo.GetByLoaiCongTrinh(loaiCT);
-            var phanLoai = data.Where(x => !string.IsNullOrEmpty(x.PhanLoaiPhu))
-                               .Select(x => x.PhanLoaiPhu)
-                               .Distinct()
-                               .ToList();
+            var allData = _cpcRepo.GetAll().Where(x => 
+                x.LoaiCongTrinh == loaiCT || 
+                (loaiCT == "Nông nghiệp & PTNT" && x.LoaiCongTrinh == "Nông nghiệp và môi trường")
+            ).ToList();
+
+            var phanLoai = allData.Where(x => !string.IsNullOrEmpty(x.PhanLoaiPhu))
+                                  .Select(x => x.PhanLoaiPhu)
+                                  .Distinct()
+                                  .ToList();
 
             cboPhanLoaiPhuXD.Items.Clear();
             if (phanLoai.Count == 0)
@@ -1296,6 +1307,12 @@ namespace AIE.ExcelAddIn.Forms
                         dgvPreviewChiPhiXD.Rows[idx].DefaultCellStyle.Font = new Font(dgvPreviewChiPhiXD.Font, FontStyle.Bold);
                     }
                 }
+
+                // Cố định chiều cao 36px cho tất cả các dòng, chống bị che chữ
+                foreach (DataGridViewRow r in dgvPreviewChiPhiXD.Rows)
+                {
+                    r.Height = 36;
+                }
             }
 
             DongBoSangTab2(kq, gtgt, nhatam);
@@ -1364,9 +1381,6 @@ namespace AIE.ExcelAddIn.Forms
                 if (itemDP != null) itemDP.TyLePhanTram = 10.0m;
 
                 lblTieuDeTongSauThue.Text = "TỔNG MỨC ĐẦU TƯ:";
-                if (chkXuatTMDT != null) chkXuatTMDT.Checked = true;
-                if (chkXuatTHDT != null) chkXuatTHDT.Checked = false;
-                btnXuatExcelChinh.Text = "📥 Xuất Excel theo lựa chọn";
             }
             else
             {
@@ -1380,9 +1394,6 @@ namespace AIE.ExcelAddIn.Forms
                 if (itemDP != null) itemDP.TyLePhanTram = 5.0m;
 
                 lblTieuDeTongSauThue.Text = "TỔNG DỰ TOÁN CT:";
-                if (chkXuatTMDT != null) chkXuatTMDT.Checked = false;
-                if (chkXuatTHDT != null) chkXuatTHDT.Checked = true;
-                btnXuatExcelChinh.Text = "📥 Xuất Excel theo lựa chọn";
             }
 
             DanhLaiSoThuTu();
@@ -1819,11 +1830,15 @@ namespace AIE.ExcelAddIn.Forms
 
                 _duToan.BangKinhPhi = _model;
 
-                bool xuat7Bang = chkXuat7Bang.Checked;
-                bool xuatTMDT = chkXuatTMDT.Checked;
-                bool xuatTHDT = chkXuatTHDT.Checked;
+                // Mở hộp thoại chọn các bảng biểu cần xuất
+                using var dialog = new ChonBangXuatExcelDialog(isCheDoTMDT: LaCheDoTongMucDauTu);
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
 
-                if (!xuat7Bang && !xuatTMDT && !xuatTHDT)
+                var opts = dialog.LuaChon;
+                if (opts == null || !opts.CoItNhatMotBangDuocChon())
                 {
                     MessageBox.Show("Vui lòng chọn ít nhất một bảng biểu để xuất Excel.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
@@ -1833,32 +1848,13 @@ namespace AIE.ExcelAddIn.Forms
                 loading.Show();
                 System.Windows.Forms.Application.DoEvents();
 
-                // 1. Xuất 7 bảng biểu kỹ thuật nếu chọn
-                if (xuat7Bang)
-                {
-                    _xuatService.Xuat7BangBieu(_duToan);
-                }
-
-                // 2. Xuất Bảng Tổng hợp dự toán nếu chọn
-                if (xuatTHDT)
-                {
-                    _xuatService.XuatBangTongHopDuToanCongTrinh(wb, _duToan);
-                }
-
-                // 3. Xuất Bảng Tổng mức đầu tư nếu chọn
-                if (xuatTMDT)
-                {
-                    _xuatService.XuatBangTongMucDauTu(wb, _duToan);
-                }
+                // Thực hiện xuất các bảng đã chọn
+                _xuatService.XuatCacBangTheoTuyChon(wb, _duToan, opts);
 
                 loading.Close();
                 loading.Dispose();
 
-                var dsDaXuat = new List<string>();
-                if (xuat7Bang) dsDaXuat.Add("- 7 Bảng biểu kỹ thuật (DuToan, Vật tư, Máy, Đơn giá, TH_ChiPhiXD)");
-                if (xuatTHDT) dsDaXuat.Add("- Bảng 2.1: Tổng hợp dự toán công trình (sheet 'TH_DuToan')");
-                if (xuatTMDT) dsDaXuat.Add("- Bảng 1.2: Tổng mức đầu tư xây dựng (sheet 'TongMucDauTu')");
-
+                var dsDaXuat = opts.GetDanhSachDaChon().Select(x => $"- {x}").ToList();
                 MessageBox.Show($"Đã xuất thành công các bảng biểu sang Excel:\n{string.Join("\n", dsDaXuat)}", "Xuất Excel Thành Công", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)

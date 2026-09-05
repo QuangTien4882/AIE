@@ -55,81 +55,163 @@ namespace AIE.ExcelAddIn.Services
                 // Bảng 7: Bảng xác định hệ số (HeSo_DieuChinh)
                 XuatBangHeSoDieuChinh(wb, duToan);
 
-                // Sắp xếp lại thứ tự sheet theo đúng yêu cầu:
-                // TH_ChiPhiXD -> DuToan -> PhanTich_DonGia -> TH_VatLieu -> TH_NhanCong -> TH_CaMay -> ChietTinh_CuocVC -> HeSo_DieuChinh
-                try
-                {
-                    var wsTHChiPhiXD = GetSheetSafe(wb, "TH_ChiPhiXD");
-                    var wsPhanTich = GetSheetSafe(wb, "PhanTich_DonGia");
-                    var wsTHVL = GetSheetSafe(wb, "TH_VatLieu");
-                    var wsTHNC = GetSheetSafe(wb, "TH_NhanCong");
-                    var wsTHMay = GetSheetSafe(wb, "TH_CaMay");
-                    var wsCuocVC = GetSheetSafe(wb, "ChietTinh_CuocVC");
-                    var wsHeSo = GetSheetSafe(wb, "HeSo_DieuChinh");
-                    var wsTMDT = GetSheetSafe(wb, "TongMucDauTu");
-                    var wsTHDT = GetSheetSafe(wb, "TH_DuToan");
-
-                    // 1. Đặt TH_ChiPhiXD nằm ngay trước sheet DuToan
-                    if (wsTHChiPhiXD != null)
-                    {
-                        if (wsDuToan != null)
-                        {
-                            wsTHChiPhiXD.Move(Before: wsDuToan);
-                        }
-                        else
-                        {
-                            wsTHChiPhiXD.Move(Before: wb.Sheets[1]);
-                        }
-                    }
-
-                    // 2. Nếu có sheet TongMucDauTu hoặc TH_DuToan thì đặt trước TH_ChiPhiXD
-                    if (wsTHChiPhiXD != null)
-                    {
-                        if (wsTHDT != null) wsTHDT.Move(Before: wsTHChiPhiXD);
-                        if (wsTMDT != null) wsTMDT.Move(Before: wsTHChiPhiXD);
-                    }
-
-                    // 3. Xếp các sheet sau DuToan theo đúng thứ tự:
-                    // DuToan -> PhanTich_DonGia -> TH_VatLieu -> TH_NhanCong -> TH_CaMay -> ChietTinh_CuocVC -> HeSo_DieuChinh
-                    Worksheet prevSheet = wsDuToan ?? wsTHChiPhiXD;
-                    if (wsPhanTich != null && prevSheet != null)
-                    {
-                        wsPhanTich.Move(After: prevSheet);
-                        prevSheet = wsPhanTich;
-                    }
-                    if (wsTHVL != null && prevSheet != null)
-                    {
-                        wsTHVL.Move(After: prevSheet);
-                        prevSheet = wsTHVL;
-                    }
-                    if (wsTHNC != null && prevSheet != null)
-                    {
-                        wsTHNC.Move(After: prevSheet);
-                        prevSheet = wsTHNC;
-                    }
-                    if (wsTHMay != null && prevSheet != null)
-                    {
-                        wsTHMay.Move(After: prevSheet);
-                        prevSheet = wsTHMay;
-                    }
-                    if (wsCuocVC != null && prevSheet != null)
-                    {
-                        wsCuocVC.Move(After: prevSheet);
-                        prevSheet = wsCuocVC;
-                    }
-                    if (wsHeSo != null && prevSheet != null)
-                    {
-                        wsHeSo.Move(After: prevSheet);
-                        prevSheet = wsHeSo;
-                    }
-                }
-                catch { }
+                // Sắp xếp lại thứ tự sheet theo đúng chuẩn
+                SapXepLaiThuTuCacSheet(wb, wsDuToan);
             }
             finally
             {
                 app.ScreenUpdating = true;
                 app.Calculation = XlCalculation.xlCalculationAutomatic;
             }
+        }
+
+        /// <summary>
+        /// Xuất các bảng biểu theo lựa chọn chi tiết của người dùng.
+        /// </summary>
+        public void XuatCacBangTheoTuyChon(Workbook wb, DuToan duToan, LuaChonXuatExcel opts)
+        {
+            if (wb == null) throw new Exception("Không có Workbook nào đang mở.");
+            if (opts == null || !opts.CoItNhatMotBangDuocChon()) return;
+
+            var app = wb.Application;
+            app.ScreenUpdating = false;
+            app.Calculation = XlCalculation.xlCalculationManual;
+
+            try
+            {
+                Worksheet wsDuToan = null;
+                foreach (Worksheet sheet in wb.Sheets)
+                {
+                    if (sheet.Name.StartsWith("DuToan"))
+                    {
+                        wsDuToan = sheet;
+                        break;
+                    }
+                }
+                if (wsDuToan == null) wsDuToan = wb.ActiveSheet as Worksheet;
+
+                // Xuất theo thứ tự phụ thuộc công thức
+                if (opts.XuatTongHopNhanCong && duToan.BangTongHop != null)
+                {
+                    XuatBangTongHopNhanCong(wb, duToan);
+                }
+                if (opts.XuatTongHopCaMay && duToan.BangTongHop != null)
+                {
+                    XuatBangTongHopCaMay(wb, duToan);
+                }
+                if (opts.XuatChietTinhCuocVC)
+                {
+                    XuatChietTinhCuocVC(wb, duToan);
+                }
+                if (opts.XuatTongHopVatLieu && duToan.BangTongHop != null)
+                {
+                    XuatBangTongHopVatLieu(wb, duToan);
+                }
+                if (opts.XuatDuToanChiTiet && wsDuToan != null)
+                {
+                    ReformatDuToanHeader(wsDuToan, duToan);
+                }
+                if (opts.XuatChiPhiXayDung && duToan.ChiPhiXD != null)
+                {
+                    XuatBangTongHopChiPhiXayDung(wb, duToan);
+                }
+                if (opts.XuatPhanTichDonGia)
+                {
+                    XuatPhanTichDonGia(wb, duToan, wsDuToan);
+                }
+                if (opts.XuatHeSoDieuChinh)
+                {
+                    XuatBangHeSoDieuChinh(wb, duToan);
+                }
+                if (opts.XuatTongHopDuToan && duToan.BangKinhPhi != null)
+                {
+                    XuatBangTongHopDuToanCongTrinh(wb, duToan);
+                }
+                if (opts.XuatTongMucDauTu && duToan.BangKinhPhi != null)
+                {
+                    XuatBangTongMucDauTu(wb, duToan);
+                }
+
+                // Sắp xếp lại thứ tự sheet theo đúng chuẩn
+                SapXepLaiThuTuCacSheet(wb, wsDuToan);
+            }
+            finally
+            {
+                app.ScreenUpdating = true;
+                app.Calculation = XlCalculation.xlCalculationAutomatic;
+            }
+        }
+
+        public void SapXepLaiThuTuCacSheet(Workbook wb, Worksheet wsDuToan)
+        {
+            try
+            {
+                var wsTHChiPhiXD = GetSheetSafe(wb, "TH_ChiPhiXD");
+                var wsPhanTich = GetSheetSafe(wb, "PhanTich_DonGia");
+                var wsTHVL = GetSheetSafe(wb, "TH_VatLieu");
+                var wsTHNC = GetSheetSafe(wb, "TH_NhanCong");
+                var wsTHMay = GetSheetSafe(wb, "TH_CaMay");
+                var wsCuocVC = GetSheetSafe(wb, "ChietTinh_CuocVC");
+                var wsHeSo = GetSheetSafe(wb, "HeSo_DieuChinh");
+                var wsTMDT = GetSheetSafe(wb, "TongMucDauTu");
+                var wsTHDT = GetSheetSafe(wb, "TH_DuToan");
+
+                // 1. Đặt TH_ChiPhiXD nằm ngay trước sheet DuToan
+                if (wsTHChiPhiXD != null)
+                {
+                    if (wsDuToan != null)
+                    {
+                        wsTHChiPhiXD.Move(Before: wsDuToan);
+                    }
+                    else if (wb.Sheets.Count > 0)
+                    {
+                        wsTHChiPhiXD.Move(Before: wb.Sheets[1]);
+                    }
+                }
+
+                // 2. Nếu có sheet TongMucDauTu hoặc TH_DuToan thì đặt trước TH_ChiPhiXD
+                Worksheet frontTarget = wsTHChiPhiXD ?? wsDuToan;
+                if (frontTarget != null)
+                {
+                    if (wsTHDT != null) wsTHDT.Move(Before: frontTarget);
+                    if (wsTMDT != null) wsTMDT.Move(Before: frontTarget);
+                }
+
+                // 3. Xếp các sheet sau DuToan theo đúng thứ tự:
+                // DuToan -> PhanTich_DonGia -> TH_VatLieu -> TH_NhanCong -> TH_CaMay -> ChietTinh_CuocVC -> HeSo_DieuChinh
+                Worksheet prevSheet = wsDuToan ?? wsTHChiPhiXD;
+                if (wsPhanTich != null && prevSheet != null)
+                {
+                    wsPhanTich.Move(After: prevSheet);
+                    prevSheet = wsPhanTich;
+                }
+                if (wsTHVL != null && prevSheet != null)
+                {
+                    wsTHVL.Move(After: prevSheet);
+                    prevSheet = wsTHVL;
+                }
+                if (wsTHNC != null && prevSheet != null)
+                {
+                    wsTHNC.Move(After: prevSheet);
+                    prevSheet = wsTHNC;
+                }
+                if (wsTHMay != null && prevSheet != null)
+                {
+                    wsTHMay.Move(After: prevSheet);
+                    prevSheet = wsTHMay;
+                }
+                if (wsCuocVC != null && prevSheet != null)
+                {
+                    wsCuocVC.Move(After: prevSheet);
+                    prevSheet = wsCuocVC;
+                }
+                if (wsHeSo != null && prevSheet != null)
+                {
+                    wsHeSo.Move(After: prevSheet);
+                    prevSheet = wsHeSo;
+                }
+            }
+            catch { }
         }
 
         private static Worksheet GetSheetSafe(Workbook wb, string sheetName)
@@ -181,7 +263,7 @@ namespace AIE.ExcelAddIn.Services
         /// Kiểm tra và chuyển đổi header sheet DuToan từ format 1 dòng (cũ) sang format 2 dòng (mới).
         /// Format mới: Dòng 4 có "Đơn giá" merged F4:H4, Dòng 5 có "Vật liệu", "Nhân công", "Máy thi công".
         /// </summary>
-        private void ReformatDuToanHeader(Worksheet ws, DuToan duToan)
+        public void ReformatDuToanHeader(Worksheet ws, DuToan duToan)
         {
             try
             {
@@ -1137,7 +1219,7 @@ namespace AIE.ExcelAddIn.Services
             catch { }
         }
 
-        private void XuatPhanTichDonGia(Workbook wb, DuToan duToan, Worksheet wsDuToan)
+        public void XuatPhanTichDonGia(Workbook wb, DuToan duToan, Worksheet wsDuToan)
         {
             var ws = CreateOrGetSheet(wb, "PhanTich_DonGia");
             SetupHeader(ws, "BẢNG PHÂN TÍCH ĐƠN GIÁ CHI TIẾT", 7);
@@ -1702,7 +1784,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Columns.AutoFit();
         }
 
-        private void XuatBangTongHopVatLieu(Workbook wb, DuToan duToan)
+        public void XuatBangTongHopVatLieu(Workbook wb, DuToan duToan)
         {
             var ws = CreateOrGetSheet(wb, "TH_VatLieu");
             SetupHeader(ws, "BẢNG TỔNG HỢP VẬT LIỆU", 11);
@@ -1758,7 +1840,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Columns.AutoFit();
         }
 
-        private void XuatBangTongHopNhanCong(Workbook wb, DuToan duToan)
+        public void XuatBangTongHopNhanCong(Workbook wb, DuToan duToan)
         {
             var ws = CreateOrGetSheet(wb, "TH_NhanCong");
             SetupHeader(ws, "BẢNG TỔNG HỢP NHÂN CÔNG", 7);
@@ -1806,7 +1888,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Columns.AutoFit();
         }
 
-        private void XuatBangTongHopCaMay(Workbook wb, DuToan duToan)
+        public void XuatBangTongHopCaMay(Workbook wb, DuToan duToan)
         {
             var ws = CreateOrGetSheet(wb, "TH_CaMay");
             SetupHeader(ws, "BẢNG TỔNG HỢP MÁY THI CÔNG", 7);
@@ -1854,7 +1936,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Columns.AutoFit();
         }
 
-        private void XuatBangHeSoDieuChinh(Workbook wb, DuToan duToan)
+        public void XuatBangHeSoDieuChinh(Workbook wb, DuToan duToan)
         {
             var ws = CreateOrGetSheet(wb, "HeSo_DieuChinh");
             SetupHeader(ws, "BẢNG TỔNG HỢP HỆ SỐ VÀ TỶ LỆ", 3);
