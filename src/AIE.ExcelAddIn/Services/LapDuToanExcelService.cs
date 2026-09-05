@@ -127,23 +127,35 @@ public class LapDuToanExcelService
         var ws = app.ActiveSheet as Worksheet;
         if (ws == null) return;
 
+        int maxR = 5;
         foreach (var hm in duToan.DanhSachHangMuc)
         {
             foreach (var dong in hm.DanhSachCongTac)
             {
                 int r = dong.STT; // Do lúc đọc ta lưu SoDongExcel vào STT
-                if (r < 4) continue;
+                if (r < 6) continue;
+                if (r > maxR) maxR = r;
 
                 // Gán Đơn Giá (Cột F, G, H)
                 ws.Cells[r, 6].Value2 = dong.DonGiaVL;
                 ws.Cells[r, 7].Value2 = dong.DonGiaNC;
                 ws.Cells[r, 8].Value2 = dong.DonGiaMay;
 
-                // Cột Thành tiền (I) = Khối lượng (E) * (ĐG VL + ĐG NC + ĐG Máy)
-                // Đặt công thức: =E5*(F5+G5+H5)
-                string formula = $"=E{r}*(F{r}+G{r}+H{r})";
-                ws.Cells[r, 9].Formula = formula;
+                // 3 Cột Thành tiền: Vật liệu (I), Nhân công (J), Máy thi công (K)
+                ws.Cells[r, 9].Formula = $"=ROUND(E{r}*F{r}, 0)";
+                ws.Cells[r, 10].Formula = $"=ROUND(E{r}*G{r}, 0)";
+                ws.Cells[r, 11].Formula = $"=ROUND(E{r}*H{r}, 0)";
             }
+        }
+
+        // Cập nhật dòng TỔNG CỘNG nếu có
+        int totalRow = maxR + 1;
+        string cVal = ws.Cells[totalRow, 3]?.Value2?.ToString()?.Trim() ?? "";
+        if (cVal.Equals("TỔNG CỘNG", StringComparison.OrdinalIgnoreCase) || cVal.Equals("CỘNG", StringComparison.OrdinalIgnoreCase))
+        {
+            ws.Cells[totalRow, 9].Formula = $"=SUM(I6:I{maxR})";
+            ws.Cells[totalRow, 10].Formula = $"=SUM(J6:J{maxR})";
+            ws.Cells[totalRow, 11].Formula = $"=SUM(K6:K{maxR})";
         }
     }
 
@@ -173,7 +185,7 @@ public class LapDuToanExcelService
             ws.Cells.Font.Size = 12;
 
             // Dòng 1: Tiêu đề sheet
-            Range r0 = ws.Range["A1", "I1"];
+            Range r0 = ws.Range["A1", "K1"];
             r0.Merge();
             r0.Value2 = "BẢNG DỰ TOÁN CHI TIẾT";
             r0.HorizontalAlignment = XlHAlign.xlHAlignCenter;
@@ -184,7 +196,7 @@ public class LapDuToanExcelService
             // Dòng 2: Dự án (đồng bộ với TongMucDauTu/TH_DuToan)
             string tenDuAn = UIHelper.ChuanHoaChuThuong(duToan.TenCongTrinh);
             if (string.IsNullOrEmpty(tenDuAn)) tenDuAn = "................................................................";
-            Range r1 = ws.Range["A2", "I2"];
+            Range r1 = ws.Range["A2", "K2"];
             r1.Merge();
             r1.Value2 = "Dự án: " + tenDuAn;
             r1.HorizontalAlignment = XlHAlign.xlHAlignCenter;
@@ -195,7 +207,7 @@ public class LapDuToanExcelService
             // Dòng 3: Địa điểm xây dựng (đồng bộ với TongMucDauTu/TH_DuToan)
             string diaDiem = UIHelper.ChuanHoaChuThuong(duToan.DiaDiem);
             if (string.IsNullOrEmpty(diaDiem)) diaDiem = "................................................................";
-            Range r2 = ws.Range["A3", "I3"];
+            Range r2 = ws.Range["A3", "K3"];
             r2.Merge();
             r2.Value2 = "Địa điểm xây dựng: " + diaDiem;
             r2.HorizontalAlignment = XlHAlign.xlHAlignCenter;
@@ -209,12 +221,16 @@ public class LapDuToanExcelService
             ws.Cells[4, 3] = "Tên công tác";
             ws.Cells[4, 4] = "Đơn vị";
             ws.Cells[4, 5] = "Khối lượng";
-            ws.Cells[4, 6] = "Đơn giá";
-            ws.Cells[4, 9] = "Thành tiền";
+            ws.Cells[4, 6] = "Đơn giá (đồng)";
+            ws.Cells[4, 9] = "Thành tiền (đồng)";
 
             ws.Cells[5, 6] = "Vật liệu";
             ws.Cells[5, 7] = "Nhân công";
             ws.Cells[5, 8] = "Máy thi công";
+
+            ws.Cells[5, 9] = "Vật liệu";
+            ws.Cells[5, 10] = "Nhân công";
+            ws.Cells[5, 11] = "Máy thi công";
 
             // Merge header cells
             ws.Range["A4:A5"].Merge();
@@ -223,9 +239,9 @@ public class LapDuToanExcelService
             ws.Range["D4:D5"].Merge();
             ws.Range["E4:E5"].Merge();
             ws.Range["F4:H4"].Merge();
-            ws.Range["I4:I5"].Merge();
+            ws.Range["I4:K4"].Merge();
 
-            Range headerRange = ws.Range[ws.Cells[4, 1], ws.Cells[5, 9]];
+            Range headerRange = ws.Range[ws.Cells[4, 1], ws.Cells[5, 11]];
             headerRange.Font.Bold = true;
             headerRange.HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
             headerRange.VerticalAlignment = Microsoft.Office.Interop.Excel.XlVAlign.xlVAlignCenter;
@@ -235,13 +251,15 @@ public class LapDuToanExcelService
             // Column widths
             ((Microsoft.Office.Interop.Excel.Range)ws.Columns[1]).ColumnWidth = 5;
             ((Microsoft.Office.Interop.Excel.Range)ws.Columns[2]).ColumnWidth = 12;
-            ((Microsoft.Office.Interop.Excel.Range)ws.Columns[3]).ColumnWidth = 45;
+            ((Microsoft.Office.Interop.Excel.Range)ws.Columns[3]).ColumnWidth = 42;
             ((Microsoft.Office.Interop.Excel.Range)ws.Columns[4]).ColumnWidth = 8;
             ((Microsoft.Office.Interop.Excel.Range)ws.Columns[5]).ColumnWidth = 12;
-            ((Microsoft.Office.Interop.Excel.Range)ws.Columns[6]).ColumnWidth = 15;
-            ((Microsoft.Office.Interop.Excel.Range)ws.Columns[7]).ColumnWidth = 15;
-            ((Microsoft.Office.Interop.Excel.Range)ws.Columns[8]).ColumnWidth = 15;
-            ((Microsoft.Office.Interop.Excel.Range)ws.Columns[9]).ColumnWidth = 18;
+            ((Microsoft.Office.Interop.Excel.Range)ws.Columns[6]).ColumnWidth = 14;
+            ((Microsoft.Office.Interop.Excel.Range)ws.Columns[7]).ColumnWidth = 14;
+            ((Microsoft.Office.Interop.Excel.Range)ws.Columns[8]).ColumnWidth = 14;
+            ((Microsoft.Office.Interop.Excel.Range)ws.Columns[9]).ColumnWidth = 16;
+            ((Microsoft.Office.Interop.Excel.Range)ws.Columns[10]).ColumnWidth = 16;
+            ((Microsoft.Office.Interop.Excel.Range)ws.Columns[11]).ColumnWidth = 16;
 
             if (ws.Name.StartsWith("Sheet"))
             {
@@ -269,36 +287,51 @@ public class LapDuToanExcelService
                         ws.Cells[r, 8] = (double)dong.DonGiaMay;
                     }
                     
-                    // Cột Thành tiền
-                    ws.Cells[r, 9].Formula = $"=E{r}*(F{r}+G{r}+H{r})";
+                    // 3 Cột Thành tiền: Vật liệu, Nhân công, Máy thi công
+                    ws.Cells[r, 9].Formula = $"=ROUND(E{r}*F{r}, 0)";
+                    ws.Cells[r, 10].Formula = $"=ROUND(E{r}*G{r}, 0)";
+                    ws.Cells[r, 11].Formula = $"=ROUND(E{r}*H{r}, 0)";
 
                     r++;
                 }
             }
 
-            // Định dạng số cho cột Khối lượng, đơn giá và Thành tiền
-            if (r > 5)
+            // Dòng TỔNG CỘNG ở cuối bảng DuToan
+            int dataEndRow = r - 1;
+            if (dataEndRow >= 6)
             {
-                Range dataRange = ws.Range[$"A5:I{r - 1}"];
+                ws.Cells[r, 3] = "TỔNG CỘNG";
+                ws.Cells[r, 9].Formula = $"=SUM(I6:I{dataEndRow})";
+                ws.Cells[r, 10].Formula = $"=SUM(J6:J{dataEndRow})";
+                ws.Cells[r, 11].Formula = $"=SUM(K6:K{dataEndRow})";
+                ws.Range[ws.Cells[r, 1], ws.Cells[r, 11]].Font.Bold = true;
+                ws.Range[ws.Cells[r, 1], ws.Cells[r, 11]].Interior.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(240, 245, 252));
+                r++;
+            }
+
+            // Định dạng số cho cột Khối lượng, đơn giá và Thành tiền
+            if (r > 6)
+            {
+                Range dataRange = ws.Range[$"A4:K{r - 1}"];
                 dataRange.Borders.LineStyle = Microsoft.Office.Interop.Excel.XlLineStyle.xlContinuous;
                 dataRange.VerticalAlignment = Microsoft.Office.Interop.Excel.XlVAlign.xlVAlignCenter;
 
-                ws.Range[$"A5:A{r - 1}"].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
-                ws.Range[$"C5:C{r - 1}"].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignJustify;
-                ws.Range[$"C5:C{r - 1}"].WrapText = true;
-                ws.Range[$"D5:D{r - 1}"].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                ws.Range[$"A6:A{r - 1}"].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                ws.Range[$"C6:C{r - 1}"].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignJustify;
+                ws.Range[$"C6:C{r - 1}"].WrapText = true;
+                ws.Range[$"D6:D{r - 1}"].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
                 
-                Range numberCols = ws.Range[$"E5:I{r - 1}"];
+                Range numberCols = ws.Range[$"E6:K{r - 1}"];
                 numberCols.HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignRight;
 
-                ws.Range[$"E5:E{r - 1}"].NumberFormat = "#,##0.000";
-                ws.Range[$"F5:I{r - 1}"].NumberFormat = "#,##0";
+                ws.Range[$"E6:E{r - 1}"].NumberFormat = "#,##0.000";
+                ws.Range[$"F6:K{r - 1}"].NumberFormat = "#,##0";
             }
             
-            // Freeze panes at row 4
+            // Freeze panes at row 5 (headers are rows 4 & 5)
             ws.Activate();
             app.ActiveWindow.FreezePanes = false;
-            app.ActiveWindow.SplitRow = 4;
+            app.ActiveWindow.SplitRow = 5;
             app.ActiveWindow.SplitColumn = 0;
             app.ActiveWindow.FreezePanes = true;
         }

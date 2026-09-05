@@ -268,7 +268,7 @@ public static class UIHelper
             s = s.Substring(0, s.Length - len);
         }
 
-        var parts = new System.Collections.Generic.List<string>();
+        var groupPhrases = new System.Collections.Generic.List<string>();
         for (int i = groups.Count - 1; i >= 0; i--)
         {
             int g = groups[i];
@@ -278,7 +278,6 @@ public static class UIHelper
             string t = DocBlock3So(g, dayDu);
             if (!string.IsNullOrEmpty(t))
             {
-                parts.Add(t);
                 string unit = "";
                 if (i == 1) unit = "nghìn";
                 else if (i == 2) unit = "triệu";
@@ -286,11 +285,15 @@ public static class UIHelper
                 else if (i == 4) unit = "nghìn tỷ";
                 else if (i == 5) unit = "triệu tỷ";
                 else if (i == 6) unit = "tỷ tỷ";
-                if (!string.IsNullOrEmpty(unit)) parts.Add(unit);
+
+                if (!string.IsNullOrEmpty(unit))
+                    groupPhrases.Add($"{t} {unit}");
+                else
+                    groupPhrases.Add(t);
             }
         }
 
-        string res = string.Join(" ", parts).Trim();
+        string res = string.Join(", ", groupPhrases).Trim();
         if (res.Length > 0)
         {
             res = char.ToUpper(res[0]) + res.Substring(1);

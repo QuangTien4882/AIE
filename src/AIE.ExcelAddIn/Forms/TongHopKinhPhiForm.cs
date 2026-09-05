@@ -149,42 +149,10 @@ namespace AIE.ExcelAddIn.Forms
             _ttRepo = new DinhMucTTRepository(db.Context.GetConnection());
             _calcService = new ChiPhiXayDungCalc();
 
-            _tongT = 0;
-            _tongNC = 0;
-            if (_duToan.DanhSachHangMuc != null)
-            {
-                foreach (var hm in _duToan.DanhSachHangMuc)
-                {
-                    foreach (var ct in hm.DanhSachCongTac)
-                    {
-                        _tongT += ct.ThanhTien;
-                        _tongNC += ct.ThanhTienNC;
-                    }
-                }
-            }
-
-            decimal defaultMay = _tongT - _tongNC - (_duToan.DanhSachHangMuc?.Sum(hm => hm.DanhSachCongTac.Sum(c => c.ThanhTienVL)) ?? 0);
-            decimal defaultVL = _tongT - _tongNC - defaultMay;
-            _tongVL = defaultVL;
-            _tongMay = defaultMay;
-
-            // 1. Ưu tiên lấy chi phí vật liệu, nhân công, máy từ BangTongHop (giá hiện trường có cước VC, bốc xếp)
-            if (_duToan.BangTongHop != null)
-            {
-                if (_duToan.BangTongHop.DanhSachVatLieu != null && _duToan.BangTongHop.DanhSachVatLieu.Count > 0)
-                {
-                    _tongVL = _duToan.BangTongHop.DanhSachVatLieu.Sum(x => Math.Round(x.TongKhoiLuong * x.GiaHienTruong, 0));
-                }
-                if (_duToan.BangTongHop.DanhSachNhanCong != null && _duToan.BangTongHop.DanhSachNhanCong.Count > 0)
-                {
-                    _tongNC = _duToan.BangTongHop.DanhSachNhanCong.Sum(x => Math.Round(x.TongKhoiLuong * x.GiaHienTruong, 0));
-                }
-                if (_duToan.BangTongHop.DanhSachMay != null && _duToan.BangTongHop.DanhSachMay.Count > 0)
-                {
-                    _tongMay = _duToan.BangTongHop.DanhSachMay.Sum(x => Math.Round(x.TongKhoiLuong * x.GiaHienTruong, 0));
-                }
-                _tongT = _tongVL + _tongNC + _tongMay;
-            }
+            _tongVL = _duToan.DanhSachHangMuc?.Sum(hm => hm.DanhSachCongTac.Sum(c => Math.Round(c.KhoiLuong * c.DonGiaVL, 0))) ?? 0m;
+            _tongNC = _duToan.DanhSachHangMuc?.Sum(hm => hm.DanhSachCongTac.Sum(c => Math.Round(c.KhoiLuong * c.DonGiaNC, 0))) ?? 0m;
+            _tongMay = _duToan.DanhSachHangMuc?.Sum(hm => hm.DanhSachCongTac.Sum(c => Math.Round(c.KhoiLuong * c.DonGiaMay, 0))) ?? 0m;
+            _tongT = _tongVL + _tongNC + _tongMay;
 
             bool hasScanned = false;
             if (_duToan.BangKinhPhi != null && _duToan.BangKinhPhi.Items.Count > 0)
@@ -252,57 +220,30 @@ namespace AIE.ExcelAddIn.Forms
 
                 if (wsTH == null)
                 {
-                    // Thử quét từ các sheet TH_VatLieu, TH_NhanCong, TH_CaMay nếu có sẵn trong workbook
+                    // Thử quét từ sheet DuToan nếu có sẵn trong workbook
                     try
                     {
                         foreach (Microsoft.Office.Interop.Excel.Worksheet sheet in wb.Sheets)
                         {
-                            if (sheet.Name == "TH_VatLieu")
+                            if (sheet.Name.StartsWith("DuToan", StringComparison.OrdinalIgnoreCase))
                             {
-                                for (int r = 4; r <= 500; r++)
+                                for (int r = 6; r <= 1000; r++)
                                 {
                                     string c = sheet.Cells[r, 3]?.Value2?.ToString()?.Trim() ?? "";
-                                    if (c == "TỔNG CỘNG" || c.Contains("TỔNG CỘNG"))
+                                    if (c == "TỔNG CỘNG" || c.Contains("TỔNG CỘNG") || c == "CỘNG")
                                     {
+                                        object valI = sheet.Cells[r, 9]?.Value2;
+                                        object valJ = sheet.Cells[r, 10]?.Value2;
                                         object valK = sheet.Cells[r, 11]?.Value2;
-                                        if (valK != null && decimal.TryParse(valK.ToString(), out decimal v) && v > 0)
-                                            _tongVL = v;
+                                        if (valI != null && decimal.TryParse(valI.ToString(), out decimal vI) && vI > 0) _tongVL = vI;
+                                        if (valJ != null && decimal.TryParse(valJ.ToString(), out decimal vJ) && vJ > 0) _tongNC = vJ;
+                                        if (valK != null && decimal.TryParse(valK.ToString(), out decimal vK) && vK > 0) _tongMay = vK;
+                                        _tongT = _tongVL + _tongNC + _tongMay;
                                         break;
                                     }
                                 }
+                                break;
                             }
-                            else if (sheet.Name == "TH_NhanCong")
-                            {
-                                for (int r = 4; r <= 500; r++)
-                                {
-                                    string c = sheet.Cells[r, 3]?.Value2?.ToString()?.Trim() ?? "";
-                                    if (c == "TỔNG CỘNG" || c.Contains("TỔNG CỘNG"))
-                                    {
-                                        object valG = sheet.Cells[r, 7]?.Value2;
-                                        if (valG != null && decimal.TryParse(valG.ToString(), out decimal v) && v > 0)
-                                            _tongNC = v;
-                                        break;
-                                    }
-                                }
-                            }
-                            else if (sheet.Name == "TH_CaMay")
-                            {
-                                for (int r = 4; r <= 500; r++)
-                                {
-                                    string c = sheet.Cells[r, 3]?.Value2?.ToString()?.Trim() ?? "";
-                                    if (c == "TỔNG CỘNG" || c.Contains("TỔNG CỘNG"))
-                                    {
-                                        object valG = sheet.Cells[r, 7]?.Value2;
-                                        if (valG != null && decimal.TryParse(valG.ToString(), out decimal v) && v > 0)
-                                            _tongMay = v;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        if (_tongVL > 0 || _tongNC > 0 || _tongMay > 0)
-                        {
-                            _tongT = _tongVL + _tongNC + _tongMay;
                         }
                     }
                     catch { }
@@ -629,7 +570,7 @@ namespace AIE.ExcelAddIn.Forms
             tblInputs.Controls.Add(pnlVAT, 7, 0);
 
             // Hàng 2: Chi phí Xây dựng, Chi phí Nhà tạm, Thiết bị, Bồi thường (Live formatting)
-            var lblXD = new Label { Text = "Chi phí XD G_XD (đ):", AutoSize = true, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = UIHelper.GetFont(10.5f, FontStyle.Regular), ForeColor = Color.Black, Margin = new Padding(2, 0, 6, 0) };
+            var lblXD = new Label { Text = "Chi phí XD Gxd (đ):", AutoSize = true, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = UIHelper.GetFont(10.5f, FontStyle.Regular), ForeColor = Color.Black, Margin = new Padding(2, 0, 6, 0) };
             txtChiPhiXD = new TextBox { Dock = DockStyle.Fill, Font = UIHelper.GetFont(10.5f), TextAlign = HorizontalAlignment.Right, Margin = new Padding(0, 6, 12, 6) };
             txtChiPhiXD.LostFocus += (s, e) => CapNhatGiaTriDauVao();
             txtChiPhiXD.TextChanged += (s, e) => FormatLiveCurrency(txtChiPhiXD);
@@ -638,7 +579,7 @@ namespace AIE.ExcelAddIn.Forms
             tblInputs.Controls.Add(lblXD, 0, 1);
             tblInputs.Controls.Add(txtChiPhiXD, 1, 1);
 
-            var lblNT = new Label { Text = "Chi phí nhà tạm (đ):", AutoSize = true, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = UIHelper.GetFont(10.5f, FontStyle.Regular), ForeColor = Color.Black, Margin = new Padding(2, 0, 6, 0) };
+            var lblNT = new Label { Text = "Chi phí nhà tạm Gnt (đ):", AutoSize = true, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = UIHelper.GetFont(10.5f, FontStyle.Regular), ForeColor = Color.Black, Margin = new Padding(2, 0, 6, 0) };
             txtChiPhiNT = new TextBox { Dock = DockStyle.Fill, Font = UIHelper.GetFont(10.5f), TextAlign = HorizontalAlignment.Right, Margin = new Padding(0, 6, 12, 6) };
             txtChiPhiNT.LostFocus += (s, e) => CapNhatGiaTriDauVao();
             txtChiPhiNT.TextChanged += (s, e) => FormatLiveCurrency(txtChiPhiNT);
@@ -647,7 +588,7 @@ namespace AIE.ExcelAddIn.Forms
             tblInputs.Controls.Add(lblNT, 2, 1);
             tblInputs.Controls.Add(txtChiPhiNT, 3, 1);
 
-            var lblTB = new Label { Text = "Chi phí TB G_TB (đ):", AutoSize = true, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = UIHelper.GetFont(10.5f, FontStyle.Regular), ForeColor = Color.Black, Margin = new Padding(2, 0, 6, 0) };
+            var lblTB = new Label { Text = "Chi phí TB Gtb (đ):", AutoSize = true, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = UIHelper.GetFont(10.5f, FontStyle.Regular), ForeColor = Color.Black, Margin = new Padding(2, 0, 6, 0) };
             txtChiPhiTB = new TextBox { Dock = DockStyle.Fill, Font = UIHelper.GetFont(10.5f), TextAlign = HorizontalAlignment.Right, Margin = new Padding(0, 6, 12, 6) };
             txtChiPhiTB.LostFocus += (s, e) => CapNhatGiaTriDauVao();
             txtChiPhiTB.TextChanged += (s, e) => FormatLiveCurrency(txtChiPhiTB);
@@ -656,7 +597,7 @@ namespace AIE.ExcelAddIn.Forms
             tblInputs.Controls.Add(lblTB, 4, 1);
             tblInputs.Controls.Add(txtChiPhiTB, 5, 1);
 
-            var lblBT = new Label { Text = "Bồi thường G_BT (đ):", AutoSize = true, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = UIHelper.GetFont(10.5f, FontStyle.Regular), ForeColor = Color.Black, Margin = new Padding(2, 0, 6, 0) };
+            var lblBT = new Label { Text = "Bồi thường Gbt (đ):", AutoSize = true, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = UIHelper.GetFont(10.5f, FontStyle.Regular), ForeColor = Color.Black, Margin = new Padding(2, 0, 6, 0) };
             txtChiPhiBT = new TextBox { Dock = DockStyle.Fill, Font = UIHelper.GetFont(10.5f), TextAlign = HorizontalAlignment.Right, Margin = new Padding(0, 6, 0, 6) };
             txtChiPhiBT.LostFocus += (s, e) => CapNhatGiaTriDauVao();
             txtChiPhiBT.TextChanged += (s, e) => FormatLiveCurrency(txtChiPhiBT);
@@ -1002,7 +943,7 @@ namespace AIE.ExcelAddIn.Forms
                 HeaderText = "Cơ sở tính",
                 Width = 130,
                 FillWeight = 11,
-                DataSource = new string[] { "G_XD", "G_TB", "G_XD + G_TB", "Tổng trước DP", "Toàn bộ TMĐT" }
+                DataSource = new string[] { "-", "G_XD", "G_TB", "G_XD + G_TB", "Tổng trước DP", "Toàn bộ TMĐT" }
             };
 
             var colTyLe = new DataGridViewTextBoxColumn { Name = "colTyLe", HeaderText = "Tỷ lệ %", Width = 80, FillWeight = 7, DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleRight } };
@@ -1744,13 +1685,17 @@ namespace AIE.ExcelAddIn.Forms
             foreach (var item in itemsToShow)
             {
                 string cachTinhStr = item.CachTinh == CachTinhChiPhi.TheoTyLeDinhMuc ? "Theo tỷ lệ %" : "Tự nhập tiền";
-                string coSoStr = "G_XD + G_TB";
-                switch (item.CoSoTinh)
+                string coSoStr = "-";
+                if (item.CachTinh == CachTinhChiPhi.TheoTyLeDinhMuc)
                 {
-                    case CoSoTinhChiPhi.ChiPhiXayDung: coSoStr = "G_XD"; break;
-                    case CoSoTinhChiPhi.ChiPhiThietBi: coSoStr = "G_TB"; break;
-                    case CoSoTinhChiPhi.TongChiPhiTruocDuPhong: coSoStr = "Tổng trước DP"; break;
-                    case CoSoTinhChiPhi.TongMucDauTu: coSoStr = "Toàn bộ TMĐT"; break;
+                    switch (item.CoSoTinh)
+                    {
+                        case CoSoTinhChiPhi.ChiPhiXayDung: coSoStr = "G_XD"; break;
+                        case CoSoTinhChiPhi.ChiPhiThietBi: coSoStr = "G_TB"; break;
+                        case CoSoTinhChiPhi.TongChiPhiTruocDuPhong: coSoStr = "Tổng trước DP"; break;
+                        case CoSoTinhChiPhi.TongMucDauTu: coSoStr = "Toàn bộ TMĐT"; break;
+                        default: coSoStr = "G_XD + G_TB"; break;
+                    }
                 }
 
                 string vatStr = $"{(item.ThueSuatGTGT * 100m):G29}%";
@@ -1776,6 +1721,11 @@ namespace AIE.ExcelAddIn.Forms
 
                 var row = dgvChiPhi.Rows[rowIdx];
                 row.Tag = item;
+
+                if (item.CachTinh != CachTinhChiPhi.TheoTyLeDinhMuc)
+                {
+                    row.Cells["colCoSo"].ReadOnly = true;
+                }
 
                 // Định dạng nổi bật các dòng tổng nhóm chính
                 if (item.Nhom == NhomChiPhi.BoiThuong_TDC || item.Nhom == NhomChiPhi.ChiPhiXayDung ||
