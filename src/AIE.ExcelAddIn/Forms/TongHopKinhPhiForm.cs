@@ -54,6 +54,10 @@ namespace AIE.ExcelAddIn.Forms
         private DinhMucTTRepository _ttRepo;
         private decimal _tongT = 0;
         private decimal _tongNC = 0;
+        private decimal _tongVL = 0;
+        private decimal _tongMay = 0;
+        private Label lblBangChu;
+        private ToolTip _toolTip = new ToolTip();
 
         // Controls Tab 2: Chế độ bảng tính (Yêu cầu 2)
         private RadioButton radBangTHDT;
@@ -159,6 +163,29 @@ namespace AIE.ExcelAddIn.Forms
                 }
             }
 
+            decimal defaultMay = _tongT - _tongNC - (_duToan.DanhSachHangMuc?.Sum(hm => hm.DanhSachCongTac.Sum(c => c.ThanhTienVL)) ?? 0);
+            decimal defaultVL = _tongT - _tongNC - defaultMay;
+            _tongVL = defaultVL;
+            _tongMay = defaultMay;
+
+            // 1. Ưu tiên lấy chi phí vật liệu, nhân công, máy từ BangTongHop (giá hiện trường có cước VC, bốc xếp)
+            if (_duToan.BangTongHop != null)
+            {
+                if (_duToan.BangTongHop.DanhSachVatLieu != null && _duToan.BangTongHop.DanhSachVatLieu.Count > 0)
+                {
+                    _tongVL = _duToan.BangTongHop.DanhSachVatLieu.Sum(x => Math.Round(x.TongKhoiLuong * x.GiaHienTruong, 0));
+                }
+                if (_duToan.BangTongHop.DanhSachNhanCong != null && _duToan.BangTongHop.DanhSachNhanCong.Count > 0)
+                {
+                    _tongNC = _duToan.BangTongHop.DanhSachNhanCong.Sum(x => Math.Round(x.TongKhoiLuong * x.GiaHienTruong, 0));
+                }
+                if (_duToan.BangTongHop.DanhSachMay != null && _duToan.BangTongHop.DanhSachMay.Count > 0)
+                {
+                    _tongMay = _duToan.BangTongHop.DanhSachMay.Sum(x => Math.Round(x.TongKhoiLuong * x.GiaHienTruong, 0));
+                }
+                _tongT = _tongVL + _tongNC + _tongMay;
+            }
+
             bool hasScanned = false;
             if (_duToan.BangKinhPhi != null && _duToan.BangKinhPhi.Items.Count > 0)
             {
@@ -172,17 +199,7 @@ namespace AIE.ExcelAddIn.Forms
                     decimal gXD = _duToan.ChiPhiXD?.G ?? 0m;
                     if (gXD <= 0)
                     {
-                        decimal tongT = 0;
-                        if (_duToan.DanhSachHangMuc != null)
-                        {
-                            foreach (var hm in _duToan.DanhSachHangMuc)
-                            {
-                                foreach (var ct in hm.DanhSachCongTac)
-                                {
-                                    tongT += ct.ThanhTien;
-                                }
-                            }
-                        }
+                        decimal tongT = _tongT;
                         gXD = tongT > 0 ? tongT : 10_000_000_000m;
                     }
 
@@ -213,11 +230,7 @@ namespace AIE.ExcelAddIn.Forms
 
         /// <summary>
         /// Yêu cầu 5: Tự động quét và liên kết Chi phí xây dựng từ sheet TH_ChiPhiXD trong workbook hiện tại
-        /// E12: Chi phí xây dựng trước thuế (G)
-        /// E13: Thuế GTGT (GTGT)
-        /// E14: Chi phí xây dựng sau thuế (Gxd)
-        /// E15: Chi phí nhà tạm (LT)
-        /// E16: Tổng chi phí xây dựng (GXD)
+        /// Quét toàn bộ: VL, NC, M, CPC, TT, TL, G (trước thuế), GTGT, Gxd (sau thuế), LT (nhà tạm)
         /// </summary>
         private bool QuetDuLieuTuSheetTHChiPhiXD()
         {
@@ -236,37 +249,143 @@ namespace AIE.ExcelAddIn.Forms
                         break;
                     }
                 }
-                if (wsTH == null) return false;
 
+                if (wsTH == null)
+                {
+                    // Thử quét từ các sheet TH_VatLieu, TH_NhanCong, TH_CaMay nếu có sẵn trong workbook
+                    try
+                    {
+                        foreach (Microsoft.Office.Interop.Excel.Worksheet sheet in wb.Sheets)
+                        {
+                            if (sheet.Name == "TH_VatLieu")
+                            {
+                                for (int r = 4; r <= 500; r++)
+                                {
+                                    string c = sheet.Cells[r, 3]?.Value2?.ToString()?.Trim() ?? "";
+                                    if (c == "TỔNG CỘNG" || c.Contains("TỔNG CỘNG"))
+                                    {
+                                        object valK = sheet.Cells[r, 11]?.Value2;
+                                        if (valK != null && decimal.TryParse(valK.ToString(), out decimal v) && v > 0)
+                                            _tongVL = v;
+                                        break;
+                                    }
+                                }
+                            }
+                            else if (sheet.Name == "TH_NhanCong")
+                            {
+                                for (int r = 4; r <= 500; r++)
+                                {
+                                    string c = sheet.Cells[r, 3]?.Value2?.ToString()?.Trim() ?? "";
+                                    if (c == "TỔNG CỘNG" || c.Contains("TỔNG CỘNG"))
+                                    {
+                                        object valG = sheet.Cells[r, 7]?.Value2;
+                                        if (valG != null && decimal.TryParse(valG.ToString(), out decimal v) && v > 0)
+                                            _tongNC = v;
+                                        break;
+                                    }
+                                }
+                            }
+                            else if (sheet.Name == "TH_CaMay")
+                            {
+                                for (int r = 4; r <= 500; r++)
+                                {
+                                    string c = sheet.Cells[r, 3]?.Value2?.ToString()?.Trim() ?? "";
+                                    if (c == "TỔNG CỘNG" || c.Contains("TỔNG CỘNG"))
+                                    {
+                                        object valG = sheet.Cells[r, 7]?.Value2;
+                                        if (valG != null && decimal.TryParse(valG.ToString(), out decimal v) && v > 0)
+                                            _tongMay = v;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        if (_tongVL > 0 || _tongNC > 0 || _tongMay > 0)
+                        {
+                            _tongT = _tongVL + _tongNC + _tongMay;
+                        }
+                    }
+                    catch { }
+                    return false;
+                }
+
+                decimal scannedVL = 0m, scannedNC = 0m, scannedM = 0m;
                 decimal gXD = 0m;
                 decimal tienThueXD = 0m;
                 decimal ltNhaTam = 0m;
+                decimal rateCPC = 0m, rateTT = 0m, rateTL = 0m, rateGTGT = 0m, rateLT = 0m;
 
                 // Quét thông minh theo Ký hiệu ở cột C hoặc Tên ở cột B
                 for (int r = 4; r <= 25; r++)
                 {
                     string kyHieu = wsTH.Cells[r, 3]?.Value2?.ToString()?.Trim() ?? "";
                     string noiDung = wsTH.Cells[r, 2]?.Value2?.ToString()?.Trim() ?? "";
+                    string cachTinh = wsTH.Cells[r, 4]?.Value2?.ToString()?.Trim() ?? "";
                     object valE = wsTH.Cells[r, 5]?.Value2;
+                    decimal num = 0m;
+                    if (valE != null) decimal.TryParse(valE.ToString(), out num);
 
-                    if (valE != null && decimal.TryParse(valE.ToString(), out decimal num))
+                    if (kyHieu == "VL" || noiDung.Contains("Chi phí vật liệu"))
                     {
-                        if (kyHieu == "G" || noiDung.Contains("Chi phí xây dựng trước thuế"))
-                        {
-                            gXD = num;
-                        }
-                        else if (kyHieu == "GTGT" || noiDung.Contains("Thuế giá trị gia tăng"))
-                        {
-                            tienThueXD = num;
-                        }
-                        else if (kyHieu == "LT" || noiDung.Contains("nhà tạm"))
-                        {
-                            ltNhaTam = num;
-                        }
+                        if (num > 0) scannedVL = num;
+                    }
+                    else if (kyHieu == "NC" || noiDung.Contains("Chi phí nhân công"))
+                    {
+                        if (num > 0) scannedNC = num;
+                    }
+                    else if (kyHieu == "M" || noiDung.Contains("Chi phí máy"))
+                    {
+                        if (num > 0) scannedM = num;
+                    }
+                    else if (kyHieu == "CPC" || noiDung.Contains("Chi phí chung"))
+                    {
+                        var m = System.Text.RegularExpressions.Regex.Match(cachTinh, @"([\d,\.]+)%");
+                        if (m.Success) decimal.TryParse(m.Groups[1].Value.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out rateCPC);
+                    }
+                    else if (kyHieu == "TT" || noiDung.Contains("không xác định"))
+                    {
+                        var m = System.Text.RegularExpressions.Regex.Match(cachTinh, @"([\d,\.]+)%");
+                        if (m.Success) decimal.TryParse(m.Groups[1].Value.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out rateTT);
+                    }
+                    else if (kyHieu == "TL" || noiDung.Contains("chịu thuế tính trước"))
+                    {
+                        var m = System.Text.RegularExpressions.Regex.Match(cachTinh, @"([\d,\.]+)%");
+                        if (m.Success) decimal.TryParse(m.Groups[1].Value.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out rateTL);
+                    }
+                    else if (kyHieu == "G" || noiDung.Contains("Chi phí xây dựng trước thuế"))
+                    {
+                        if (num > 0) gXD = num;
+                    }
+                    else if (kyHieu == "GTGT" || noiDung.Contains("Thuế giá trị gia tăng"))
+                    {
+                        if (num > 0) tienThueXD = num;
+                        var m = System.Text.RegularExpressions.Regex.Match(cachTinh, @"([\d,\.]+)%");
+                        if (m.Success) decimal.TryParse(m.Groups[1].Value.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out rateGTGT);
+                    }
+                    else if (kyHieu == "LT" || noiDung.Contains("nhà tạm"))
+                    {
+                        if (num > 0) ltNhaTam = num;
+                        var m = System.Text.RegularExpressions.Regex.Match(cachTinh, @"([\d,\.]+)%");
+                        if (m.Success) decimal.TryParse(m.Groups[1].Value.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out rateLT);
                     }
                 }
 
                 // Fallback cố định nếu không tìm thấy theo text
+                if (scannedVL == 0m)
+                {
+                    object valE7 = wsTH.Range["E7"].Value2;
+                    if (valE7 != null) decimal.TryParse(valE7.ToString(), out scannedVL);
+                }
+                if (scannedNC == 0m)
+                {
+                    object valE8 = wsTH.Range["E8"].Value2;
+                    if (valE8 != null) decimal.TryParse(valE8.ToString(), out scannedNC);
+                }
+                if (scannedM == 0m)
+                {
+                    object valE9 = wsTH.Range["E9"].Value2;
+                    if (valE9 != null) decimal.TryParse(valE9.ToString(), out scannedM);
+                }
                 if (gXD == 0m)
                 {
                     object valE14 = wsTH.Range["E14"].Value2;
@@ -286,6 +405,21 @@ namespace AIE.ExcelAddIn.Forms
                         if (valOld15 != null) decimal.TryParse(valOld15.ToString(), out ltNhaTam);
                     }
                 }
+
+                if (scannedVL > 0) _tongVL = scannedVL;
+                if (scannedNC > 0) _tongNC = scannedNC;
+                if (scannedM > 0) _tongMay = scannedM;
+                if (_tongVL > 0 || _tongNC > 0 || _tongMay > 0)
+                {
+                    _tongT = _tongVL + _tongNC + _tongMay;
+                }
+
+                if (_duToan.ChiPhiXD == null) _duToan.ChiPhiXD = new ChiPhiXayDung();
+                if (rateCPC > 0) _duToan.ChiPhiXD.TiLeCPC = rateCPC;
+                if (rateTT > 0) _duToan.ChiPhiXD.TiLeTT = rateTT;
+                if (rateTL > 0) _duToan.ChiPhiXD.TiLeTNCTTT = rateTL;
+                if (rateGTGT > 0) _duToan.ChiPhiXD.TiLeGTGT = rateGTGT;
+                if (rateLT > 0) _duToan.ChiPhiXD.TiLeNhaTam = rateLT;
 
                 if (gXD > 0)
                 {
@@ -709,15 +843,17 @@ namespace AIE.ExcelAddIn.Forms
             pnlSummary = new TableLayoutPanel
             {
                 Dock = DockStyle.Bottom,
-                Height = 44,
+                Height = 62,
                 ColumnCount = 3,
-                RowCount = 1,
+                RowCount = 2,
                 BackColor = Color.FromArgb(240, 245, 252),
                 Padding = new Padding(12, 4, 12, 4)
             };
             pnlSummary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
             pnlSummary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
             pnlSummary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
+            pnlSummary.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+            pnlSummary.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
 
             lblTongTruocThue = new Label { Text = "Trước thuế: 0 đ", Dock = DockStyle.Fill, Font = UIHelper.GetFont(11f, FontStyle.Bold), ForeColor = Color.FromArgb(0, 51, 102), TextAlign = ContentAlignment.MiddleLeft };
             lblTongGTGT = new Label { Text = "Thuế GTGT: 0 đ", Dock = DockStyle.Fill, Font = UIHelper.GetFont(11f, FontStyle.Bold), ForeColor = Color.FromArgb(0, 51, 102), TextAlign = ContentAlignment.MiddleLeft };
@@ -728,9 +864,20 @@ namespace AIE.ExcelAddIn.Forms
             pnlGrandTotal.Controls.Add(lblTongSauThue);
             pnlGrandTotal.Controls.Add(lblTieuDeTongSauThue);
 
+            lblBangChu = new Label
+            {
+                Text = "Bằng chữ: Không đồng.",
+                Dock = DockStyle.Fill,
+                Font = UIHelper.GetFont(9.5f, FontStyle.Italic),
+                ForeColor = Color.FromArgb(70, 80, 95),
+                TextAlign = ContentAlignment.MiddleRight
+            };
+
             pnlSummary.Controls.Add(lblTongTruocThue, 0, 0);
             pnlSummary.Controls.Add(lblTongGTGT, 1, 0);
             pnlSummary.Controls.Add(pnlGrandTotal, 2, 0);
+            pnlSummary.Controls.Add(lblBangChu, 0, 1);
+            pnlSummary.SetColumnSpan(lblBangChu, 3);
 
             // =========================================================================
             // 4. BOTTOM PANEL: THANH TÁC VỤ CHUNG Ở ĐÁY MODAL (GỌN GÀNG, KHÔNG CHECKBOX)
@@ -1361,10 +1508,17 @@ namespace AIE.ExcelAddIn.Forms
             decimal.TryParse(txtGTGTXD.Text.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal gtgt);
             decimal.TryParse(txtNhaTamXD.Text.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal nhatam);
 
-            decimal tongMay = _tongT - _tongNC - (_duToan.DanhSachHangMuc?.Sum(hm => hm.DanhSachCongTac.Sum(c => c.ThanhTienVL)) ?? 0);
-            decimal tongVL = _tongT - _tongNC - tongMay;
+            decimal tongVL = _tongVL;
+            decimal tongNC = _tongNC;
+            decimal tongMay = _tongMay;
 
-            var kq = _calcService.Tinh(tongVL, _tongNC, tongMay, cpc, tt, tncttt, gtgt, nhatam, "T");
+            if (tongVL == 0 && tongNC == 0 && tongMay == 0)
+            {
+                tongMay = _tongT - _tongNC - (_duToan.DanhSachHangMuc?.Sum(hm => hm.DanhSachCongTac.Sum(c => c.ThanhTienVL)) ?? 0);
+                tongVL = _tongT - _tongNC - tongMay;
+            }
+
+            var kq = _calcService.Tinh(tongVL, tongNC, tongMay, cpc, tt, tncttt, gtgt, nhatam, "T");
             _duToan.ChiPhiXD = kq;
 
             if (dgvPreviewChiPhiXD != null)
@@ -1647,6 +1801,17 @@ namespace AIE.ExcelAddIn.Forms
             lblTongTruocThue.Text = $"Trước thuế: {UIHelper.FormatTien(_model.TongTruocThue)} đ";
             lblTongGTGT.Text = $"Thuế GTGT: {UIHelper.FormatTien(_model.TongTienThueGTGT)} đ";
             lblTongSauThue.Text = $"{UIHelper.FormatTien(_model.TongSauThue)} đ";
+
+            string docChu = UIHelper.DocSoThanhChu(_model.TongSauThue);
+            if (lblBangChu != null)
+            {
+                lblBangChu.Text = $"Bằng chữ: {docChu}.";
+            }
+            if (_toolTip != null)
+            {
+                _toolTip.SetToolTip(lblTongSauThue, $"Bằng chữ: {docChu}");
+                _toolTip.SetToolTip(lblTieuDeTongSauThue, $"Bằng chữ: {docChu}");
+            }
         }
 
         private void CapNhatKhiDoiThongSo(bool traLaiDinhMuc)

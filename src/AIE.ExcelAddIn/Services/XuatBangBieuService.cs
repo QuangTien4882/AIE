@@ -140,6 +140,7 @@ namespace AIE.ExcelAddIn.Services
             {
                 app.ScreenUpdating = true;
                 app.Calculation = XlCalculation.xlCalculationAutomatic;
+                try { app.Calculate(); } catch { }
             }
         }
 
@@ -1010,7 +1011,17 @@ namespace AIE.ExcelAddIn.Services
 
             // Dòng Bằng chữ (Merge A..F, căn giữa, in nghiêng)
             int textRow = grandRow + 1;
+            try { ws.Calculate(); } catch { }
+            object valGrand = ws.Cells[grandRow, 5]?.Value2;
             decimal tongSauThue = model.TongSauThue;
+            if (valGrand != null && decimal.TryParse(valGrand.ToString(), out decimal excelGrand) && excelGrand > 0)
+            {
+                tongSauThue = Math.Round(excelGrand / 1000m, 0, MidpointRounding.AwayFromZero) * 1000m;
+            }
+            else
+            {
+                tongSauThue = Math.Round(model.TongSauThue / 1000m, 0, MidpointRounding.AwayFromZero) * 1000m;
+            }
             string chuTien = UIHelper.DocSoThanhChu(tongSauThue);
             var textRange = ws.Range[ws.Cells[textRow, 1], ws.Cells[textRow, 6]];
             textRange.Merge();
@@ -1408,7 +1419,17 @@ namespace AIE.ExcelAddIn.Services
 
             // Dòng Bằng chữ (Merge A..F, căn giữa, in nghiêng)
             int textRow = grandRow + 1;
+            try { ws.Calculate(); } catch { }
+            object valGrandTM = ws.Cells[grandRow, 5]?.Value2;
             decimal tongSauThue = model.TongSauThue;
+            if (valGrandTM != null && decimal.TryParse(valGrandTM.ToString(), out decimal excelGrandTM) && excelGrandTM > 0)
+            {
+                tongSauThue = Math.Round(excelGrandTM / 1000m, 0, MidpointRounding.AwayFromZero) * 1000m;
+            }
+            else
+            {
+                tongSauThue = Math.Round(model.TongSauThue / 1000m, 0, MidpointRounding.AwayFromZero) * 1000m;
+            }
             string chuTien = UIHelper.DocSoThanhChu(tongSauThue);
             var textRange = ws.Range[ws.Cells[textRow, 1], ws.Cells[textRow, 6]];
             textRange.Merge();

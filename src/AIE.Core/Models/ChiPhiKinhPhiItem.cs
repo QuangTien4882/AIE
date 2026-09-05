@@ -225,7 +225,32 @@ namespace AIE.Core.Models
         /// <summary>Tổng tiền thuế GTGT</summary>
         public decimal TongTienThueGTGT => Items.Where(x => x.IsActive).Sum(x => x.TienThueGTGT);
 
-        /// <summary>Tổng chi phí sau thuế (Tổng mức đầu tư hoặc Tổng hợp dự toán)</summary>
-        public decimal TongSauThue => Items.Where(x => x.IsActive).Sum(x => x.GiaTriSauThue);
+        /// <summary>Tổng chi phí sau thuế của từng nhóm (đã làm tròn đến hàng nghìn đồng theo quy định chuẩn)</summary>
+        public decimal GetTongSauThueNhom(NhomChiPhi nhom)
+        {
+            var sum = Items.Where(x => x.IsActive && x.Nhom == nhom).Sum(x => x.GiaTriSauThue);
+            return Math.Round(sum / 1000m, 0, MidpointRounding.AwayFromZero) * 1000m;
+        }
+
+        /// <summary>
+        /// Tổng chi phí sau thuế (Tổng mức đầu tư hoặc Tổng hợp dự toán) - làm tròn đến hàng nghìn đồng theo quy định.
+        /// Tính bằng tổng các nhóm chi phí (mỗi nhóm đã làm tròn đến hàng nghìn) và làm tròn tổng thể đến hàng nghìn đồng như công thức Excel.
+        /// </summary>
+        public decimal TongSauThue
+        {
+            get
+            {
+                var nhoms = Items.Where(x => x.IsActive).Select(x => x.Nhom).Distinct();
+                decimal tong = 0m;
+                foreach (var n in nhoms)
+                {
+                    tong += GetTongSauThueNhom(n);
+                }
+                return Math.Round(tong / 1000m, 0, MidpointRounding.AwayFromZero) * 1000m;
+            }
+        }
+
+        /// <summary>Tổng chi phí sau thuế cộng gộp chưa làm tròn</summary>
+        public decimal TongSauThueChuaLamTron => Items.Where(x => x.IsActive).Sum(x => x.GiaTriSauThue);
     }
 }
