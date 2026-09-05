@@ -238,13 +238,54 @@ namespace AIE.ExcelAddIn.Forms
                 }
                 if (wsTH == null) return false;
 
-                object valE12 = wsTH.Range["E12"].Value2;
-                object valE13 = wsTH.Range["E13"].Value2;
-                object valE15 = wsTH.Range["E15"].Value2;
+                decimal gXD = 0m;
+                decimal tienThueXD = 0m;
+                decimal ltNhaTam = 0m;
 
-                decimal gXD = valE12 != null ? Convert.ToDecimal(valE12) : 0m;
-                decimal tienThueXD = valE13 != null ? Convert.ToDecimal(valE13) : 0m;
-                decimal ltNhaTam = valE15 != null ? Convert.ToDecimal(valE15) : 0m;
+                // Quét thông minh theo Ký hiệu ở cột C hoặc Tên ở cột B
+                for (int r = 4; r <= 25; r++)
+                {
+                    string kyHieu = wsTH.Cells[r, 3]?.Value2?.ToString()?.Trim() ?? "";
+                    string noiDung = wsTH.Cells[r, 2]?.Value2?.ToString()?.Trim() ?? "";
+                    object valE = wsTH.Cells[r, 5]?.Value2;
+
+                    if (valE != null && decimal.TryParse(valE.ToString(), out decimal num))
+                    {
+                        if (kyHieu == "G" || noiDung.Contains("Chi phí xây dựng trước thuế"))
+                        {
+                            gXD = num;
+                        }
+                        else if (kyHieu == "GTGT" || noiDung.Contains("Thuế giá trị gia tăng"))
+                        {
+                            tienThueXD = num;
+                        }
+                        else if (kyHieu == "LT" || noiDung.Contains("nhà tạm"))
+                        {
+                            ltNhaTam = num;
+                        }
+                    }
+                }
+
+                // Fallback cố định nếu không tìm thấy theo text
+                if (gXD == 0m)
+                {
+                    object valE14 = wsTH.Range["E14"].Value2;
+                    object valE15 = wsTH.Range["E15"].Value2;
+                    object valE17 = wsTH.Range["E17"].Value2;
+                    if (valE14 != null) decimal.TryParse(valE14.ToString(), out gXD);
+                    if (valE15 != null) decimal.TryParse(valE15.ToString(), out tienThueXD);
+                    if (valE17 != null) decimal.TryParse(valE17.ToString(), out ltNhaTam);
+
+                    if (gXD == 0m)
+                    {
+                        object valE12 = wsTH.Range["E12"].Value2;
+                        object valE13 = wsTH.Range["E13"].Value2;
+                        object valOld15 = wsTH.Range["E15"].Value2;
+                        if (valE12 != null) decimal.TryParse(valE12.ToString(), out gXD);
+                        if (valE13 != null) decimal.TryParse(valE13.ToString(), out tienThueXD);
+                        if (valOld15 != null) decimal.TryParse(valOld15.ToString(), out ltNhaTam);
+                    }
+                }
 
                 if (gXD > 0)
                 {
@@ -1371,6 +1412,12 @@ namespace AIE.ExcelAddIn.Forms
         {
             if (_model == null) return;
 
+            if (_isSyncingVAT)
+            {
+                CapNhatThanhTongCong();
+                return;
+            }
+
             decimal vatRate = gtgt / 100m;
             decimal ntTruocThue = Math.Round(kq.G * nhatam / 100m, 0);
 
@@ -1402,6 +1449,12 @@ namespace AIE.ExcelAddIn.Forms
             {
                 itemNT.GiaTriTruocThue = ntTruocThue;
                 itemNT.ThueSuatGTGT = vatRate;
+            }
+
+            var itemTB = _model.Items.FirstOrDefault(x => x.Nhom == NhomChiPhi.ChiPhiThietBi || x.MaChiPhi == "G_TB");
+            if (itemTB != null)
+            {
+                itemTB.ThueSuatGTGT = vatRate;
             }
 
             DinhMucTT38Engine.CapNhatToanBoDinhMucVaTinhToan(_model);
@@ -1748,20 +1801,7 @@ namespace AIE.ExcelAddIn.Forms
                 colVAT.Items.Add(formatted);
             }
 
-            // Đồng bộ ngược giá trị thuế VAT sang Tab 1
-            if (!_isSyncingVAT && txtGTGTXD != null)
-            {
-                try
-                {
-                    _isSyncingVAT = true;
-                    string vatNum = (newVAT * 100m).ToString("G29", UIHelper.ViCulture);
-                    if (txtGTGTXD.Text.Trim() != vatNum)
-                    {
-                        txtGTGTXD.Text = vatNum; // Kích hoạt txtGTGTXD.TextChanged -> TinhToanChiPhiXD() ở Tab 1
-                    }
-                }
-                finally { _isSyncingVAT = false; }
-            }
+            // cboVATChung chỉ áp dụng trên tab TMĐT/Tổng hợp dự toán, không đồng bộ sang Tab 1
 
             foreach (var item in _model.Items)
             {
@@ -1870,23 +1910,24 @@ namespace AIE.ExcelAddIn.Forms
                     colVAT.Items.Add(formatted);
                 }
 
-                // Nếu sửa VAT của Chi phí xây dựng hoặc Lán trại tạm:
-                // 1. Đồng bộ cả hai khoản mục G_XD và G_NHA_TAM dùng chung thuế suất VAT
-                // 2. Đồng bộ sang dropdown cboVATChung
-                // 3. Đồng bộ hai chiều sang Tab 1 (txtGTGTXD) để tự động tính toán lại bảng chi phí xây dựng
-                if (item.MaChiPhi == "G_XD" || item.MaChiPhi == "G_NHA_TAM")
+                // Nếu sửa VAT của Chi phí xây dựng, Lán trại tạm hoặc Chi phí thiết bị:
+                // 1. Đồng bộ cả 3 khoản mục G_XD, G_NHA_TAM, G_TB dùng chung thuế suất VAT
+                // 2. Đồng bộ hai chiều sang Tab 1 (txtGTGTXD) để tự động tính toán lại bảng chi phí xây dựng
+                if (item.MaChiPhi == "G_XD" || item.MaChiPhi == "G_NHA_TAM" || item.MaChiPhi == "G_TB" || item.Nhom == NhomChiPhi.ChiPhiThietBi)
                 {
                     var itemXD = _model.Items.FirstOrDefault(x => x.MaChiPhi == "G_XD");
                     var itemNT = _model.Items.FirstOrDefault(x => x.MaChiPhi == "G_NHA_TAM");
+                    var itemTB = _model.Items.FirstOrDefault(x => x.Nhom == NhomChiPhi.ChiPhiThietBi || x.MaChiPhi == "G_TB");
                     if (itemXD != null) itemXD.ThueSuatGTGT = vatRate;
                     if (itemNT != null) itemNT.ThueSuatGTGT = vatRate;
+                    if (itemTB != null) itemTB.ThueSuatGTGT = vatRate;
 
                     _model.TinhToanLai();
                     _isUpdating = true;
                     foreach (DataGridViewRow r in dgvChiPhi.Rows)
                     {
                         var it = r.Tag as ChiPhiKinhPhiItem;
-                        if (it != null && (it.MaChiPhi == "G_XD" || it.MaChiPhi == "G_NHA_TAM"))
+                        if (it != null && (it.MaChiPhi == "G_XD" || it.MaChiPhi == "G_NHA_TAM" || it.MaChiPhi == "G_TB" || it.Nhom == NhomChiPhi.ChiPhiThietBi))
                         {
                             r.Cells["colVAT"].Value = formatted;
                             r.Cells["colTruocThue"].Value = UIHelper.FormatTien(it.GiaTriTruocThue);

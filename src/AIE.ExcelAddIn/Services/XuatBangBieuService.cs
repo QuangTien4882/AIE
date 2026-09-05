@@ -509,6 +509,32 @@ namespace AIE.ExcelAddIn.Services
             range.Borders.LineStyle = XlLineStyle.xlContinuous;
         }
 
+        private void ApplyFreezePanes(Worksheet ws, int splitRow)
+        {
+            try
+            {
+                ws.Activate();
+                var activeWin = ws.Application.ActiveWindow;
+                if (activeWin != null)
+                {
+                    activeWin.FreezePanes = false;
+                    activeWin.SplitRow = splitRow;
+                    activeWin.SplitColumn = 0;
+                    activeWin.FreezePanes = true;
+                }
+            }
+            catch
+            {
+                try
+                {
+                    ws.Activate();
+                    ((Range)ws.Cells[splitRow + 1, 1]).Select();
+                    ws.Application.ActiveWindow.FreezePanes = true;
+                }
+                catch { }
+            }
+        }
+
         public void XuatBangTongHopChiPhiXayDung(Workbook wb, DuToan duToan)
         {
             var ws = CreateOrGetSheet(wb, "TH_ChiPhiXD");
@@ -619,6 +645,7 @@ namespace AIE.ExcelAddIn.Services
             DrawTableBorders(ws, 5, 1, r - 1, 5);
             ws.Range["E:E"].NumberFormat = "#,##0";
             ws.Columns.AutoFit();
+            ApplyFreezePanes(ws, 5);
 
             // Di chuyển sheet TH_ChiPhiXD nằm ngay phía trước sheet DuToan
             try
@@ -735,7 +762,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Cells[r, 2] = "- Chi phí xây dựng";
             if (hasChiPhiXD)
             {
-                ws.Cells[r, 3].Formula = "='TH_ChiPhiXD'!E12";
+                ws.Cells[r, 3].Formula = "='TH_ChiPhiXD'!E14";
             }
             else
             {
@@ -762,11 +789,11 @@ namespace AIE.ExcelAddIn.Services
                 if (duToan.ChiPhiXD != null && duToan.ChiPhiXD.TiLeNhaTam > 0)
                 {
                     string tlNT = (duToan.ChiPhiXD.TiLeNhaTam / 100m).ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    ws.Cells[r, 3].Formula = $"=ROUND('TH_ChiPhiXD'!E12 * {tlNT}, 0)";
+                    ws.Cells[r, 3].Formula = $"=ROUND('TH_ChiPhiXD'!E14 * {tlNT}, 0)";
                 }
                 else
                 {
-                    ws.Cells[r, 3].Formula = $"=ROUND('TH_ChiPhiXD'!E15 / (1 + {vatNTStr}), 0)";
+                    ws.Cells[r, 3].Formula = $"=ROUND('TH_ChiPhiXD'!E17 / (1 + {vatNTStr}), 0)";
                 }
             }
             else
@@ -1001,25 +1028,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Columns.AutoFit();
 
             // Cố định dòng 6 (Freeze Panes) để luôn nhìn thấy tiêu đề khi cuộn dọc
-            try
-            {
-                ws.Activate();
-                var activeWin = ws.Application.ActiveWindow;
-                activeWin.FreezePanes = false;
-                activeWin.SplitRow = 6;
-                activeWin.SplitColumn = 0;
-                activeWin.FreezePanes = true;
-            }
-            catch
-            {
-                try
-                {
-                    ws.Activate();
-                    ((Range)ws.Cells[7, 1]).Select();
-                    ws.Application.ActiveWindow.FreezePanes = true;
-                }
-                catch { }
-            }
+            ApplyFreezePanes(ws, 6);
 
             // Yêu cầu 3: Di chuyển sheet TH_DuToan nằm ngay phía trước sheet TH_ChiPhiXD
             try
@@ -1151,7 +1160,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Cells[r, 2] = "- Chi phí xây dựng";
             if (hasChiPhiXD)
             {
-                ws.Cells[r, 3].Formula = "='TH_ChiPhiXD'!E12";
+                ws.Cells[r, 3].Formula = "='TH_ChiPhiXD'!E14";
             }
             else
             {
@@ -1178,11 +1187,11 @@ namespace AIE.ExcelAddIn.Services
                 if (duToan.ChiPhiXD != null && duToan.ChiPhiXD.TiLeNhaTam > 0)
                 {
                     string tlNT = (duToan.ChiPhiXD.TiLeNhaTam / 100m).ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    ws.Cells[r, 3].Formula = $"=ROUND('TH_ChiPhiXD'!E12 * {tlNT}, 0)";
+                    ws.Cells[r, 3].Formula = $"=ROUND('TH_ChiPhiXD'!E14 * {tlNT}, 0)";
                 }
                 else
                 {
-                    ws.Cells[r, 3].Formula = $"=ROUND('TH_ChiPhiXD'!E15 / (1 + {vatNTStr}), 0)";
+                    ws.Cells[r, 3].Formula = $"=ROUND('TH_ChiPhiXD'!E17 / (1 + {vatNTStr}), 0)";
                 }
             }
             else
@@ -1417,25 +1426,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Columns.AutoFit();
 
             // Cố định dòng 6 (Freeze Panes) để luôn nhìn thấy tiêu đề khi cuộn dọc
-            try
-            {
-                ws.Activate();
-                var activeWin = ws.Application.ActiveWindow;
-                activeWin.FreezePanes = false;
-                activeWin.SplitRow = 6;
-                activeWin.SplitColumn = 0;
-                activeWin.FreezePanes = true;
-            }
-            catch
-            {
-                try
-                {
-                    ws.Activate();
-                    ((Range)ws.Cells[7, 1]).Select();
-                    ws.Application.ActiveWindow.FreezePanes = true;
-                }
-                catch { }
-            }
+            ApplyFreezePanes(ws, 6);
 
             // Yêu cầu 3: Di chuyển sheet TongMucDauTu nằm ngay phía trước sheet TH_ChiPhiXD
             try
@@ -1626,6 +1617,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Range["G:G"].NumberFormat = "#,##0";
             ws.Columns[4].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns.AutoFit();
+            ApplyFreezePanes(ws, 3);
         }
 
         /// <summary>
@@ -2079,6 +2071,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Range["F:K"].NumberFormat = "#,##0";
             ws.Columns[4].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns.AutoFit();
+            ApplyFreezePanes(ws, 3);
         }
 
         public void XuatBangTongHopNhanCong(Workbook wb, DuToan duToan)
@@ -2127,6 +2120,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Range["F:G"].NumberFormat = "#,##0";
             ws.Columns[4].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns.AutoFit();
+            ApplyFreezePanes(ws, 3);
         }
 
         public void XuatBangTongHopCaMay(Workbook wb, DuToan duToan)
@@ -2175,6 +2169,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Range["F:G"].NumberFormat = "#,##0";
             ws.Columns[4].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns.AutoFit();
+            ApplyFreezePanes(ws, 3);
         }
 
         public void XuatBangHeSoDieuChinh(Workbook wb, DuToan duToan)
