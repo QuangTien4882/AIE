@@ -244,6 +244,62 @@ namespace AIE.ExcelAddIn.Services
             return text;
         }
 
+        private static void SetCellSymbolWithSubscript(Worksheet ws, int row, int col, string symbolText)
+        {
+            if (string.IsNullOrEmpty(symbolText) || ws == null) return;
+
+            string text = symbolText.Trim();
+            if (text.Equals("VTM", StringComparison.OrdinalIgnoreCase) || text.Equals("Gtm", StringComparison.OrdinalIgnoreCase))
+            {
+                text = "GTM";
+            }
+            else if (text.StartsWith("G_BT", StringComparison.OrdinalIgnoreCase) || text.StartsWith("GBT", StringComparison.OrdinalIgnoreCase))
+            {
+                text = "GBT, TĐC";
+            }
+            else if (text.Equals("Gqlda", StringComparison.OrdinalIgnoreCase) || text.Equals("G_QLDA", StringComparison.OrdinalIgnoreCase))
+            {
+                text = "GQLDA";
+            }
+            else if (text.Equals("Gtb", StringComparison.OrdinalIgnoreCase) || text.Equals("G_TB", StringComparison.OrdinalIgnoreCase))
+            {
+                text = "GTB";
+            }
+            else if (text.Equals("Gtv", StringComparison.OrdinalIgnoreCase) || text.Equals("G_TV", StringComparison.OrdinalIgnoreCase))
+            {
+                text = "GTV";
+            }
+            else if (text.Equals("Gk", StringComparison.OrdinalIgnoreCase) || text.Equals("G_K", StringComparison.OrdinalIgnoreCase))
+            {
+                text = "GK";
+            }
+            else if (text.Equals("Gdp", StringComparison.OrdinalIgnoreCase) || text.Equals("G_DP", StringComparison.OrdinalIgnoreCase))
+            {
+                text = "GDP";
+            }
+            else if (text.Equals("Gxdct", StringComparison.OrdinalIgnoreCase) || text.Equals("G_XDCT", StringComparison.OrdinalIgnoreCase))
+            {
+                text = "GXDCT";
+            }
+            else if (text.StartsWith("G_", StringComparison.OrdinalIgnoreCase))
+            {
+                text = "G" + text.Substring(2);
+            }
+
+            Range cell = ws.Cells[row, col];
+            cell.Value2 = text;
+            cell.HorizontalAlignment = XlHAlign.xlHAlignCenter;
+
+            if (text.StartsWith("G", StringComparison.OrdinalIgnoreCase) && text.Length > 1)
+            {
+                try
+                {
+                    cell.Characters[2, text.Length - 1].Font.Subscript = true;
+                }
+                catch { }
+            }
+        }
+
         private Worksheet CreateOrGetSheet(Workbook wb, string sheetName)
         {
             foreach (Worksheet sheet in wb.Sheets)
@@ -402,7 +458,7 @@ namespace AIE.ExcelAddIn.Services
             {
                 ws.Cells[r, 1] = tt;
                 ws.Cells[r, 2] = khoiMuc;
-                ws.Cells[r, 3] = kyHieu;
+                SetCellSymbolWithSubscript(ws, r, 3, kyHieu);
                 ws.Cells[r, 4] = cachTinh;
                 
                 if (giaTriOrFormula is string strVal && strVal.StartsWith("=")) {
@@ -552,7 +608,7 @@ namespace AIE.ExcelAddIn.Services
             int rowXD_Tong = r;
             ws.Cells[r, 1] = "'1";
             ws.Cells[r, 2] = "Chi phí xây dựng";
-            ws.Cells[r, 6] = "Gxd";
+            SetCellSymbolWithSubscript(ws, r, 6, "GXD");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
@@ -573,7 +629,7 @@ namespace AIE.ExcelAddIn.Services
             string vatXDStr = vatXD.ToString(System.Globalization.CultureInfo.InvariantCulture);
             ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatXDStr}, 0)";
             ws.Cells[r, 5].Formula = $"=C{r}+D{r}";
-            ws.Cells[r, 6] = "Gxd";
+            SetCellSymbolWithSubscript(ws, r, 6, "Gxd");
             r++;
 
             // 1.2. Chi phí nhà tạm để ở và điều hành thi công
@@ -602,7 +658,7 @@ namespace AIE.ExcelAddIn.Services
             }
             ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatNTStr}, 0)";
             ws.Cells[r, 5].Formula = $"=C{r}+D{r}";
-            ws.Cells[r, 6] = "Gnt";
+            SetCellSymbolWithSubscript(ws, r, 6, "Gnt");
             r++;
 
             // Dòng tổng nhóm 1
@@ -620,7 +676,7 @@ namespace AIE.ExcelAddIn.Services
             string vatTBStr = vatTB.ToString(System.Globalization.CultureInfo.InvariantCulture);
             ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatTBStr}, 0)";
             ws.Cells[r, 5].Formula = $"=ROUND(C{r}+D{r}, -3)";
-            ws.Cells[r, 6] = "Gtb";
+            SetCellSymbolWithSubscript(ws, r, 6, "GTB");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
@@ -636,7 +692,7 @@ namespace AIE.ExcelAddIn.Services
             string vatQLDAStr = vatQLDA.ToString(System.Globalization.CultureInfo.InvariantCulture);
             ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatQLDAStr}, 0)";
             ws.Cells[r, 5].Formula = $"=ROUND(C{r}+D{r}, -3)";
-            ws.Cells[r, 6] = "Gqlda";
+            SetCellSymbolWithSubscript(ws, r, 6, "GQLDA");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
@@ -644,7 +700,7 @@ namespace AIE.ExcelAddIn.Services
             int rowTVGroup = r;
             ws.Cells[r, 1] = "'4";
             ws.Cells[r, 2] = "Chi phí tư vấn đầu tư xây dựng";
-            ws.Cells[r, 6] = "Gtv";
+            SetCellSymbolWithSubscript(ws, r, 6, "GTV");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
@@ -669,7 +725,7 @@ namespace AIE.ExcelAddIn.Services
                 string vatStr = item.ThueSuatGTGT.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatStr}, 0)";
                 ws.Cells[r, 5].Formula = $"=C{r}+D{r}";
-                ws.Cells[r, 6] = item.KyHieu;
+                SetCellSymbolWithSubscript(ws, r, 6, item.KyHieu);
                 r++;
             }
             int endTV = r - 1;
@@ -688,7 +744,7 @@ namespace AIE.ExcelAddIn.Services
             int rowKGroup = r;
             ws.Cells[r, 1] = "'5";
             ws.Cells[r, 2] = "Chi phí khác";
-            ws.Cells[r, 6] = "Gk";
+            SetCellSymbolWithSubscript(ws, r, 6, "GK");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
@@ -727,7 +783,7 @@ namespace AIE.ExcelAddIn.Services
                 string vatStr = item.ThueSuatGTGT.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatStr}, 0)";
                 ws.Cells[r, 5].Formula = $"=C{r}+D{r}";
-                ws.Cells[r, 6] = item.KyHieu;
+                SetCellSymbolWithSubscript(ws, r, 6, item.KyHieu);
                 r++;
             }
             int endK = r - 1;
@@ -746,7 +802,7 @@ namespace AIE.ExcelAddIn.Services
             int rowDPGroup = r;
             ws.Cells[r, 1] = "'6";
             ws.Cells[r, 2] = "Chi phí dự phòng";
-            ws.Cells[r, 6] = "Gdp";
+            SetCellSymbolWithSubscript(ws, r, 6, "GDP");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
@@ -758,7 +814,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Cells[r, 3].Formula = $"=ROUND({dpTyLe} * (C{rowXD_Tong} + C{rowTB} + C{rowQLDA} + C{rowTVGroup} + C{rowKGroup}), 0)";
             ws.Cells[r, 4].Formula = $"=ROUND(C{r}*0.1, 0)";
             ws.Cells[r, 5].Formula = $"=C{r}+D{r}";
-            ws.Cells[r, 6] = "Gdp1";
+            SetCellSymbolWithSubscript(ws, r, 6, "Gdp1");
             r++;
 
             int rowDP2 = r;
@@ -767,7 +823,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Cells[r, 3] = 0;
             ws.Cells[r, 4] = 0;
             ws.Cells[r, 5].Formula = $"=C{r}+D{r}";
-            ws.Cells[r, 6] = "Gdp2";
+            SetCellSymbolWithSubscript(ws, r, 6, "Gdp2");
             r++;
 
             ws.Cells[rowDPGroup, 3].Formula = $"=C{rowDP1}+C{rowDP2}";
@@ -780,7 +836,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Cells[r, 3].Formula = $"=C{rowXD_Tong}+C{rowTB}+C{rowQLDA}+C{rowTVGroup}+C{rowKGroup}+C{rowDPGroup}";
             ws.Cells[r, 4].Formula = $"=D{rowXD_Tong}+D{rowTB}+D{rowQLDA}+D{rowTVGroup}+D{rowKGroup}+D{rowDPGroup}";
             ws.Cells[r, 5].Formula = $"=ROUND(E{rowXD_Tong}+E{rowTB}+E{rowQLDA}+E{rowTVGroup}+E{rowKGroup}+E{rowDPGroup}, -3)";
-            ws.Cells[r, 6] = "GXDCT";
+            SetCellSymbolWithSubscript(ws, r, 6, "GXDCT");
 
             var grandRng = ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]];
             grandRng.Font.Bold = true;
@@ -926,7 +982,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Cells[r, 3] = (double)model.ChiPhiBTTruocThue;
             ws.Cells[r, 4] = 0;
             ws.Cells[r, 5].Formula = $"=ROUND(C{r}+D{r}, -3)";
-            ws.Cells[r, 6] = "G_BT,TĐC";
+            SetCellSymbolWithSubscript(ws, r, 6, "GBT, TĐC");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
@@ -934,7 +990,7 @@ namespace AIE.ExcelAddIn.Services
             int rowXD_Tong = r;
             ws.Cells[r, 1] = "'2";
             ws.Cells[r, 2] = "Chi phí xây dựng";
-            ws.Cells[r, 6] = "Gxd";
+            SetCellSymbolWithSubscript(ws, r, 6, "GXD");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
@@ -955,7 +1011,7 @@ namespace AIE.ExcelAddIn.Services
             string vatXDStr = vatXD.ToString(System.Globalization.CultureInfo.InvariantCulture);
             ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatXDStr}, 0)";
             ws.Cells[r, 5].Formula = $"=C{r}+D{r}";
-            ws.Cells[r, 6] = "Gxd";
+            SetCellSymbolWithSubscript(ws, r, 6, "Gxd");
             r++;
 
             // 2.2. Chi phí nhà tạm để ở và điều hành thi công
@@ -984,7 +1040,7 @@ namespace AIE.ExcelAddIn.Services
             }
             ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatNTStr}, 0)";
             ws.Cells[r, 5].Formula = $"=C{r}+D{r}";
-            ws.Cells[r, 6] = "Gnt";
+            SetCellSymbolWithSubscript(ws, r, 6, "Gnt");
             r++;
 
             // Dòng tổng nhóm 2
@@ -1002,7 +1058,7 @@ namespace AIE.ExcelAddIn.Services
             string vatTBStr = vatTB.ToString(System.Globalization.CultureInfo.InvariantCulture);
             ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatTBStr}, 0)";
             ws.Cells[r, 5].Formula = $"=ROUND(C{r}+D{r}, -3)";
-            ws.Cells[r, 6] = "Gtb";
+            SetCellSymbolWithSubscript(ws, r, 6, "GTB");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
@@ -1018,7 +1074,7 @@ namespace AIE.ExcelAddIn.Services
             string vatQLDAStr = vatQLDA.ToString(System.Globalization.CultureInfo.InvariantCulture);
             ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatQLDAStr}, 0)";
             ws.Cells[r, 5].Formula = $"=ROUND(C{r}+D{r}, -3)";
-            ws.Cells[r, 6] = "Gqlda";
+            SetCellSymbolWithSubscript(ws, r, 6, "GQLDA");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
@@ -1026,7 +1082,7 @@ namespace AIE.ExcelAddIn.Services
             int rowTVGroup = r;
             ws.Cells[r, 1] = "'5";
             ws.Cells[r, 2] = "Chi phí tư vấn đầu tư xây dựng";
-            ws.Cells[r, 6] = "Gtv";
+            SetCellSymbolWithSubscript(ws, r, 6, "GTV");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
@@ -1051,7 +1107,7 @@ namespace AIE.ExcelAddIn.Services
                 string vatStr = item.ThueSuatGTGT.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatStr}, 0)";
                 ws.Cells[r, 5].Formula = $"=C{r}+D{r}";
-                ws.Cells[r, 6] = item.KyHieu;
+                SetCellSymbolWithSubscript(ws, r, 6, item.KyHieu);
                 r++;
             }
             int endTV = r - 1;
@@ -1070,7 +1126,7 @@ namespace AIE.ExcelAddIn.Services
             int rowKGroup = r;
             ws.Cells[r, 1] = "'6";
             ws.Cells[r, 2] = "Chi phí khác";
-            ws.Cells[r, 6] = "Gk";
+            SetCellSymbolWithSubscript(ws, r, 6, "GK");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
@@ -1109,7 +1165,7 @@ namespace AIE.ExcelAddIn.Services
                 string vatStr = item.ThueSuatGTGT.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatStr}, 0)";
                 ws.Cells[r, 5].Formula = $"=C{r}+D{r}";
-                ws.Cells[r, 6] = item.KyHieu;
+                SetCellSymbolWithSubscript(ws, r, 6, item.KyHieu);
                 r++;
             }
             int endK = r - 1;
@@ -1128,7 +1184,7 @@ namespace AIE.ExcelAddIn.Services
             int rowDPGroup = r;
             ws.Cells[r, 1] = "'7";
             ws.Cells[r, 2] = "Chi phí dự phòng";
-            ws.Cells[r, 6] = "Gdp";
+            SetCellSymbolWithSubscript(ws, r, 6, "GDP");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
@@ -1140,7 +1196,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Cells[r, 3].Formula = $"=ROUND({dpTyLe} * (C{rowBT} + C{rowXD_Tong} + C{rowTB} + C{rowQLDA} + C{rowTVGroup} + C{rowKGroup}), 0)";
             ws.Cells[r, 4].Formula = $"=ROUND(C{r}*0.1, 0)";
             ws.Cells[r, 5].Formula = $"=C{r}+D{r}";
-            ws.Cells[r, 6] = "Gdp1";
+            SetCellSymbolWithSubscript(ws, r, 6, "Gdp1");
             r++;
 
             int rowDP2 = r;
@@ -1149,7 +1205,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Cells[r, 3] = 0;
             ws.Cells[r, 4] = 0;
             ws.Cells[r, 5].Formula = $"=C{r}+D{r}";
-            ws.Cells[r, 6] = "Gdp2";
+            SetCellSymbolWithSubscript(ws, r, 6, "Gdp2");
             r++;
 
             ws.Cells[rowDPGroup, 3].Formula = $"=C{rowDP1}+C{rowDP2}";
@@ -1162,7 +1218,7 @@ namespace AIE.ExcelAddIn.Services
             ws.Cells[r, 3].Formula = $"=C{rowBT}+C{rowXD_Tong}+C{rowTB}+C{rowQLDA}+C{rowTVGroup}+C{rowKGroup}+C{rowDPGroup}";
             ws.Cells[r, 4].Formula = $"=D{rowBT}+D{rowXD_Tong}+D{rowTB}+D{rowQLDA}+D{rowTVGroup}+D{rowKGroup}+D{rowDPGroup}";
             ws.Cells[r, 5].Formula = $"=ROUND(E{rowBT}+E{rowXD_Tong}+E{rowTB}+E{rowQLDA}+E{rowTVGroup}+E{rowKGroup}+E{rowDPGroup}, -3)";
-            ws.Cells[r, 6] = "VTM";
+            SetCellSymbolWithSubscript(ws, r, 6, "GTM");
 
             var grandRng = ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]];
             grandRng.Font.Bold = true;

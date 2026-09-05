@@ -434,10 +434,20 @@ namespace AIE.ExcelAddIn.Forms
 
             var lblVAT = new Label { Text = "Thuế VAT chung:", AutoSize = true, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = UIHelper.GetFont(10.5f, FontStyle.Bold), ForeColor = Color.FromArgb(0, 51, 102), Margin = new Padding(2, 0, 6, 0) };
             var pnlVAT = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, Margin = new Padding(0, 4, 0, 4) };
-            cboVATChung = new ComboBox { Width = 85, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.GetFont(10.5f, FontStyle.Bold), Margin = new Padding(0, 2, 0, 0) };
+            cboVATChung = new ComboBox { Width = 95, DropDownStyle = ComboBoxStyle.DropDown, Font = UIHelper.GetFont(10.5f, FontStyle.Bold), Margin = new Padding(0, 2, 0, 0) };
             cboVATChung.Items.AddRange(new object[] { "10%", "8%", "5%", "0%" });
             cboVATChung.SelectedIndex = 0;
-            cboVATChung.SelectedIndexChanged += CboVATChung_SelectedIndexChanged;
+            cboVATChung.SelectedIndexChanged += (s, e) => XuLyDoiVATChung();
+            cboVATChung.Leave += (s, e) => XuLyDoiVATChung();
+            cboVATChung.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Enter)
+                {
+                    XuLyDoiVATChung();
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                }
+            };
 
             pnlVAT.Controls.Add(cboVATChung);
             tblInputs.Controls.Add(lblVAT, 6, 0);
@@ -818,9 +828,9 @@ namespace AIE.ExcelAddIn.Forms
                 HeaderText = "VAT",
                 Width = 70,
                 FillWeight = 6,
-                DataSource = new string[] { "10%", "8%", "5%", "0%" },
                 DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleCenter }
             };
+            colVAT.Items.AddRange(new object[] { "10%", "8%", "5%", "0%" });
 
             var colSauThue = new DataGridViewTextBoxColumn { Name = "colSauThue", HeaderText = "Sau thuế (đ)", Width = 150, FillWeight = 14, ReadOnly = true, DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleRight, Font = UIHelper.GetFont(10.5f, FontStyle.Bold) } };
             var colKyHieu = new DataGridViewTextBoxColumn { Name = "colKyHieu", HeaderText = "Ký hiệu", Width = 70, FillWeight = 6, DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleCenter } };
@@ -1091,10 +1101,13 @@ namespace AIE.ExcelAddIn.Forms
                 var itemXD = _model.Items.FirstOrDefault(x => x.MaChiPhi == "G_XD");
                 if (itemXD != null)
                 {
-                    if (itemXD.ThueSuatGTGT == 0.08m) cboVATChung.SelectedItem = "8%";
-                    else if (itemXD.ThueSuatGTGT == 0.05m) cboVATChung.SelectedItem = "5%";
-                    else if (itemXD.ThueSuatGTGT == 0m) cboVATChung.SelectedItem = "0%";
-                    else cboVATChung.SelectedItem = "10%";
+                    string vatXDStr = $"{(itemXD.ThueSuatGTGT * 100m):G29}%";
+                    if (!cboVATChung.Items.Contains(vatXDStr))
+                    {
+                        cboVATChung.Items.Add(vatXDStr);
+                    }
+                    cboVATChung.SelectedItem = vatXDStr;
+                    cboVATChung.Text = vatXDStr;
                 }
 
                 ChuyenCheDoBangTinh();
@@ -1173,12 +1186,12 @@ namespace AIE.ExcelAddIn.Forms
         {
             cboLoaiCongTrinhXD.DataSource = null;
             cboLoaiCongTrinhXD.Items.Clear();
-            cboLoaiCongTrinhXD.Items.AddRange(new object[] { "Dân dụng", "Công nghiệp", "Giao thông", "Nông nghiệp & PTNT", "Hạ tầng kỹ thuật" });
+            cboLoaiCongTrinhXD.Items.AddRange(new object[] { "-- Chọn loại công trình --", "Dân dụng", "Công nghiệp", "Giao thông", "Nông nghiệp & PTNT", "Hạ tầng kỹ thuật" });
 
-            string target = !string.IsNullOrEmpty(_duToan.LoaiCongTrinh) ? _duToan.LoaiCongTrinh : "Dân dụng";
+            string target = !string.IsNullOrEmpty(_duToan.LoaiCongTrinh) ? _duToan.LoaiCongTrinh : "";
             if (target == "Nông nghiệp và môi trường") target = "Nông nghiệp & PTNT";
 
-            if (cboLoaiCongTrinhXD.Items.Contains(target))
+            if (!string.IsNullOrEmpty(target) && cboLoaiCongTrinhXD.Items.Contains(target))
             {
                 cboLoaiCongTrinhXD.SelectedItem = target;
             }
@@ -1192,6 +1205,28 @@ namespace AIE.ExcelAddIn.Forms
         {
             if (cboLoaiCongTrinhXD.SelectedItem == null) return;
             string loaiCT = cboLoaiCongTrinhXD.SelectedItem.ToString();
+
+            if (cboLoaiCongTrinhXD.SelectedIndex <= 0 || loaiCT.StartsWith("--"))
+            {
+                if (!_isSyncingLoaiCT && cboLoaiCongTrinh != null)
+                {
+                    try
+                    {
+                        _isSyncingLoaiCT = true;
+                        if (cboLoaiCongTrinh.SelectedIndex != 0)
+                            cboLoaiCongTrinh.SelectedIndex = 0;
+                    }
+                    finally { _isSyncingLoaiCT = false; }
+                }
+                _duToan.LoaiCongTrinh = "";
+                if (_model != null) _model.LoaiCongTrinh = "";
+
+                cboPhanLoaiPhuXD.Items.Clear();
+                cboPhanLoaiPhuXD.Items.Add("--- Mặc định ---");
+                cboPhanLoaiPhuXD.SelectedIndex = 0;
+                cboPhanLoaiPhuXD.Enabled = false;
+                return;
+            }
 
             // Đồng bộ sang cboLoaiCongTrinh của Tab 2
             if (!_isSyncingLoaiCT && cboLoaiCongTrinh != null && cboLoaiCongTrinh.Items.Contains(loaiCT))
@@ -1246,6 +1281,7 @@ namespace AIE.ExcelAddIn.Forms
         {
             if (cboLoaiCongTrinhXD == null || cboLoaiCongTrinhXD.SelectedItem == null) return;
             string loaiCT = cboLoaiCongTrinhXD.SelectedItem.ToString();
+            if (cboLoaiCongTrinhXD.SelectedIndex <= 0 || loaiCT.StartsWith("--")) return;
             string phanLoai = cboPhanLoaiPhuXD.SelectedIndex > 0 ? cboPhanLoaiPhuXD.SelectedItem.ToString() : null;
 
             decimal.TryParse(txtQuyMoXD.Text.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal quyMo);
@@ -1346,20 +1382,32 @@ namespace AIE.ExcelAddIn.Forms
 
             if (!_isSyncingVAT && cboVATChung != null)
             {
-                string vatText = $"{gtgt:0}%";
-                if (cboVATChung.Items.Contains(vatText) && cboVATChung.SelectedItem?.ToString() != vatText)
+                string vatText = $"{gtgt:G29}%";
+                if (!cboVATChung.Items.Contains(vatText))
                 {
-                    try
-                    {
-                        _isSyncingVAT = true;
-                        _isUpdating = true;
-                        cboVATChung.SelectedItem = vatText;
-                    }
-                    finally 
-                    { 
-                        _isUpdating = false;
-                        _isSyncingVAT = false; 
-                    }
+                    cboVATChung.Items.Add(vatText);
+                }
+                try
+                {
+                    _isSyncingVAT = true;
+                    _isUpdating = true;
+                    cboVATChung.SelectedItem = vatText;
+                    cboVATChung.Text = vatText;
+                }
+                finally 
+                { 
+                    _isUpdating = false; 
+                    _isSyncingVAT = false; 
+                }
+            }
+
+            var colVATSync = dgvChiPhi?.Columns["colVAT"] as DataGridViewComboBoxColumn;
+            if (colVATSync != null)
+            {
+                string vatTextCol = $"{gtgt:G29}%";
+                if (!colVATSync.Items.Contains(vatTextCol))
+                {
+                    colVATSync.Items.Add(vatTextCol);
                 }
             }
 
@@ -1526,10 +1574,12 @@ namespace AIE.ExcelAddIn.Forms
                     case CoSoTinhChiPhi.TongMucDauTu: coSoStr = "Toàn bộ TMĐT"; break;
                 }
 
-                string vatStr = "10%";
-                if (item.ThueSuatGTGT == 0.08m) vatStr = "8%";
-                else if (item.ThueSuatGTGT == 0.05m) vatStr = "5%";
-                else if (item.ThueSuatGTGT == 0m) vatStr = "0%";
+                string vatStr = $"{(item.ThueSuatGTGT * 100m):G29}%";
+                var colVATCol = dgvChiPhi.Columns["colVAT"] as DataGridViewComboBoxColumn;
+                if (colVATCol != null && !colVATCol.Items.Contains(vatStr))
+                {
+                    colVATCol.Items.Add(vatStr);
+                }
 
                 int rowIdx = dgvChiPhi.Rows.Add(
                     item.IsActive,
@@ -1587,16 +1637,24 @@ namespace AIE.ExcelAddIn.Forms
             _model.SoBuocThietKe = buocSel;
 
             // Đồng bộ Loại công trình ngược về Tab 1
-            if (!_isSyncingLoaiCT && !string.IsNullOrEmpty(loaiSel) && cboLoaiCongTrinhXD != null)
+            if (!_isSyncingLoaiCT && cboLoaiCongTrinhXD != null)
             {
                 try
                 {
                     _isSyncingLoaiCT = true;
-                    string target = loaiSel;
-                    if (target == "Nông nghiệp và môi trường") target = "Nông nghiệp & PTNT";
-                    if (cboLoaiCongTrinhXD.Items.Contains(target) && cboLoaiCongTrinhXD.SelectedItem?.ToString() != target)
+                    if (cboLoaiCongTrinh.SelectedIndex <= 0)
                     {
-                        cboLoaiCongTrinhXD.SelectedItem = target;
+                        if (cboLoaiCongTrinhXD.SelectedIndex != 0)
+                            cboLoaiCongTrinhXD.SelectedIndex = 0;
+                    }
+                    else if (!string.IsNullOrEmpty(loaiSel))
+                    {
+                        string target = loaiSel;
+                        if (target == "Nông nghiệp và môi trường") target = "Nông nghiệp & PTNT";
+                        if (cboLoaiCongTrinhXD.Items.Contains(target) && cboLoaiCongTrinhXD.SelectedItem?.ToString() != target)
+                        {
+                            cboLoaiCongTrinhXD.SelectedItem = target;
+                        }
                     }
                 }
                 finally { _isSyncingLoaiCT = false; }
@@ -1661,21 +1719,61 @@ namespace AIE.ExcelAddIn.Forms
             HienThiDuLieuLenGrid();
         }
 
-        private void CboVATChung_SelectedIndexChanged(object sender, EventArgs e)
+        private static decimal ParseVATRate(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return 0.10m;
+            string cleaned = text.Replace("%", "").Trim().Replace(',', '.');
+            if (decimal.TryParse(cleaned, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal val))
+            {
+                if (text.Contains("%"))
+                    return val / 100m;
+                if (val > 1m)
+                    return val / 100m;
+                if (val > 0m && val < 0.5m)
+                    return val;
+                return val / 100m;
+            }
+            return 0.10m;
+        }
+
+        private void XuLyDoiVATChung()
         {
             if (_isUpdating) return;
-            ApDungVATToanBang();
+            string text = cboVATChung?.Text?.Trim() ?? "";
+            if (string.IsNullOrEmpty(text)) return;
+            decimal rate = ParseVATRate(text);
+            string formatted = $"{(rate * 100m):G29}%";
+
+            if (!cboVATChung.Items.Contains(formatted))
+            {
+                cboVATChung.Items.Add(formatted);
+            }
+            if (cboVATChung.Text != formatted)
+            {
+                cboVATChung.Text = formatted;
+            }
+
+            ApDungVATToanBang(rate);
         }
 
         private void ApDungVATToanBang()
         {
+            decimal rate = ParseVATRate(cboVATChung?.Text ?? "10%");
+            ApDungVATToanBang(rate);
+        }
+
+        private void ApDungVATToanBang(decimal newVAT)
+        {
             if (_model == null) return;
 
-            string vatSel = cboVATChung?.SelectedItem?.ToString() ?? "10%";
-            decimal newVAT = 0.10m;
-            if (vatSel == "8%") newVAT = 0.08m;
-            else if (vatSel == "5%") newVAT = 0.05m;
-            else if (vatSel == "0%") newVAT = 0m;
+            string formatted = $"{(newVAT * 100m):G29}%";
+
+            // Đảm bảo colVAT trong DataGridView có mục này
+            var colVAT = dgvChiPhi.Columns["colVAT"] as DataGridViewComboBoxColumn;
+            if (colVAT != null && !colVAT.Items.Contains(formatted))
+            {
+                colVAT.Items.Add(formatted);
+            }
 
             // Đồng bộ ngược giá trị thuế VAT sang Tab 1
             if (!_isSyncingVAT && txtGTGTXD != null)
@@ -1683,7 +1781,7 @@ namespace AIE.ExcelAddIn.Forms
                 try
                 {
                     _isSyncingVAT = true;
-                    string vatNum = ((int)(newVAT * 100)).ToString();
+                    string vatNum = (newVAT * 100m).ToString("G29", UIHelper.ViCulture);
                     if (txtGTGTXD.Text.Trim() != vatNum)
                     {
                         txtGTGTXD.Text = vatNum; // Kích hoạt txtGTGTXD.TextChanged -> TinhToanChiPhiXD() ở Tab 1
@@ -1789,10 +1887,7 @@ namespace AIE.ExcelAddIn.Forms
             {
                 // Yêu cầu 7: Cho phép sửa thuế VAT theo từng dòng riêng lẻ
                 string vatStr = row.Cells["colVAT"].Value?.ToString() ?? "10%";
-                if (vatStr.Contains("8")) item.ThueSuatGTGT = 0.08m;
-                else if (vatStr.Contains("5")) item.ThueSuatGTGT = 0.05m;
-                else if (vatStr.Contains("0")) item.ThueSuatGTGT = 0m;
-                else item.ThueSuatGTGT = 0.10m;
+                item.ThueSuatGTGT = ParseVATRate(vatStr);
             }
             else if (colName == "colKyHieu")
             {

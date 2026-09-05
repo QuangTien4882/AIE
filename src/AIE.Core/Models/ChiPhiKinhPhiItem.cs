@@ -120,9 +120,9 @@ namespace AIE.Core.Models
     public class BangTongHopKinhPhiModel
     {
         // --- Thông số thiết lập dự án ---
-        public string LoaiCongTrinh { get; set; } = "Dân dụng"; // Dân dụng, Công nghiệp, Giao thông, Nông nghiệp & PTNT, Hạ tầng kỹ thuật
-        public string CapCongTrinh { get; set; } = "Cấp III";   // Cấp đặc biệt, Cấp I, Cấp II, Cấp III, Cấp IV
-        public int SoBuocThietKe { get; set; } = 2;             // 1 bước, 2 bước, 3 bước
+        public string LoaiCongTrinh { get; set; } = "";         // Dân dụng, Công nghiệp, Giao thông, Nông nghiệp & PTNT, Hạ tầng kỹ thuật
+        public string CapCongTrinh { get; set; } = "";          // Cấp đặc biệt, Cấp I, Cấp II, Cấp III, Cấp IV
+        public int SoBuocThietKe { get; set; } = 0;             // 0: Chưa chọn, 1: 1 bước, 2: 2 bước, 3: 3 bước
 
         // --- Các điều kiện áp dụng hệ số điều chỉnh ---
         public bool ThietBiTren50Pct { get; set; } = false;      // Thiết bị >= 50% (k = 0.7 cho kiểm toán, thẩm tra quyết toán)
