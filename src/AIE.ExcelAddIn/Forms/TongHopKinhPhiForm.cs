@@ -1443,6 +1443,7 @@ namespace AIE.ExcelAddIn.Forms
 
             if (dgvChiPhi != null && dgvChiPhi.Rows.Count > 0)
             {
+                DanhLaiSoThuTu();
                 HienThiDuLieuLenGrid();
             }
             CapNhatThanhTongCong();
@@ -1491,6 +1492,7 @@ namespace AIE.ExcelAddIn.Forms
         private void DanhLaiSoThuTu()
         {
             bool laTMDT = LaCheDoTongMucDauTu;
+            bool hasTB = _model.ChiPhiTBTruocThue > 0;
 
             int sttBT = 1;
             int sttXD = 1;
@@ -1504,6 +1506,13 @@ namespace AIE.ExcelAddIn.Forms
             int countTB = _model.Items.Count(x => x.Nhom == NhomChiPhi.ChiPhiThietBi);
             int countQLDA = _model.Items.Count(x => x.Nhom == NhomChiPhi.QuanLyDuAn);
 
+            int prefixXD = laTMDT ? 2 : 1;
+            int prefixTB = laTMDT ? 3 : 2;
+            int prefixQLDA = hasTB ? (laTMDT ? 4 : 3) : (laTMDT ? 3 : 2);
+            int prefixTV = prefixQLDA + 1;
+            int prefixKhac = prefixTV + 1;
+            int prefixDP = prefixKhac + 1;
+
             foreach (var item in _model.Items)
             {
                 switch (item.Nhom)
@@ -1513,34 +1522,30 @@ namespace AIE.ExcelAddIn.Forms
                         break;
 
                     case NhomChiPhi.ChiPhiXayDung:
-                        int prefixXD = laTMDT ? 2 : 1;
                         if (item.MaChiPhi == "G_XD") item.STT = $"{prefixXD}.1";
                         else if (item.MaChiPhi == "G_NHA_TAM") item.STT = $"{prefixXD}.2";
                         else item.STT = $"{prefixXD}.{++sttXD}";
                         break;
 
                     case NhomChiPhi.ChiPhiThietBi:
-                        int prefixTB = laTMDT ? 3 : 2;
                         item.STT = countTB > 1 ? $"{prefixTB}.{sttTB++}" : $"{prefixTB}";
                         break;
 
                     case NhomChiPhi.QuanLyDuAn:
-                        int prefixQLDA = laTMDT ? 4 : 3;
                         item.STT = countQLDA > 1 ? $"{prefixQLDA}.{sttQLDA++}" : $"{prefixQLDA}";
                         break;
 
                     case NhomChiPhi.TuVanDauTuXD:
-                        int prefixTV = laTMDT ? 5 : 4;
+                        if (!hasTB && item.CoSoTinh == CoSoTinhChiPhi.ChiPhiThietBi) break;
                         item.STT = $"{prefixTV}.{sttTV++}";
                         break;
 
                     case NhomChiPhi.ChiPhiKhac:
-                        int prefixKhac = laTMDT ? 6 : 5;
+                        if (!hasTB && item.CoSoTinh == CoSoTinhChiPhi.ChiPhiThietBi) break;
                         item.STT = $"{prefixKhac}.{sttKhac++}";
                         break;
 
                     case NhomChiPhi.ChiPhiDuPhong:
-                        int prefixDP = laTMDT ? 7 : 6;
                         item.STT = $"{prefixDP}.{sttDP++}";
                         break;
                 }
@@ -1554,11 +1559,12 @@ namespace AIE.ExcelAddIn.Forms
 
             // Lọc các khoản mục hiển thị:
             // 1. Nếu là THDT thì ẩn nhóm Bồi thường GPMB
-            // 2. Nếu không có chi phí Thiết bị (G_TB == 0), ẩn các khoản mục phụ thuộc thiết bị mà không active (như TV_GS_TB)
+            // 2. Nếu không có chi phí Thiết bị (G_TB == 0), ẩn hoàn toàn dòng Chi phí thiết bị và các khoản mục phụ thuộc thiết bị
+            bool hasTB = _model.ChiPhiTBTruocThue > 0;
             var itemsToShow = _model.Items.Where(x =>
             {
                 if (!LaCheDoTongMucDauTu && x.Nhom == NhomChiPhi.BoiThuong_TDC) return false;
-                if (_model.ChiPhiTBTruocThue <= 0 && x.CoSoTinh == CoSoTinhChiPhi.ChiPhiThietBi && !x.IsActive) return false;
+                if (!hasTB && (x.Nhom == NhomChiPhi.ChiPhiThietBi || x.CoSoTinh == CoSoTinhChiPhi.ChiPhiThietBi)) return false;
                 return true;
             }).ToList();
 
@@ -1715,6 +1721,7 @@ namespace AIE.ExcelAddIn.Forms
             // Cập nhật lại định mức cho các khoản mục phụ thuộc G_TB và G_XD + G_TB
             DinhMucTT38Engine.CapNhatToanBoDinhMucVaTinhToan(_model);
 
+            DanhLaiSoThuTu();
             _model.TinhToanLai();
             HienThiDuLieuLenGrid();
         }
@@ -1887,7 +1894,73 @@ namespace AIE.ExcelAddIn.Forms
             {
                 // Yêu cầu 7: Cho phép sửa thuế VAT theo từng dòng riêng lẻ
                 string vatStr = row.Cells["colVAT"].Value?.ToString() ?? "10%";
-                item.ThueSuatGTGT = ParseVATRate(vatStr);
+                decimal vatRate = ParseVATRate(vatStr);
+                item.ThueSuatGTGT = vatRate;
+                string formatted = $"{(vatRate * 100m):G29}%";
+
+                var colVAT = dgvChiPhi.Columns["colVAT"] as DataGridViewComboBoxColumn;
+                if (colVAT != null && !colVAT.Items.Contains(formatted))
+                {
+                    colVAT.Items.Add(formatted);
+                }
+
+                // Nếu sửa VAT của Chi phí xây dựng hoặc Lán trại tạm:
+                // 1. Đồng bộ cả hai khoản mục G_XD và G_NHA_TAM dùng chung thuế suất VAT
+                // 2. Đồng bộ sang dropdown cboVATChung
+                // 3. Đồng bộ hai chiều sang Tab 1 (txtGTGTXD) để tự động tính toán lại bảng chi phí xây dựng
+                if (item.MaChiPhi == "G_XD" || item.MaChiPhi == "G_NHA_TAM")
+                {
+                    var itemXD = _model.Items.FirstOrDefault(x => x.MaChiPhi == "G_XD");
+                    var itemNT = _model.Items.FirstOrDefault(x => x.MaChiPhi == "G_NHA_TAM");
+                    if (itemXD != null) itemXD.ThueSuatGTGT = vatRate;
+                    if (itemNT != null) itemNT.ThueSuatGTGT = vatRate;
+
+                    _model.TinhToanLai();
+                    _isUpdating = true;
+                    foreach (DataGridViewRow r in dgvChiPhi.Rows)
+                    {
+                        var it = r.Tag as ChiPhiKinhPhiItem;
+                        if (it != null && (it.MaChiPhi == "G_XD" || it.MaChiPhi == "G_NHA_TAM"))
+                        {
+                            r.Cells["colVAT"].Value = formatted;
+                            r.Cells["colTruocThue"].Value = UIHelper.FormatTien(it.GiaTriTruocThue);
+                            r.Cells["colSauThue"].Value = UIHelper.FormatTien(it.GiaTriSauThue);
+                        }
+                    }
+                    _isUpdating = false;
+                    CapNhatThanhTongCong();
+
+                    this.BeginInvoke(new Action(() =>
+                    {
+                        if (cboVATChung != null)
+                        {
+                            if (!cboVATChung.Items.Contains(formatted))
+                            {
+                                cboVATChung.Items.Add(formatted);
+                            }
+                            cboVATChung.SelectedItem = formatted;
+                            cboVATChung.Text = formatted;
+                        }
+
+                        if (txtGTGTXD != null)
+                        {
+                            string vatNum = (vatRate * 100m).ToString("G29", UIHelper.ViCulture);
+                            if (txtGTGTXD.Text.Trim() != vatNum)
+                            {
+                                try
+                                {
+                                    _isSyncingVAT = true;
+                                    txtGTGTXD.Text = vatNum; // Kích hoạt txtGTGTXD.TextChanged -> TinhToanChiPhiXD() ở Tab 1
+                                }
+                                finally
+                                {
+                                    _isSyncingVAT = false;
+                                }
+                            }
+                        }
+                    }));
+                    return;
+                }
             }
             else if (colName == "colKyHieu")
             {

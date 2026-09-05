@@ -666,28 +666,35 @@ namespace AIE.ExcelAddIn.Services
             ws.Cells[rowXD_Tong, 4].Formula = $"=D{rowXD_Con}+D{rowNT_Con}";
             ws.Cells[rowXD_Tong, 5].Formula = $"=ROUND(E{rowXD_Con}+E{rowNT_Con}, -3)";
 
-            // 2. Chi phí thiết bị
-            int rowTB = r;
-            ws.Cells[r, 1] = "'2";
-            ws.Cells[r, 2] = "Chi phí thiết bị";
-            ws.Cells[r, 3] = (double)model.ChiPhiTBTruocThue;
-            var itemTB = model.Items.FirstOrDefault(x => x.Nhom == NhomChiPhi.ChiPhiThietBi);
-            decimal vatTB = itemTB != null ? itemTB.ThueSuatGTGT : 0.10m;
-            string vatTBStr = vatTB.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatTBStr}, 0)";
-            ws.Cells[r, 5].Formula = $"=ROUND(C{r}+D{r}, -3)";
-            SetCellSymbolWithSubscript(ws, r, 6, "GTB");
-            ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
-            r++;
+            bool hasTB = model.ChiPhiTBTruocThue > 0;
+            int rowTB = 0;
 
-            // 3. Chi phí quản lý dự án (Cơ sở tính: Chi phí xây dựng CHƯA có nhà tạm + Thiết bị)
+            if (hasTB)
+            {
+                // 2. Chi phí thiết bị
+                rowTB = r;
+                ws.Cells[r, 1] = "'2";
+                ws.Cells[r, 2] = "Chi phí thiết bị";
+                ws.Cells[r, 3] = (double)model.ChiPhiTBTruocThue;
+                var itemTB = model.Items.FirstOrDefault(x => x.Nhom == NhomChiPhi.ChiPhiThietBi);
+                decimal vatTB = itemTB != null ? itemTB.ThueSuatGTGT : 0.10m;
+                string vatTBStr = vatTB.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatTBStr}, 0)";
+                ws.Cells[r, 5].Formula = $"=ROUND(C{r}+D{r}, -3)";
+                SetCellSymbolWithSubscript(ws, r, 6, "GTB");
+                ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
+                r++;
+            }
+
+            // Chi phí quản lý dự án (Cơ sở tính: Chi phí xây dựng CHƯA có nhà tạm + Thiết bị nếu có)
             int rowQLDA = r;
             var itemQLDA = model.Items.FirstOrDefault(x => x.Nhom == NhomChiPhi.QuanLyDuAn) ?? new ChiPhiKinhPhiItem { TyLePhanTram = 3.25m, HeSoDieuChinh = 1.0m };
             string qldaTyLe = (itemQLDA.TyLePhanTram / 100m).ToString(System.Globalization.CultureInfo.InvariantCulture);
             string qldaHeSo = itemQLDA.HeSoDieuChinh.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            ws.Cells[r, 1] = "'3";
+            ws.Cells[r, 1] = hasTB ? "'3" : "'2";
             ws.Cells[r, 2] = "Chi phí quản lý dự án";
-            ws.Cells[r, 3].Formula = $"=ROUND({qldaTyLe} * (C{rowXD_Con} + C{rowTB}) * {qldaHeSo}, 0)";
+            string qldaBase = hasTB ? $"(C{rowXD_Con} + C{rowTB})" : $"C{rowXD_Con}";
+            ws.Cells[r, 3].Formula = $"=ROUND({qldaTyLe} * {qldaBase} * {qldaHeSo}, 0)";
             decimal vatQLDA = itemQLDA.ThueSuatGTGT;
             string vatQLDAStr = vatQLDA.ToString(System.Globalization.CultureInfo.InvariantCulture);
             ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatQLDAStr}, 0)";
@@ -696,24 +703,25 @@ namespace AIE.ExcelAddIn.Services
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
-            // 4. Chi phí tư vấn đầu tư xây dựng (Cơ sở tính: Chi phí xây dựng con C{rowXD_Con})
+            // Chi phí tư vấn đầu tư xây dựng (Cơ sở tính: Chi phí xây dựng con C{rowXD_Con})
             int rowTVGroup = r;
-            ws.Cells[r, 1] = "'4";
+            ws.Cells[r, 1] = hasTB ? "'4" : "'3";
             ws.Cells[r, 2] = "Chi phí tư vấn đầu tư xây dựng";
             SetCellSymbolWithSubscript(ws, r, 6, "GTV");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
             int startTV = r;
-            var tvItems = model.Items.Where(x => x.IsActive && x.Nhom == NhomChiPhi.TuVanDauTuXD).ToList();
+            var tvItems = model.Items.Where(x => x.IsActive && x.Nhom == NhomChiPhi.TuVanDauTuXD && (hasTB || x.CoSoTinh != CoSoTinhChiPhi.ChiPhiThietBi)).ToList();
             int tvIdx = 1;
+            string tvPrefix = hasTB ? "'4." : "'3.";
             foreach (var item in tvItems)
             {
-                ws.Cells[r, 1] = $"'4.{tvIdx++}";
+                ws.Cells[r, 1] = $"{tvPrefix}{tvIdx++}";
                 ws.Cells[r, 2] = "- " + item.TenChiPhi;
                 if (item.CachTinh == CachTinhChiPhi.TheoTyLeDinhMuc)
                 {
-                    string baseCell = item.CoSoTinh == CoSoTinhChiPhi.ChiPhiXayDung ? $"C{rowXD_Con}" : (item.CoSoTinh == CoSoTinhChiPhi.ChiPhiThietBi ? $"C{rowTB}" : $"(C{rowXD_Con}+C{rowTB})");
+                    string baseCell = item.CoSoTinh == CoSoTinhChiPhi.ChiPhiXayDung ? $"C{rowXD_Con}" : (item.CoSoTinh == CoSoTinhChiPhi.ChiPhiThietBi ? (hasTB ? $"C{rowTB}" : $"C{rowXD_Con}") : (hasTB ? $"(C{rowXD_Con}+C{rowTB})" : $"C{rowXD_Con}"));
                     string tlStr = (item.TyLePhanTram / 100m).ToString(System.Globalization.CultureInfo.InvariantCulture);
                     string hsStr = item.HeSoDieuChinh.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     ws.Cells[r, 3].Formula = $"=ROUND({tlStr} * {baseCell} * {hsStr}, 0)";
@@ -740,24 +748,25 @@ namespace AIE.ExcelAddIn.Services
                 ws.Cells[rowTVGroup, 3] = 0; ws.Cells[rowTVGroup, 4] = 0; ws.Cells[rowTVGroup, 5] = 0;
             }
 
-            // 5. Chi phí khác (Cơ sở tính: Chi phí xây dựng con C{rowXD_Con})
+            // Chi phí khác (Cơ sở tính: Chi phí xây dựng con C{rowXD_Con})
             int rowKGroup = r;
-            ws.Cells[r, 1] = "'5";
+            ws.Cells[r, 1] = hasTB ? "'5" : "'4";
             ws.Cells[r, 2] = "Chi phí khác";
             SetCellSymbolWithSubscript(ws, r, 6, "GK");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
             int startK = r;
-            var kItems = model.Items.Where(x => x.IsActive && x.Nhom == NhomChiPhi.ChiPhiKhac).ToList();
+            var kItems = model.Items.Where(x => x.IsActive && x.Nhom == NhomChiPhi.ChiPhiKhac && (hasTB || x.CoSoTinh != CoSoTinhChiPhi.ChiPhiThietBi)).ToList();
             int kIdx = 1;
+            string kPrefix = hasTB ? "'5." : "'4.";
             foreach (var item in kItems)
             {
-                ws.Cells[r, 1] = $"'5.{kIdx++}";
+                ws.Cells[r, 1] = $"{kPrefix}{kIdx++}";
                 ws.Cells[r, 2] = "- " + item.TenChiPhi;
                 if (item.CachTinh == CachTinhChiPhi.TheoTyLeDinhMuc)
                 {
-                    string baseCell = item.CoSoTinh == CoSoTinhChiPhi.ChiPhiXayDung ? $"C{rowXD_Con}" : (item.CoSoTinh == CoSoTinhChiPhi.ChiPhiThietBi ? $"C{rowTB}" : $"(C{rowXD_Con}+C{rowTB})");
+                    string baseCell = item.CoSoTinh == CoSoTinhChiPhi.ChiPhiXayDung ? $"C{rowXD_Con}" : (item.CoSoTinh == CoSoTinhChiPhi.ChiPhiThietBi ? (hasTB ? $"C{rowTB}" : $"C{rowXD_Con}") : (hasTB ? $"(C{rowXD_Con}+C{rowTB})" : $"C{rowXD_Con}"));
                     string tlStr = (item.TyLePhanTram / 100m).ToString(System.Globalization.CultureInfo.InvariantCulture);
                     string hsStr = item.HeSoDieuChinh.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     if (item.MinValue.HasValue && item.MaxValue.HasValue)
@@ -798,9 +807,9 @@ namespace AIE.ExcelAddIn.Services
                 ws.Cells[rowKGroup, 3] = 0; ws.Cells[rowKGroup, 4] = 0; ws.Cells[rowKGroup, 5] = 0;
             }
 
-            // 6. Chi phí dự phòng (G_DP)
+            // Chi phí dự phòng (G_DP)
             int rowDPGroup = r;
-            ws.Cells[r, 1] = "'6";
+            ws.Cells[r, 1] = hasTB ? "'6" : "'5";
             ws.Cells[r, 2] = "Chi phí dự phòng";
             SetCellSymbolWithSubscript(ws, r, 6, "GDP");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
@@ -809,16 +818,19 @@ namespace AIE.ExcelAddIn.Services
             var itemDP = model.Items.FirstOrDefault(x => x.Nhom == NhomChiPhi.ChiPhiDuPhong) ?? new ChiPhiKinhPhiItem { TyLePhanTram = 5.0m };
             string dpTyLe = (itemDP.TyLePhanTram / 100m).ToString(System.Globalization.CultureInfo.InvariantCulture);
             int rowDP1 = r;
-            ws.Cells[r, 1] = "'6.1";
+            ws.Cells[r, 1] = hasTB ? "'6.1" : "'5.1";
             ws.Cells[r, 2] = "- Chi phí dự phòng yếu tố khối lượng phát sinh (Gdp1)";
-            ws.Cells[r, 3].Formula = $"=ROUND({dpTyLe} * (C{rowXD_Tong} + C{rowTB} + C{rowQLDA} + C{rowTVGroup} + C{rowKGroup}), 0)";
+            string dpBase = hasTB
+                ? $"(C{rowXD_Tong} + C{rowTB} + C{rowQLDA} + C{rowTVGroup} + C{rowKGroup})"
+                : $"(C{rowXD_Tong} + C{rowQLDA} + C{rowTVGroup} + C{rowKGroup})";
+            ws.Cells[r, 3].Formula = $"=ROUND({dpTyLe} * {dpBase}, 0)";
             ws.Cells[r, 4].Formula = $"=ROUND(C{r}*0.1, 0)";
             ws.Cells[r, 5].Formula = $"=C{r}+D{r}";
             SetCellSymbolWithSubscript(ws, r, 6, "Gdp1");
             r++;
 
             int rowDP2 = r;
-            ws.Cells[r, 1] = "'6.2";
+            ws.Cells[r, 1] = hasTB ? "'6.2" : "'5.2";
             ws.Cells[r, 2] = "- Chi phí dự phòng yếu tố trượt giá (Gdp2)";
             ws.Cells[r, 3] = 0;
             ws.Cells[r, 4] = 0;
@@ -833,9 +845,18 @@ namespace AIE.ExcelAddIn.Services
             // Dòng Tổng cộng Dự toán công trình
             int grandRow = r;
             ws.Cells[r, 2] = "TỔNG CỘNG DỰ TOÁN CÔNG TRÌNH";
-            ws.Cells[r, 3].Formula = $"=C{rowXD_Tong}+C{rowTB}+C{rowQLDA}+C{rowTVGroup}+C{rowKGroup}+C{rowDPGroup}";
-            ws.Cells[r, 4].Formula = $"=D{rowXD_Tong}+D{rowTB}+D{rowQLDA}+D{rowTVGroup}+D{rowKGroup}+D{rowDPGroup}";
-            ws.Cells[r, 5].Formula = $"=ROUND(E{rowXD_Tong}+E{rowTB}+E{rowQLDA}+E{rowTVGroup}+E{rowKGroup}+E{rowDPGroup}, -3)";
+            string grandSumC = hasTB
+                ? $"=C{rowXD_Tong}+C{rowTB}+C{rowQLDA}+C{rowTVGroup}+C{rowKGroup}+C{rowDPGroup}"
+                : $"=C{rowXD_Tong}+C{rowQLDA}+C{rowTVGroup}+C{rowKGroup}+C{rowDPGroup}";
+            string grandSumD = hasTB
+                ? $"=D{rowXD_Tong}+D{rowTB}+D{rowQLDA}+D{rowTVGroup}+D{rowKGroup}+D{rowDPGroup}"
+                : $"=D{rowXD_Tong}+D{rowQLDA}+D{rowTVGroup}+D{rowKGroup}+D{rowDPGroup}";
+            string grandSumE = hasTB
+                ? $"=ROUND(E{rowXD_Tong}+E{rowTB}+E{rowQLDA}+E{rowTVGroup}+E{rowKGroup}+E{rowDPGroup}, -3)"
+                : $"=ROUND(E{rowXD_Tong}+E{rowQLDA}+E{rowTVGroup}+E{rowKGroup}+E{rowDPGroup}, -3)";
+            ws.Cells[r, 3].Formula = grandSumC;
+            ws.Cells[r, 4].Formula = grandSumD;
+            ws.Cells[r, 5].Formula = grandSumE;
             SetCellSymbolWithSubscript(ws, r, 6, "GXDCT");
 
             var grandRng = ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]];
@@ -1048,28 +1069,35 @@ namespace AIE.ExcelAddIn.Services
             ws.Cells[rowXD_Tong, 4].Formula = $"=D{rowXD_Con}+D{rowNT_Con}";
             ws.Cells[rowXD_Tong, 5].Formula = $"=ROUND(E{rowXD_Con}+E{rowNT_Con}, -3)";
 
-            // 3. Chi phí thiết bị
-            int rowTB = r;
-            ws.Cells[r, 1] = "'3";
-            ws.Cells[r, 2] = "Chi phí thiết bị";
-            ws.Cells[r, 3] = (double)model.ChiPhiTBTruocThue;
-            var itemTB = model.Items.FirstOrDefault(x => x.Nhom == NhomChiPhi.ChiPhiThietBi);
-            decimal vatTB = itemTB != null ? itemTB.ThueSuatGTGT : 0.10m;
-            string vatTBStr = vatTB.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatTBStr}, 0)";
-            ws.Cells[r, 5].Formula = $"=ROUND(C{r}+D{r}, -3)";
-            SetCellSymbolWithSubscript(ws, r, 6, "GTB");
-            ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
-            r++;
+            bool hasTB = model.ChiPhiTBTruocThue > 0;
+            int rowTB = 0;
 
-            // 4. Chi phí quản lý dự án (Cơ sở tính: Chi phí xây dựng CHƯA có nhà tạm + Thiết bị)
+            if (hasTB)
+            {
+                // 3. Chi phí thiết bị
+                rowTB = r;
+                ws.Cells[r, 1] = "'3";
+                ws.Cells[r, 2] = "Chi phí thiết bị";
+                ws.Cells[r, 3] = (double)model.ChiPhiTBTruocThue;
+                var itemTB = model.Items.FirstOrDefault(x => x.Nhom == NhomChiPhi.ChiPhiThietBi);
+                decimal vatTB = itemTB != null ? itemTB.ThueSuatGTGT : 0.10m;
+                string vatTBStr = vatTB.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatTBStr}, 0)";
+                ws.Cells[r, 5].Formula = $"=ROUND(C{r}+D{r}, -3)";
+                SetCellSymbolWithSubscript(ws, r, 6, "GTB");
+                ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
+                r++;
+            }
+
+            // Chi phí quản lý dự án (Cơ sở tính: Chi phí xây dựng CHƯA có nhà tạm + Thiết bị nếu có)
             int rowQLDA = r;
             var itemQLDA = model.Items.FirstOrDefault(x => x.Nhom == NhomChiPhi.QuanLyDuAn) ?? new ChiPhiKinhPhiItem { TyLePhanTram = 3.25m, HeSoDieuChinh = 1.0m };
             string qldaTyLe = (itemQLDA.TyLePhanTram / 100m).ToString(System.Globalization.CultureInfo.InvariantCulture);
             string qldaHeSo = itemQLDA.HeSoDieuChinh.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            ws.Cells[r, 1] = "'4";
+            ws.Cells[r, 1] = hasTB ? "'4" : "'3";
             ws.Cells[r, 2] = "Chi phí quản lý dự án";
-            ws.Cells[r, 3].Formula = $"=ROUND({qldaTyLe} * (C{rowXD_Con} + C{rowTB}) * {qldaHeSo}, 0)";
+            string qldaBase = hasTB ? $"(C{rowXD_Con} + C{rowTB})" : $"C{rowXD_Con}";
+            ws.Cells[r, 3].Formula = $"=ROUND({qldaTyLe} * {qldaBase} * {qldaHeSo}, 0)";
             decimal vatQLDA = itemQLDA.ThueSuatGTGT;
             string vatQLDAStr = vatQLDA.ToString(System.Globalization.CultureInfo.InvariantCulture);
             ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatQLDAStr}, 0)";
@@ -1078,24 +1106,25 @@ namespace AIE.ExcelAddIn.Services
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
-            // 5. Chi phí tư vấn đầu tư xây dựng (Cơ sở tính: Chi phí xây dựng con C{rowXD_Con})
+            // Chi phí tư vấn đầu tư xây dựng (Cơ sở tính: Chi phí xây dựng con C{rowXD_Con})
             int rowTVGroup = r;
-            ws.Cells[r, 1] = "'5";
+            ws.Cells[r, 1] = hasTB ? "'5" : "'4";
             ws.Cells[r, 2] = "Chi phí tư vấn đầu tư xây dựng";
             SetCellSymbolWithSubscript(ws, r, 6, "GTV");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
             int startTV = r;
-            var tvItems = model.Items.Where(x => x.IsActive && x.Nhom == NhomChiPhi.TuVanDauTuXD).ToList();
+            var tvItems = model.Items.Where(x => x.IsActive && x.Nhom == NhomChiPhi.TuVanDauTuXD && (hasTB || x.CoSoTinh != CoSoTinhChiPhi.ChiPhiThietBi)).ToList();
             int tvIdx = 1;
+            string tvPrefix = hasTB ? "'5." : "'4.";
             foreach (var item in tvItems)
             {
-                ws.Cells[r, 1] = $"'5.{tvIdx++}";
+                ws.Cells[r, 1] = $"{tvPrefix}{tvIdx++}";
                 ws.Cells[r, 2] = "- " + item.TenChiPhi;
                 if (item.CachTinh == CachTinhChiPhi.TheoTyLeDinhMuc)
                 {
-                    string baseCell = item.CoSoTinh == CoSoTinhChiPhi.ChiPhiXayDung ? $"C{rowXD_Con}" : (item.CoSoTinh == CoSoTinhChiPhi.ChiPhiThietBi ? $"C{rowTB}" : $"(C{rowXD_Con}+C{rowTB})");
+                    string baseCell = item.CoSoTinh == CoSoTinhChiPhi.ChiPhiXayDung ? $"C{rowXD_Con}" : (item.CoSoTinh == CoSoTinhChiPhi.ChiPhiThietBi ? (hasTB ? $"C{rowTB}" : $"C{rowXD_Con}") : (hasTB ? $"(C{rowXD_Con}+C{rowTB})" : $"C{rowXD_Con}"));
                     string tlStr = (item.TyLePhanTram / 100m).ToString(System.Globalization.CultureInfo.InvariantCulture);
                     string hsStr = item.HeSoDieuChinh.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     ws.Cells[r, 3].Formula = $"=ROUND({tlStr} * {baseCell} * {hsStr}, 0)";
@@ -1122,24 +1151,25 @@ namespace AIE.ExcelAddIn.Services
                 ws.Cells[rowTVGroup, 3] = 0; ws.Cells[rowTVGroup, 4] = 0; ws.Cells[rowTVGroup, 5] = 0;
             }
 
-            // 6. Chi phí khác (Cơ sở tính: Chi phí xây dựng con C{rowXD_Con})
+            // Chi phí khác (Cơ sở tính: Chi phí xây dựng con C{rowXD_Con})
             int rowKGroup = r;
-            ws.Cells[r, 1] = "'6";
+            ws.Cells[r, 1] = hasTB ? "'6" : "'5";
             ws.Cells[r, 2] = "Chi phí khác";
             SetCellSymbolWithSubscript(ws, r, 6, "GK");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
             r++;
 
             int startK = r;
-            var kItems = model.Items.Where(x => x.IsActive && x.Nhom == NhomChiPhi.ChiPhiKhac).ToList();
+            var kItems = model.Items.Where(x => x.IsActive && x.Nhom == NhomChiPhi.ChiPhiKhac && (hasTB || x.CoSoTinh != CoSoTinhChiPhi.ChiPhiThietBi)).ToList();
             int kIdx = 1;
+            string kPrefix = hasTB ? "'6." : "'5.";
             foreach (var item in kItems)
             {
-                ws.Cells[r, 1] = $"'6.{kIdx++}";
+                ws.Cells[r, 1] = $"{kPrefix}{kIdx++}";
                 ws.Cells[r, 2] = "- " + item.TenChiPhi;
                 if (item.CachTinh == CachTinhChiPhi.TheoTyLeDinhMuc)
                 {
-                    string baseCell = item.CoSoTinh == CoSoTinhChiPhi.ChiPhiXayDung ? $"C{rowXD_Con}" : (item.CoSoTinh == CoSoTinhChiPhi.ChiPhiThietBi ? $"C{rowTB}" : $"(C{rowXD_Con}+C{rowTB})");
+                    string baseCell = item.CoSoTinh == CoSoTinhChiPhi.ChiPhiXayDung ? $"C{rowXD_Con}" : (item.CoSoTinh == CoSoTinhChiPhi.ChiPhiThietBi ? (hasTB ? $"C{rowTB}" : $"C{rowXD_Con}") : (hasTB ? $"(C{rowXD_Con}+C{rowTB})" : $"C{rowXD_Con}"));
                     string tlStr = (item.TyLePhanTram / 100m).ToString(System.Globalization.CultureInfo.InvariantCulture);
                     string hsStr = item.HeSoDieuChinh.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     if (item.MinValue.HasValue && item.MaxValue.HasValue)
@@ -1180,9 +1210,9 @@ namespace AIE.ExcelAddIn.Services
                 ws.Cells[rowKGroup, 3] = 0; ws.Cells[rowKGroup, 4] = 0; ws.Cells[rowKGroup, 5] = 0;
             }
 
-            // 7. Chi phí dự phòng (G_DP) - TMĐT 10%
+            // Chi phí dự phòng (G_DP) - TMĐT 10%
             int rowDPGroup = r;
-            ws.Cells[r, 1] = "'7";
+            ws.Cells[r, 1] = hasTB ? "'7" : "'6";
             ws.Cells[r, 2] = "Chi phí dự phòng";
             SetCellSymbolWithSubscript(ws, r, 6, "GDP");
             ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]].Font.Bold = true;
@@ -1191,16 +1221,19 @@ namespace AIE.ExcelAddIn.Services
             var itemDP = model.Items.FirstOrDefault(x => x.Nhom == NhomChiPhi.ChiPhiDuPhong) ?? new ChiPhiKinhPhiItem { TyLePhanTram = 10.0m };
             string dpTyLe = (itemDP.TyLePhanTram > 5.0m ? itemDP.TyLePhanTram / 100m : 0.10m).ToString(System.Globalization.CultureInfo.InvariantCulture);
             int rowDP1 = r;
-            ws.Cells[r, 1] = "'7.1";
+            ws.Cells[r, 1] = hasTB ? "'7.1" : "'6.1";
             ws.Cells[r, 2] = "- Chi phí dự phòng yếu tố khối lượng phát sinh (Gdp1)";
-            ws.Cells[r, 3].Formula = $"=ROUND({dpTyLe} * (C{rowBT} + C{rowXD_Tong} + C{rowTB} + C{rowQLDA} + C{rowTVGroup} + C{rowKGroup}), 0)";
+            string dpBase = hasTB
+                ? $"(C{rowBT} + C{rowXD_Tong} + C{rowTB} + C{rowQLDA} + C{rowTVGroup} + C{rowKGroup})"
+                : $"(C{rowBT} + C{rowXD_Tong} + C{rowQLDA} + C{rowTVGroup} + C{rowKGroup})";
+            ws.Cells[r, 3].Formula = $"=ROUND({dpTyLe} * {dpBase}, 0)";
             ws.Cells[r, 4].Formula = $"=ROUND(C{r}*0.1, 0)";
             ws.Cells[r, 5].Formula = $"=C{r}+D{r}";
             SetCellSymbolWithSubscript(ws, r, 6, "Gdp1");
             r++;
 
             int rowDP2 = r;
-            ws.Cells[r, 1] = "'7.2";
+            ws.Cells[r, 1] = hasTB ? "'7.2" : "'6.2";
             ws.Cells[r, 2] = "- Chi phí dự phòng yếu tố trượt giá (Gdp2)";
             ws.Cells[r, 3] = 0;
             ws.Cells[r, 4] = 0;
@@ -1215,9 +1248,18 @@ namespace AIE.ExcelAddIn.Services
             // Dòng Tổng mức đầu tư xây dựng
             int grandRow = r;
             ws.Cells[r, 2] = "TỔNG MỨC ĐẦU TƯ XÂY DỰNG";
-            ws.Cells[r, 3].Formula = $"=C{rowBT}+C{rowXD_Tong}+C{rowTB}+C{rowQLDA}+C{rowTVGroup}+C{rowKGroup}+C{rowDPGroup}";
-            ws.Cells[r, 4].Formula = $"=D{rowBT}+D{rowXD_Tong}+D{rowTB}+D{rowQLDA}+D{rowTVGroup}+D{rowKGroup}+D{rowDPGroup}";
-            ws.Cells[r, 5].Formula = $"=ROUND(E{rowBT}+E{rowXD_Tong}+E{rowTB}+E{rowQLDA}+E{rowTVGroup}+E{rowKGroup}+E{rowDPGroup}, -3)";
+            string grandSumC = hasTB
+                ? $"=C{rowBT}+C{rowXD_Tong}+C{rowTB}+C{rowQLDA}+C{rowTVGroup}+C{rowKGroup}+C{rowDPGroup}"
+                : $"=C{rowBT}+C{rowXD_Tong}+C{rowQLDA}+C{rowTVGroup}+C{rowKGroup}+C{rowDPGroup}";
+            string grandSumD = hasTB
+                ? $"=D{rowBT}+D{rowXD_Tong}+D{rowTB}+D{rowQLDA}+D{rowTVGroup}+D{rowKGroup}+D{rowDPGroup}"
+                : $"=D{rowBT}+D{rowXD_Tong}+D{rowQLDA}+D{rowTVGroup}+D{rowKGroup}+D{rowDPGroup}";
+            string grandSumE = hasTB
+                ? $"=ROUND(E{rowBT}+E{rowXD_Tong}+E{rowTB}+E{rowQLDA}+E{rowTVGroup}+E{rowKGroup}+E{rowDPGroup}, -3)"
+                : $"=ROUND(E{rowBT}+E{rowXD_Tong}+E{rowQLDA}+E{rowTVGroup}+E{rowKGroup}+E{rowDPGroup}, -3)";
+            ws.Cells[r, 3].Formula = grandSumC;
+            ws.Cells[r, 4].Formula = grandSumD;
+            ws.Cells[r, 5].Formula = grandSumE;
             SetCellSymbolWithSubscript(ws, r, 6, "GTM");
 
             var grandRng = ws.Range[ws.Cells[r, 1], ws.Cells[r, 6]];
