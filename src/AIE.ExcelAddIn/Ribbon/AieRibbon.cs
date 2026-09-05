@@ -60,8 +60,7 @@ namespace AIE.ExcelAddIn.Ribbon
                       <button id='btnTaoDuToanMoi' label='Tạo Dự toán mới' screentip='Tạo Dự toán mới' size='normal' showImage='false' onAction='OnTaoDuToanMoiClicked' />
                       <button id='btnGoiDonGia' label='Gọi Đơn giá' screentip='Gọi Đơn giá' size='normal' showImage='false' onAction='OnGoiDonGiaClicked' />
                       <button id='btnTinhGiaHienTruong' label='Giá VL, NC, MTC' screentip='Giá VL, NC, MTC' size='normal' showImage='false' onAction='OnTinhGiaHienTruongClicked' />
-                      <button id='btnTinhTongHop' label='Tính Tổng hợp' screentip='Tính Tổng hợp' size='normal' showImage='false' onAction='OnTinhTongHopClicked' />
-                      <button id='btnXuatBangTH' label='Xuất bảng TH' screentip='Bảng tổng hợp kinh phí (TT 36/2026/TT-BXD)' size='normal' showImage='false' onAction='OnXuatBangTHClicked' />
+                      <button id='btnTongHopKinhPhi' label='Tổng hợp kinh phí' screentip='Tổng hợp Chi phí xây dựng, Dự toán &amp; Tổng mức đầu tư' size='normal' showImage='false' onAction='OnTongHopKinhPhiClicked' />
                     </group>
 
                     <group id='groupFile' label='File Dự toán'>
@@ -550,7 +549,7 @@ namespace AIE.ExcelAddIn.Ribbon
             }
         }
 
-        public void OnTinhTongHopClicked(IRibbonControl control)
+        public void OnTongHopKinhPhiClicked(IRibbonControl control)
         {
             try
             {
@@ -562,24 +561,36 @@ namespace AIE.ExcelAddIn.Ribbon
                 var ncRepo = new AIE.Data.Repositories.NhanCongRepository(db.Context);
 
                 var excelService = new AIE.ExcelAddIn.Services.LapDuToanExcelService();
-                var duToan = excelService.ReadBOQFromActiveSheet();
+                var duToan = CurrentDuToan;
 
-                if (duToan.DanhSachHangMuc[0].DanhSachCongTac.Count == 0)
+                if (duToan == null || duToan.DanhSachHangMuc == null || duToan.DanhSachHangMuc.Count == 0 || duToan.DanhSachHangMuc[0].DanhSachCongTac.Count == 0)
                 {
-                    MessageBox.Show("Không tìm thấy công tác nào trong file Excel.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    try
+                    {
+                        duToan = excelService.ReadBOQFromActiveSheet();
+                    }
+                    catch { }
+                }
+
+                if (duToan == null || duToan.DanhSachHangMuc == null || duToan.DanhSachHangMuc.Count == 0 || duToan.DanhSachHangMuc[0].DanhSachCongTac.Count == 0)
+                {
+                    MessageBox.Show("Không tìm thấy công tác nào trong file Excel hoặc dự toán hiện hành.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                // Chạy phân tích vật tư để có danh sách vật liệu, nhân công, máy
-                var service = new AIE.ExcelAddIn.Services.PhanTichVatTuService(ctRepo, mayRepo, dinhMucMayRepo, vlRepo, ncRepo);
-                service.PhanTich(duToan);
+                // Chạy phân tích vật tư nếu chưa có bảng tổng hợp vật tư
+                if (duToan.BangTongHop == null || duToan.BangTongHop.DanhSachVatLieu.Count == 0)
+                {
+                    var service = new AIE.ExcelAddIn.Services.PhanTichVatTuService(ctRepo, mayRepo, dinhMucMayRepo, vlRepo, ncRepo);
+                    service.PhanTich(duToan);
+                }
 
-                // Tính toán đơn giá chi tiết (Sử dụng giá gốc trong DB hoặc giá đã áp ở bước trước)
+                // Tính toán đơn giá chi tiết
                 var phanTichDonGiaService = new AIE.ExcelAddIn.Services.PhanTichDonGiaService(ctRepo);
                 phanTichDonGiaService.TinhDonGiaChiTiet(duToan);
                 
-                // Mở Form Tính Tổng hợp
-                using var form = new TinhTongHopForm(duToan, excelService);
+                // Mở Form Tổng hợp kinh phí hợp nhất (Tab 1: Chi phí XD, Tab 2: TMĐT & THDT)
+                using var form = new TongHopKinhPhiForm(duToan);
                 form.ShowDialog();
                 
                 CurrentDuToan = duToan;
@@ -590,19 +601,24 @@ namespace AIE.ExcelAddIn.Ribbon
             }
         }
 
+        public void OnTinhTongHopClicked(IRibbonControl control)
+        {
+            OnTongHopKinhPhiClicked(control);
+        }
+
         public void OnXuatBangTHClicked(IRibbonControl control)
         {
-            MoFormTongHopKinhPhi(macDinhTongMucDauTu: false);
+            OnTongHopKinhPhiClicked(control);
         }
 
         public void OnTongHopDuToanClicked(IRibbonControl control)
         {
-            MoFormTongHopKinhPhi(macDinhTongMucDauTu: false);
+            OnTongHopKinhPhiClicked(control);
         }
 
         public void OnTongMucDauTuClicked(IRibbonControl control)
         {
-            MoFormTongHopKinhPhi(macDinhTongMucDauTu: true);
+            OnTongHopKinhPhiClicked(control);
         }
 
         private void MoFormTongHopKinhPhi(bool macDinhTongMucDauTu)
