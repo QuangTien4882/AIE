@@ -125,7 +125,7 @@ namespace AIE.Core.Services
                     CachTinh = CachTinhChiPhi.TheoTyLeDinhMuc,
                     CoSoTinh = CoSoTinhChiPhi.ChiPhiXD_Va_ThietBi,
                     KyHieu = "Gqlda",
-                    ThueSuatGTGT = 0.10m,
+                    ThueSuatGTGT = 0m,
                     GhiChuCachTinh = "Bảng 1.1 Thông tư 38/2026/TT-BXD",
                     IsActive = true,
                     IsReadOnly = true

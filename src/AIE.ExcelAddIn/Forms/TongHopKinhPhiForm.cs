@@ -82,7 +82,6 @@ namespace AIE.ExcelAddIn.Forms
 
         // Thuế VAT chung (Yêu cầu 7)
         private ComboBox cboVATChung;
-        private Button btnApDungVATChung;
 
         // Grid chi phí (Yêu cầu 1, 3, 4, 6, 7)
         private DataGridView dgvChiPhi;
@@ -107,6 +106,8 @@ namespace AIE.ExcelAddIn.Forms
         private Button btnDong;
 
         private bool _isUpdating = false;
+        private bool _isSyncingLoaiCT = false;
+        private bool _isSyncingVAT = false;
 
         public TongHopKinhPhiForm(DuToan duToan, bool macDinhTongMucDauTu = false)
         {
@@ -433,28 +434,12 @@ namespace AIE.ExcelAddIn.Forms
 
             var lblVAT = new Label { Text = "Thuế VAT chung:", AutoSize = true, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = UIHelper.GetFont(10.5f, FontStyle.Bold), ForeColor = Color.FromArgb(0, 51, 102), Margin = new Padding(2, 0, 6, 0) };
             var pnlVAT = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, Margin = new Padding(0, 4, 0, 4) };
-            cboVATChung = new ComboBox { Width = 75, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.GetFont(10.5f, FontStyle.Bold), Margin = new Padding(0, 2, 6, 0) };
+            cboVATChung = new ComboBox { Width = 85, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.GetFont(10.5f, FontStyle.Bold), Margin = new Padding(0, 2, 0, 0) };
             cboVATChung.Items.AddRange(new object[] { "10%", "8%", "5%", "0%" });
             cboVATChung.SelectedIndex = 0;
             cboVATChung.SelectedIndexChanged += CboVATChung_SelectedIndexChanged;
 
-            btnApDungVATChung = new Button
-            {
-                Text = "Áp dụng",
-                Size = new Size(100, 32),
-                BackColor = Color.FromArgb(0, 102, 204),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = UIHelper.GetFont(9.5f, FontStyle.Bold),
-                Cursor = Cursors.Hand,
-                TextAlign = ContentAlignment.MiddleCenter,
-                UseCompatibleTextRendering = true,
-                Margin = new Padding(0)
-            };
-            btnApDungVATChung.FlatAppearance.BorderSize = 0;
-            btnApDungVATChung.Click += BtnApDungVATChung_Click;
             pnlVAT.Controls.Add(cboVATChung);
-            pnlVAT.Controls.Add(btnApDungVATChung);
             tblInputs.Controls.Add(lblVAT, 6, 0);
             tblInputs.Controls.Add(pnlVAT, 7, 0);
 
@@ -1095,6 +1080,13 @@ namespace AIE.ExcelAddIn.Forms
                 chkCaiTao.Checked = _model.CaiTaoSuaChua;
                 chkLapLai.Checked = _model.ThietKeLapLai;
 
+                // Mặc định thuế VAT của Chi phí quản lý dự án là 0%
+                var itemQLDA = _model.Items.FirstOrDefault(x => x.MaChiPhi == "G_QLDA" || x.Nhom == NhomChiPhi.QuanLyDuAn);
+                if (itemQLDA != null && itemQLDA.ThueSuatGTGT == 0.10m)
+                {
+                    itemQLDA.ThueSuatGTGT = 0m;
+                }
+
                 // Đồng bộ cboVATChung với thuế suất của G_XD nếu có
                 var itemXD = _model.Items.FirstOrDefault(x => x.MaChiPhi == "G_XD");
                 if (itemXD != null)
@@ -1202,9 +1194,17 @@ namespace AIE.ExcelAddIn.Forms
             string loaiCT = cboLoaiCongTrinhXD.SelectedItem.ToString();
 
             // Đồng bộ sang cboLoaiCongTrinh của Tab 2
-            if (cboLoaiCongTrinh != null && cboLoaiCongTrinh.Items.Contains(loaiCT))
+            if (!_isSyncingLoaiCT && cboLoaiCongTrinh != null && cboLoaiCongTrinh.Items.Contains(loaiCT))
             {
-                cboLoaiCongTrinh.SelectedItem = loaiCT;
+                try
+                {
+                    _isSyncingLoaiCT = true;
+                    if (cboLoaiCongTrinh.SelectedItem?.ToString() != loaiCT)
+                    {
+                        cboLoaiCongTrinh.SelectedItem = loaiCT;
+                    }
+                }
+                finally { _isSyncingLoaiCT = false; }
             }
             _duToan.LoaiCongTrinh = loaiCT;
             if (_model != null) _model.LoaiCongTrinh = loaiCT;
@@ -1344,22 +1344,32 @@ namespace AIE.ExcelAddIn.Forms
             if (txtChiPhiXD != null) txtChiPhiXD.Text = UIHelper.FormatTien(kq.G);
             if (txtChiPhiNT != null) txtChiPhiNT.Text = UIHelper.FormatTien(ntTruocThue);
 
-            if (cboVATChung != null)
+            if (!_isSyncingVAT && cboVATChung != null)
             {
                 string vatText = $"{gtgt:0}%";
-                if (cboVATChung.Items.Contains(vatText))
+                if (cboVATChung.Items.Contains(vatText) && cboVATChung.SelectedItem?.ToString() != vatText)
                 {
-                    _isUpdating = true;
-                    cboVATChung.SelectedItem = vatText;
-                    _isUpdating = false;
+                    try
+                    {
+                        _isSyncingVAT = true;
+                        _isUpdating = true;
+                        cboVATChung.SelectedItem = vatText;
+                    }
+                    finally 
+                    { 
+                        _isUpdating = false;
+                        _isSyncingVAT = false; 
+                    }
                 }
             }
 
             // Đồng bộ thuế GTGT cho toàn bộ các khoản mục chi phí chịu thuế trên bảng
             foreach (var item in _model.Items)
             {
-                // Giữ 0% cho các khoản phí ngân sách nhà nước không chịu thuế VAT
-                if (item.MaChiPhi == "K_TD_DA" || item.MaChiPhi == "K_TD_TK" || item.MaChiPhi == "K_TD_DT" || item.MaChiPhi == "K_TT_QUYETTOAN")
+                // Mặc định Chi phí QLDA không chịu thuế GTGT (0%) và giữ 0% cho các khoản phí ngân sách nhà nước
+                if (item.MaChiPhi == "G_QLDA" || item.Nhom == NhomChiPhi.QuanLyDuAn ||
+                    item.MaChiPhi == "K_TD_DA" || item.MaChiPhi == "K_TD_TK" || 
+                    item.MaChiPhi == "K_TD_DT" || item.MaChiPhi == "K_TT_QUYETTOAN")
                 {
                     continue;
                 }
@@ -1576,6 +1586,22 @@ namespace AIE.ExcelAddIn.Forms
             _model.CapCongTrinh = capSel;
             _model.SoBuocThietKe = buocSel;
 
+            // Đồng bộ Loại công trình ngược về Tab 1
+            if (!_isSyncingLoaiCT && !string.IsNullOrEmpty(loaiSel) && cboLoaiCongTrinhXD != null)
+            {
+                try
+                {
+                    _isSyncingLoaiCT = true;
+                    string target = loaiSel;
+                    if (target == "Nông nghiệp và môi trường") target = "Nông nghiệp & PTNT";
+                    if (cboLoaiCongTrinhXD.Items.Contains(target) && cboLoaiCongTrinhXD.SelectedItem?.ToString() != target)
+                    {
+                        cboLoaiCongTrinhXD.SelectedItem = target;
+                    }
+                }
+                finally { _isSyncingLoaiCT = false; }
+            }
+
             _model.ThietBiTren50Pct = chkThietBi50.Checked;
             _model.DaKiemToanDocLap = chkDaKiemToan.Checked;
             _model.YeuCauThueThamTra = chkThueThamTra.Checked;
@@ -1641,14 +1667,6 @@ namespace AIE.ExcelAddIn.Forms
             ApDungVATToanBang();
         }
 
-        /// <summary>
-        /// Yêu cầu 7: Áp dụng thuế VAT chung cho toàn bộ bảng
-        /// </summary>
-        private void BtnApDungVATChung_Click(object sender, EventArgs e)
-        {
-            ApDungVATToanBang();
-        }
-
         private void ApDungVATToanBang()
         {
             if (_model == null) return;
@@ -1659,10 +1677,27 @@ namespace AIE.ExcelAddIn.Forms
             else if (vatSel == "5%") newVAT = 0.05m;
             else if (vatSel == "0%") newVAT = 0m;
 
+            // Đồng bộ ngược giá trị thuế VAT sang Tab 1
+            if (!_isSyncingVAT && txtGTGTXD != null)
+            {
+                try
+                {
+                    _isSyncingVAT = true;
+                    string vatNum = ((int)(newVAT * 100)).ToString();
+                    if (txtGTGTXD.Text.Trim() != vatNum)
+                    {
+                        txtGTGTXD.Text = vatNum; // Kích hoạt txtGTGTXD.TextChanged -> TinhToanChiPhiXD() ở Tab 1
+                    }
+                }
+                finally { _isSyncingVAT = false; }
+            }
+
             foreach (var item in _model.Items)
             {
-                // Giữ 0% cho phí ngân sách nhà nước
-                if (item.MaChiPhi == "K_TD_DA" || item.MaChiPhi == "K_TD_TK" || item.MaChiPhi == "K_TD_DT" || item.MaChiPhi == "K_TT_QUYETTOAN")
+                // Mặc định Chi phí QLDA không chịu thuế GTGT (0%) và giữ 0% cho các khoản phí ngân sách nhà nước
+                if (item.MaChiPhi == "G_QLDA" || item.Nhom == NhomChiPhi.QuanLyDuAn ||
+                    item.MaChiPhi == "K_TD_DA" || item.MaChiPhi == "K_TD_TK" || 
+                    item.MaChiPhi == "K_TD_DT" || item.MaChiPhi == "K_TT_QUYETTOAN")
                 {
                     continue;
                 }
