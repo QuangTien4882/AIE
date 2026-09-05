@@ -6,6 +6,9 @@ namespace AIE.Core.Models;
 /// </summary>
 public class DuToan
 {
+    /// <summary>Tên dự án</summary>
+    public string TenDuAn { get; set; } = string.Empty;
+
     /// <summary>Tên công trình</summary>
     public string TenCongTrinh { get; set; } = string.Empty;
 
@@ -14,6 +17,9 @@ public class DuToan
 
     /// <summary>Cấp công trình (nếu có)</summary>
     public string? CapCongTrinh { get; set; }
+
+    /// <summary>Số bước thiết kế (1 bước, 2 bước, 3 bước)</summary>
+    public int SoBuocThietKe { get; set; } = 2;
 
     /// <summary>Chủ đầu tư</summary>
     public string? ChuDauTu { get; set; }
@@ -57,6 +63,9 @@ public class DuToan
     public decimal ChiPhiDuPhong { get; set; }
     public decimal DuPhongKhoiLuong { get; set; }
     public decimal DuPhongTruotGia { get; set; }
+
+    /// <summary>Bảng tổng hợp kinh phí & Tổng mức đầu tư chi tiết (TT 36/2026 & TT 38/2026)</summary>
+    public BangTongHopKinhPhiModel? BangKinhPhi { get; set; }
 
     /// <summary>G_XDCT = GXD + GTB + GQLDA + GTV + GK + GDP</summary>
     public decimal TongDuToan =>

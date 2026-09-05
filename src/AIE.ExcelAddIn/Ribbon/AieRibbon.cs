@@ -61,6 +61,7 @@ namespace AIE.ExcelAddIn.Ribbon
                       <button id='btnGoiDonGia' label='Gọi Đơn giá' screentip='Gọi Đơn giá' size='normal' showImage='false' onAction='OnGoiDonGiaClicked' />
                       <button id='btnTinhGiaHienTruong' label='Giá VL, NC, MTC' screentip='Giá VL, NC, MTC' size='normal' showImage='false' onAction='OnTinhGiaHienTruongClicked' />
                       <button id='btnTinhTongHop' label='Tính Tổng hợp' screentip='Tính Tổng hợp' size='normal' showImage='false' onAction='OnTinhTongHopClicked' />
+                      <button id='btnXuatBangTH' label='Xuất bảng TH' screentip='Bảng tổng hợp kinh phí (TT 36/2026/TT-BXD)' size='normal' showImage='false' onAction='OnXuatBangTHClicked' />
                     </group>
 
                     <group id='groupFile' label='File Dự toán'>
@@ -586,6 +587,51 @@ namespace AIE.ExcelAddIn.Ribbon
             catch (Exception ex)
             {
                 MessageBox.Show("Lỗi: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        public void OnXuatBangTHClicked(IRibbonControl control)
+        {
+            MoFormTongHopKinhPhi(macDinhTongMucDauTu: false);
+        }
+
+        public void OnTongHopDuToanClicked(IRibbonControl control)
+        {
+            MoFormTongHopKinhPhi(macDinhTongMucDauTu: false);
+        }
+
+        public void OnTongMucDauTuClicked(IRibbonControl control)
+        {
+            MoFormTongHopKinhPhi(macDinhTongMucDauTu: true);
+        }
+
+        private void MoFormTongHopKinhPhi(bool macDinhTongMucDauTu)
+        {
+            try
+            {
+                var duToan = CurrentDuToan;
+                if (duToan == null)
+                {
+                    try
+                    {
+                        var excelService = new AIE.ExcelAddIn.Services.LapDuToanExcelService();
+                        duToan = excelService.ReadBOQFromActiveSheet();
+                    }
+                    catch { }
+
+                    if (duToan == null)
+                    {
+                        duToan = new DuToan();
+                    }
+                }
+
+                using var form = new TongHopKinhPhiForm(duToan, macDinhTongMucDauTu);
+                form.ShowDialog();
+                CurrentDuToan = duToan;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi mở Bảng Tổng hợp kinh phí: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 

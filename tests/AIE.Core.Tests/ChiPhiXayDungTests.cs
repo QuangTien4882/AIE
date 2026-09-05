@@ -44,4 +44,32 @@ public class ChiPhiXayDungTests
         // Screenshot bị cắt, "G x 1,..." có thể là (Gxd x 1,1%) hoặc (G x 1,...) 
         // 953450 * 1.1% = 10487.95 => Làm tròn = 10488. (Vậy là tính trên Gxd).
     }
+
+    [Fact]
+    public void ChiPhiNhaTam_TheoQuyetDinh1538_QD_BXD()
+    {
+        // Kiểm tra tính tuân thủ theo Quyết định số 1538/QĐ-BXD ngày 28/8/2026:
+        // Đính chính công thức tại Bảng 3.8: GXDTT × Tỷ lệ × (1 + TGTGT)
+        var calc = new ChiPhiXayDungCalc();
+        decimal gxdtt = 1_000_000_000m; // 1 tỷ chi phí XD trước thuế
+        decimal tiLeNhaTam = 1.2m;      // 1.2%
+        decimal thueSuatGTGT = 10m;     // 10%
+
+        var result = calc.Tinh(
+            tongVL: gxdtt,
+            tongNC: 0m,
+            tongMay: 0m,
+            tiLeCPC: 0m,
+            tiLeTT: 0m,
+            tiLeTNCTTT: 0m,
+            tiLeGTGT: thueSuatGTGT,
+            tiLeNhaTam: tiLeNhaTam);
+
+        // Công thức theo QĐ 1538: GXDTT × Tỷ lệ × (1 + TGTGT)
+        decimal expectedLT = Math.Round(gxdtt * (tiLeNhaTam / 100m) * (1m + thueSuatGTGT / 100m), 0, MidpointRounding.AwayFromZero);
+        // = 1.000.000.000 × 1.2% × (1 + 10%) = 12.000.000 × 1.1 = 13.200.000 đ
+        Assert.Equal(13_200_000m, expectedLT);
+        Assert.Equal(expectedLT, result.LT);
+    }
 }
+

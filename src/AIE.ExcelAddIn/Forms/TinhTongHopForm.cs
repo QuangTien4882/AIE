@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using AIE.Core.Models;
+using AIE.Core.Services;
 using AIE.Core.Services.LapDuToan;
 using AIE.Core.Services.Shared;
 using AIE.Data;
@@ -254,6 +255,48 @@ namespace AIE.ExcelAddIn.Forms
             // Theo yêu cầu mới của người dùng: CPC tính trên T (tổng chi phí trực tiếp) thay vì NC
             var kq = _calcService.Tinh(tongVL, _tongNC, tongMay, cpc, tt, tncttt, gtgt, nhatam, "T");
             _duToan.ChiPhiXD = kq;
+            if (cboLoaiCongTrinh.SelectedItem != null)
+            {
+                _duToan.LoaiCongTrinh = cboLoaiCongTrinh.SelectedItem.ToString();
+            }
+
+            // Đồng bộ dữ liệu sang _duToan.BangKinhPhi để form Tổng hợp kinh phí (TMĐT / THDT) luôn có sẵn dữ liệu chuẩn
+            decimal vatRate = gtgt / 100m;
+            decimal ntTruocThue = Math.Round(kq.G * nhatam / 100m, 0);
+
+            if (_duToan.BangKinhPhi == null)
+            {
+                _duToan.BangKinhPhi = DinhMucTT38Engine.TaoBangKinhPhiMacDinh(
+                    loaiCT: !string.IsNullOrEmpty(_duToan.LoaiCongTrinh) ? _duToan.LoaiCongTrinh : "Dân dụng",
+                    capCT: !string.IsNullOrEmpty(_duToan.CapCongTrinh) ? _duToan.CapCongTrinh : "Cấp III",
+                    soBuocTK: _duToan.SoBuocThietKe > 0 ? _duToan.SoBuocThietKe : 2,
+                    chiPhiXD: kq.G,
+                    chiPhiTB: _duToan.ChiPhiThietBi,
+                    chiPhiBT: 0m,
+                    chiPhiNhaTam: ntTruocThue
+                );
+            }
+            else
+            {
+                _duToan.BangKinhPhi.ChiPhiXDTruocThue = kq.G;
+                _duToan.BangKinhPhi.ChiPhiNhaTamTruocThue = ntTruocThue;
+            }
+            _duToan.BangKinhPhi.LoaiCongTrinh = _duToan.LoaiCongTrinh;
+
+            var itemXD = _duToan.BangKinhPhi.Items.FirstOrDefault(x => x.MaChiPhi == "G_XD");
+            if (itemXD != null)
+            {
+                itemXD.GiaTriTruocThue = kq.G;
+                itemXD.ThueSuatGTGT = vatRate;
+            }
+            var itemNT = _duToan.BangKinhPhi.Items.FirstOrDefault(x => x.MaChiPhi == "G_NHA_TAM");
+            if (itemNT != null)
+            {
+                itemNT.GiaTriTruocThue = ntTruocThue;
+                itemNT.ThueSuatGTGT = vatRate;
+            }
+            DinhMucTT38Engine.CapNhatToanBoDinhMucVaTinhToan(_duToan.BangKinhPhi);
+            _duToan.BangKinhPhi.TinhToanLai();
 
             dgvPreview.Rows.Clear();
             dgvPreview.Rows.Add("I. Chi phí trực tiếp", "T", "VL + NC + M", kq.T);
