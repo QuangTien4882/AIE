@@ -233,4 +233,104 @@ public static class UIHelper
     public static decimal ParseTien(string text) => ParseFlexibleDecimal(text, isPercentage: false);
 
     public static decimal ParseTyLe(string text) => ParseFlexibleDecimal(text, isPercentage: true);
+
+    public static string ChuanHoaChuThuong(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+        text = text.Trim();
+        bool hasLetters = text.Any(char.IsLetter);
+        bool isAllUpper = hasLetters && text.Where(char.IsLetter).All(char.IsUpper);
+        if (isAllUpper)
+        {
+            var textInfo = new System.Globalization.CultureInfo("vi-VN", false).TextInfo;
+            return textInfo.ToTitleCase(text.ToLower());
+        }
+        return text;
+    }
+
+    private static readonly string[] ChuSo = { "không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín" };
+
+    public static string DocSoThanhChu(decimal number)
+    {
+        long n = (long)Math.Round(number, MidpointRounding.AwayFromZero);
+        if (n == 0) return "Không đồng";
+
+        bool isNegative = n < 0;
+        if (isNegative) n = -n;
+
+        string s = n.ToString();
+        var groups = new System.Collections.Generic.List<int>();
+        while (s.Length > 0)
+        {
+            int len = Math.Min(3, s.Length);
+            string part = s.Substring(s.Length - len, len);
+            groups.Add(int.Parse(part));
+            s = s.Substring(0, s.Length - len);
+        }
+
+        var parts = new System.Collections.Generic.List<string>();
+        for (int i = groups.Count - 1; i >= 0; i--)
+        {
+            int g = groups[i];
+            if (g == 0) continue;
+
+            bool dayDu = (i < groups.Count - 1);
+            string t = DocBlock3So(g, dayDu);
+            if (!string.IsNullOrEmpty(t))
+            {
+                parts.Add(t);
+                string unit = "";
+                if (i == 1) unit = "nghìn";
+                else if (i == 2) unit = "triệu";
+                else if (i == 3) unit = "tỷ";
+                else if (i == 4) unit = "nghìn tỷ";
+                else if (i == 5) unit = "triệu tỷ";
+                else if (i == 6) unit = "tỷ tỷ";
+                if (!string.IsNullOrEmpty(unit)) parts.Add(unit);
+            }
+        }
+
+        string res = string.Join(" ", parts).Trim();
+        if (res.Length > 0)
+        {
+            res = char.ToUpper(res[0]) + res.Substring(1);
+        }
+        if (isNegative) res = "Âm " + res;
+        return res + " đồng";
+    }
+
+    private static string DocBlock3So(int n, bool dayDu)
+    {
+        int tram = n / 100;
+        int chuc = (n % 100) / 10;
+        int dv = n % 10;
+        var res = new System.Collections.Generic.List<string>();
+
+        if (tram > 0 || dayDu)
+        {
+            res.Add(ChuSo[tram] + " trăm");
+        }
+
+        if (chuc > 1)
+        {
+            res.Add(ChuSo[chuc] + " mươi");
+            if (dv == 1) res.Add("mốt");
+            else if (dv == 4) res.Add("tư");
+            else if (dv == 5) res.Add("lăm");
+            else if (dv > 0) res.Add(ChuSo[dv]);
+        }
+        else if (chuc == 1)
+        {
+            res.Add("mười");
+            if (dv == 5) res.Add("lăm");
+            else if (dv > 0) res.Add(ChuSo[dv]);
+        }
+        else if (chuc == 0 && dv > 0)
+        {
+            if (res.Count > 0) res.Add("lẻ");
+            res.Add(ChuSo[dv]);
+        }
+
+        return string.Join(" ", res);
+    }
 }

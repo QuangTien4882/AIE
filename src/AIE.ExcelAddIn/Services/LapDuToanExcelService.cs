@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.Office.Interop.Excel;
 using ExcelDna.Integration;
 using AIE.Core.Models;
+using AIE.ExcelAddIn.Helpers;
 
 namespace AIE.ExcelAddIn.Services;
 
@@ -36,9 +37,24 @@ public class LapDuToanExcelService
 
         var duToan = new DuToan();
         
-        // Đọc thông tin công trình từ dòng 1 và 2 (Merge cell)
-        string tenDuAn = GetCellValue(ws, 1, 1).Replace("TÊN DỰ ÁN:", "").Trim();
-        string diaDiem = GetCellValue(ws, 2, 1).Replace("ĐỊA ĐIỂM:", "").Trim();
+        // Đọc thông tin công trình từ dòng 1, 2, 3 (Merge cell)
+        string r1Val = GetCellValue(ws, 1, 1).Trim();
+        string r2Val = GetCellValue(ws, 2, 1).Trim();
+        string r3Val = GetCellValue(ws, 3, 1).Trim();
+
+        string tenDuAn = "";
+        string diaDiem = "";
+
+        if (r1Val.ToUpper().Contains("BẢNG DỰ TOÁN"))
+        {
+            tenDuAn = r2Val.Replace("TÊN DỰ ÁN:", "").Replace("Dự án:", "").Trim();
+            diaDiem = r3Val.Replace("ĐỊA ĐIỂM XÂY DỰNG:", "").Replace("Địa điểm xây dựng:", "").Replace("ĐỊA ĐIỂM:", "").Replace("Địa điểm:", "").Trim();
+        }
+        else
+        {
+            tenDuAn = r1Val.Replace("TÊN DỰ ÁN:", "").Replace("Dự án:", "").Trim();
+            diaDiem = r2Val.Replace("ĐỊA ĐIỂM XÂY DỰNG:", "").Replace("Địa điểm xây dựng:", "").Replace("ĐỊA ĐIỂM:", "").Replace("Địa điểm:", "").Trim();
+        }
         
         duToan.TenCongTrinh = string.IsNullOrEmpty(tenDuAn) ? "Công trình mặc định" : tenDuAn;
         duToan.DiaDiem = string.IsNullOrEmpty(diaDiem) ? "Không xác định" : diaDiem;
@@ -156,44 +172,60 @@ public class LapDuToanExcelService
             ws.Cells.Font.Name = "Times New Roman";
             ws.Cells.Font.Size = 12;
 
-            // Dòng 1: Tên dự án
-            Range r1 = ws.Range["A1", "I1"];
+            // Dòng 1: Tiêu đề sheet
+            Range r0 = ws.Range["A1", "I1"];
+            r0.Merge();
+            r0.Value2 = "BẢNG DỰ TOÁN CHI TIẾT";
+            r0.HorizontalAlignment = XlHAlign.xlHAlignCenter;
+            r0.VerticalAlignment = XlVAlign.xlVAlignCenter;
+            r0.Font.Bold = true;
+            r0.Font.Size = 14;
+
+            // Dòng 2: Dự án (đồng bộ với TongMucDauTu/TH_DuToan)
+            string tenDuAn = UIHelper.ChuanHoaChuThuong(duToan.TenCongTrinh);
+            if (string.IsNullOrEmpty(tenDuAn)) tenDuAn = "................................................................";
+            Range r1 = ws.Range["A2", "I2"];
             r1.Merge();
-            r1.Value2 = ("TÊN DỰ ÁN: " + duToan.TenCongTrinh).ToUpper();
+            r1.Value2 = "Dự án: " + tenDuAn;
             r1.HorizontalAlignment = XlHAlign.xlHAlignCenter;
             r1.VerticalAlignment = XlVAlign.xlVAlignCenter;
             r1.Font.Bold = true;
+            r1.Font.Size = 12;
 
-            // Dòng 2: Địa điểm
-            Range r2 = ws.Range["A2", "I2"];
+            // Dòng 3: Địa điểm xây dựng (đồng bộ với TongMucDauTu/TH_DuToan)
+            string diaDiem = UIHelper.ChuanHoaChuThuong(duToan.DiaDiem);
+            if (string.IsNullOrEmpty(diaDiem)) diaDiem = "................................................................";
+            Range r2 = ws.Range["A3", "I3"];
             r2.Merge();
-            r2.Value2 = ("ĐỊA ĐIỂM: " + duToan.DiaDiem).ToUpper();
+            r2.Value2 = "Địa điểm xây dựng: " + diaDiem;
             r2.HorizontalAlignment = XlHAlign.xlHAlignCenter;
             r2.VerticalAlignment = XlVAlign.xlVAlignCenter;
             r2.Font.Bold = true;
+            r2.Font.Size = 12;
 
-            // Dòng 3 & 4: Header
-            ws.Cells[3, 1] = "STT";
-            ws.Cells[3, 2] = "Mã hiệu";
-            ws.Cells[3, 3] = "Tên công tác";
-            ws.Cells[3, 4] = "Đơn vị";
-            ws.Cells[3, 5] = "Khối lượng";
-            ws.Cells[3, 6] = "Đơn giá";
-            ws.Cells[4, 6] = "Vật liệu";
-            ws.Cells[4, 7] = "Nhân công";
-            ws.Cells[4, 8] = "Máy thi công";
-            ws.Cells[3, 9] = "Thành tiền";
+            // Dòng 4 & 5: Header 2 dòng chuẩn
+            ws.Cells[4, 1] = "STT";
+            ws.Cells[4, 2] = "Mã hiệu";
+            ws.Cells[4, 3] = "Tên công tác";
+            ws.Cells[4, 4] = "Đơn vị";
+            ws.Cells[4, 5] = "Khối lượng";
+            ws.Cells[4, 6] = "Đơn giá";
+            ws.Cells[4, 9] = "Thành tiền";
+
+            ws.Cells[5, 6] = "Vật liệu";
+            ws.Cells[5, 7] = "Nhân công";
+            ws.Cells[5, 8] = "Máy thi công";
 
             // Merge header cells
-            ws.Range["A3:A4"].Merge();
-            ws.Range["B3:B4"].Merge();
-            ws.Range["C3:C4"].Merge();
-            ws.Range["D3:D4"].Merge();
-            ws.Range["E3:E4"].Merge();
-            ws.Range["F3:H3"].Merge();
-            ws.Range["I3:I4"].Merge();
+            ws.Range["A4:A5"].Merge();
+            ws.Range["B4:B5"].Merge();
+            ws.Range["C4:C5"].Merge();
+            ws.Range["D4:D5"].Merge();
+            ws.Range["E4:E5"].Merge();
+            ws.Range["F4:H4"].Merge();
+            ws.Range["I4:I5"].Merge();
 
-            Range headerRange = ws.Range[ws.Cells[3, 1], ws.Cells[4, 9]];
+            Range headerRange = ws.Range[ws.Cells[4, 1], ws.Cells[5, 9]];
             headerRange.Font.Bold = true;
             headerRange.HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
             headerRange.VerticalAlignment = Microsoft.Office.Interop.Excel.XlVAlign.xlVAlignCenter;
@@ -216,8 +248,8 @@ public class LapDuToanExcelService
                 ws.Name = "DuToan_" + DateTime.Now.ToString("HHmmss");
             }
 
-            // Dòng 5 trở đi: Dữ liệu
-            int r = 5;
+            // Dòng 6 trở đi: Dữ liệu
+            int r = 6;
             int stt = 1;
             foreach (var hm in duToan.DanhSachHangMuc)
             {

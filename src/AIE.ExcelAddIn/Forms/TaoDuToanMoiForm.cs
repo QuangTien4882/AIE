@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Windows.Forms;
 using ExcelDna.Integration;
 using AIE.Core.Enums;
+using AIE.ExcelAddIn.Helpers;
 using System.Linq;
 using Button = System.Windows.Forms.Button;
 using TextBox = System.Windows.Forms.TextBox;
@@ -179,21 +180,36 @@ namespace AIE.ExcelAddIn.Forms
             ws.Cells.Font.Size = 12;
 
             // --- HEADER INFO ---
-            // Row 1: Tên dự án
-            Excel.Range r1 = ws.Range["A1", "I1"];
+            // Row 1: Tiêu đề sheet
+            Excel.Range r0 = ws.Range["A1", "I1"];
+            r0.Merge();
+            r0.Value2 = "BẢNG DỰ TOÁN CHI TIẾT";
+            r0.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter;
+            r0.VerticalAlignment = Excel.XlVAlign.xlVAlignCenter;
+            r0.Font.Bold = true;
+            r0.Font.Size = 14;
+
+            // Row 2: Tên dự án (đồng bộ chuẩn TitleCase như TongMucDauTu/TH_DuToan)
+            string tenDuAn = UIHelper.ChuanHoaChuThuong(txtTenCongTrinh.Text.Trim());
+            if (string.IsNullOrEmpty(tenDuAn)) tenDuAn = "................................................................";
+            Excel.Range r1 = ws.Range["A2", "I2"];
             r1.Merge();
-            r1.Value2 = ("TÊN DỰ ÁN: " + txtTenCongTrinh.Text).ToUpper();
+            r1.Value2 = "Dự án: " + tenDuAn;
             r1.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter;
             r1.VerticalAlignment = Excel.XlVAlign.xlVAlignCenter;
             r1.Font.Bold = true;
+            r1.Font.Size = 12;
 
-            // Row 2: Địa điểm
-            Excel.Range r2 = ws.Range["A2", "I2"];
+            // Row 3: Địa điểm (đồng bộ chuẩn TitleCase như TongMucDauTu/TH_DuToan)
+            string diaDiem = UIHelper.ChuanHoaChuThuong(txtDiaDiem.Text.Trim());
+            if (string.IsNullOrEmpty(diaDiem)) diaDiem = "................................................................";
+            Excel.Range r2 = ws.Range["A3", "I3"];
             r2.Merge();
-            r2.Value2 = ("ĐỊA ĐIỂM: " + txtDiaDiem.Text).ToUpper();
+            r2.Value2 = "Địa điểm xây dựng: " + diaDiem;
             r2.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter;
             r2.VerticalAlignment = Excel.XlVAlign.xlVAlignCenter;
             r2.Font.Bold = true;
+            r2.Font.Size = 12;
 
             // Lưu giá trị Vung enum vào ô ẩn J1
             var selectedVung = ((System.Collections.Generic.KeyValuePair<Vung, string>)cboVung.SelectedItem).Key;
@@ -201,27 +217,28 @@ namespace AIE.ExcelAddIn.Forms
             ((Excel.Range)ws.Cells[1, 10]).Font.Color = ColorTranslator.ToOle(Color.White);
             ((Excel.Range)ws.Columns[10]).ColumnWidth = 0; // Ẩn cột J
 
-            // --- COLUMN HEADERS (Row 3-4) ---
-            ws.Cells[3, 1] = "STT";
-            ws.Cells[3, 2] = "Mã hiệu";
-            ws.Cells[3, 3] = "Tên công tác";
-            ws.Cells[3, 4] = "Đơn vị";
-            ws.Cells[3, 5] = "Khối lượng";
-            ws.Cells[3, 6] = "Đơn giá";
-            ws.Cells[4, 6] = "Vật liệu";
-            ws.Cells[4, 7] = "Nhân công";
-            ws.Cells[4, 8] = "Máy thi công";
-            ws.Cells[3, 9] = "Thành tiền";
+            // --- COLUMN HEADERS (Row 4-5) ---
+            ws.Cells[4, 1] = "STT";
+            ws.Cells[4, 2] = "Mã hiệu";
+            ws.Cells[4, 3] = "Tên công tác";
+            ws.Cells[4, 4] = "Đơn vị";
+            ws.Cells[4, 5] = "Khối lượng";
+            ws.Cells[4, 6] = "Đơn giá";
+            ws.Cells[4, 9] = "Thành tiền";
 
-            ws.Range["A3:A4"].Merge();
-            ws.Range["B3:B4"].Merge();
-            ws.Range["C3:C4"].Merge();
-            ws.Range["D3:D4"].Merge();
-            ws.Range["E3:E4"].Merge();
-            ws.Range["F3:H3"].Merge();
-            ws.Range["I3:I4"].Merge();
+            ws.Cells[5, 6] = "Vật liệu";
+            ws.Cells[5, 7] = "Nhân công";
+            ws.Cells[5, 8] = "Máy thi công";
 
-            Excel.Range columns = ws.Range[ws.Cells[3, 1], ws.Cells[4, 9]];
+            ws.Range["A4:A5"].Merge();
+            ws.Range["B4:B5"].Merge();
+            ws.Range["C4:C5"].Merge();
+            ws.Range["D4:D5"].Merge();
+            ws.Range["E4:E5"].Merge();
+            ws.Range["F4:H4"].Merge();
+            ws.Range["I4:I5"].Merge();
+
+            Excel.Range columns = ws.Range[ws.Cells[4, 1], ws.Cells[5, 9]];
             columns.Font.Bold = true;
             columns.Interior.Color = ColorTranslator.ToOle(Color.FromArgb(200, 220, 240));
             columns.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter;

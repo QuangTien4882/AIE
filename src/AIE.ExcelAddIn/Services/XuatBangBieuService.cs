@@ -6,6 +6,7 @@ using Microsoft.Office.Interop.Excel;
 using ExcelDna.Integration;
 using AIE.Core.Models;
 using AIE.Core.Services;
+using AIE.ExcelAddIn.Helpers;
 
 namespace AIE.ExcelAddIn.Services
 {
@@ -323,59 +324,133 @@ namespace AIE.ExcelAddIn.Services
         {
             try
             {
-                // Kiểm tra xem đã là format mới chưa (Dòng 5 cột 6 có chữ "Vật liệu" hoặc tương tự)
-                var cellF5 = ws.Cells[5, 6];
-                string valF5 = cellF5.Value2?.ToString() ?? "";
-                if (valF5.ToLower().Contains("vật liệu") || valF5.ToLower() == "vl")
-                {
-                    // Đã là format mới, bỏ qua
-                    return;
-                }
-
-                // Kiểm tra xem đang ở format cũ hay mới
-                // Format cũ: Dòng 4 có "STT" ở A4, dòng 5 bắt đầu dữ liệu
-                // Format mới: Dòng 4 có "STT" ở A4, dòng 5 có sub-header, dòng 6 bắt đầu dữ liệu
-                var cellA5 = ws.Cells[5, 1];
-                string valA5 = cellA5.Value2?.ToString() ?? "";
-                
-                // Nếu A5 có giá trị số (STT dữ liệu) → format cũ, cần shift xuống
-                bool isOldFormat = !string.IsNullOrEmpty(valA5) && int.TryParse(valA5, out _);
-                
-                if (isOldFormat)
-                {
-                    // Chèn 1 dòng mới tại dòng 5 để shift dữ liệu xuống
-                    Range row5 = ws.Rows[5];
-                    row5.Insert(XlInsertShiftDirection.xlShiftDown);
-                    
-                    // Cập nhật STT cho tất cả DongDuToan (tăng thêm 1)
-                    foreach (var hm in duToan.DanhSachHangMuc)
-                    {
-                        foreach (var ct in hm.DanhSachCongTac)
-                        {
-                            if (ct.STT >= 5) ct.STT += 1;
-                        }
-                    }
-                }
-                
-                // Ghi lại header format mới
-                ws.Cells[4, 1] = "STT";
-                ws.Cells[4, 2] = "Mã hiệu";
-                ws.Cells[4, 3] = "Tên công tác";
-                ws.Cells[4, 4] = "Đơn vị";
-                ws.Cells[4, 5] = "Khối lượng";
-                ws.Cells[4, 6] = "Đơn giá";
-                ws.Cells[4, 9] = "Thành tiền";
-                
-                ws.Cells[5, 6] = "Vật liệu";
-                ws.Cells[5, 7] = "Nhân công";
-                ws.Cells[5, 8] = "Máy thi công";
-                
-                // Merge cells
                 var app = ws.Application;
                 bool oldAlerts = app.DisplayAlerts;
                 app.DisplayAlerts = false;
-                try 
+                try
                 {
+                    string rawDuAn = !string.IsNullOrEmpty(duToan.TenDuAn) ? duToan.TenDuAn : (!string.IsNullOrEmpty(duToan.TenCongTrinh) ? duToan.TenCongTrinh : "");
+                    string rawDiaDiem = !string.IsNullOrEmpty(duToan.DiaDiem) ? duToan.DiaDiem : "";
+
+                    string valA1 = ws.Cells[1, 1].Value2?.ToString() ?? "";
+                    string valA2 = ws.Cells[2, 1].Value2?.ToString() ?? "";
+                    string valA3 = ws.Cells[3, 1].Value2?.ToString() ?? "";
+
+                    // Đọc lại tên dự án và địa điểm từ các ô nếu duToan chưa có
+                    if (string.IsNullOrEmpty(rawDuAn))
+                    {
+                        if (valA1.Contains(":")) rawDuAn = valA1.Substring(valA1.IndexOf(':') + 1).Trim();
+                        else if (valA2.Contains(":")) rawDuAn = valA2.Substring(valA2.IndexOf(':') + 1).Trim();
+                    }
+                    if (string.IsNullOrEmpty(rawDiaDiem))
+                    {
+                        if (valA2.Contains("Địa điểm") || valA2.Contains("ĐỊA ĐIỂM")) rawDiaDiem = valA2.Substring(valA2.IndexOf(':') + 1).Trim();
+                        else if (valA3.Contains("Địa điểm") || valA3.Contains("ĐỊA ĐIỂM")) rawDiaDiem = valA3.Substring(valA3.IndexOf(':') + 1).Trim();
+                    }
+
+                    string tenDuAn = ChuanHoaChuThuong(rawDuAn);
+                    if (string.IsNullOrEmpty(tenDuAn)) tenDuAn = "................................................................";
+                    string diaDiem = ChuanHoaChuThuong(rawDiaDiem);
+                    if (string.IsNullOrEmpty(diaDiem)) diaDiem = "................................................................";
+
+                    // 1. Kiểm tra xem dòng 1 đã là "BẢNG DỰ TOÁN CHI TIẾT" chưa
+                    if (!valA1.ToUpper().Contains("BẢNG DỰ TOÁN"))
+                    {
+                        // Chèn 1 dòng tại dòng 1 để làm tiêu đề sheet
+                        Range row1 = ws.Rows[1];
+                        row1.Insert(XlInsertShiftDirection.xlShiftDown);
+
+                        foreach (var hm in duToan.DanhSachHangMuc)
+                        {
+                            foreach (var ct in hm.DanhSachCongTac)
+                            {
+                                if (ct.STT >= 1) ct.STT += 1;
+                            }
+                        }
+                    }
+
+                    // 2. Kiểm tra nếu có dòng thừa "Đơn giá" tại dòng 4 (như trường hợp dòng 3 đã có Đơn giá, dòng 4 lại có Đơn giá)
+                    string valF3 = ws.Cells[3, 6].Value2?.ToString() ?? "";
+                    string valF4 = ws.Cells[4, 6].Value2?.ToString() ?? "";
+                    string valF5 = ws.Cells[5, 6].Value2?.ToString() ?? "";
+                    if (valF3.ToLower().Contains("đơn giá") && valF4.ToLower().Contains("đơn giá") && valF5.ToLower().Contains("vật liệu"))
+                    {
+                        // Dòng 4 bị thừa dòng "Đơn giá"! Xóa dòng 4
+                        Range row4 = ws.Rows[4];
+                        row4.Delete(XlDeleteShiftDirection.xlShiftUp);
+
+                        foreach (var hm in duToan.DanhSachHangMuc)
+                        {
+                            foreach (var ct in hm.DanhSachCongTac)
+                            {
+                                if (ct.STT >= 5) ct.STT -= 1;
+                            }
+                        }
+                    }
+
+                    // 3. Kiểm tra xem dòng 5 đã là subheader (Vật liệu) chưa, nếu dòng 5 là dữ liệu (A5 là số) thì chèn dòng 5
+                    string checkVL = ws.Cells[5, 6].Value2?.ToString() ?? "";
+                    string checkA5 = ws.Cells[5, 1].Value2?.ToString() ?? "";
+                    bool a5IsNum = !string.IsNullOrEmpty(checkA5) && int.TryParse(checkA5, out _);
+                    if (!checkVL.ToLower().Contains("vật liệu") && !checkVL.ToLower().Equals("vl") && a5IsNum)
+                    {
+                        Range row5 = ws.Rows[5];
+                        row5.Insert(XlInsertShiftDirection.xlShiftDown);
+                        foreach (var hm in duToan.DanhSachHangMuc)
+                        {
+                            foreach (var ct in hm.DanhSachCongTac)
+                            {
+                                if (ct.STT >= 5) ct.STT += 1;
+                            }
+                        }
+                    }
+
+                    ws.Cells.Font.Name = "Times New Roman";
+                    ws.Cells.Font.Size = 12;
+
+                    // Dòng 1: Tiêu đề sheet BẢNG DỰ TOÁN CHI TIẾT
+                    var titleRange = ws.Range[ws.Cells[1, 1], ws.Cells[1, 9]];
+                    try { titleRange.UnMerge(); } catch { }
+                    titleRange.Merge();
+                    titleRange.Value2 = "BẢNG DỰ TOÁN CHI TIẾT";
+                    titleRange.Font.Bold = true;
+                    titleRange.Font.Size = 14;
+                    titleRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
+                    titleRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
+
+                    // Dòng 2: Dự án (đồng bộ với TongMucDauTu/TH_DuToan)
+                    var duAnRange = ws.Range[ws.Cells[2, 1], ws.Cells[2, 9]];
+                    try { duAnRange.UnMerge(); } catch { }
+                    duAnRange.Merge();
+                    duAnRange.Value2 = $"Dự án: {tenDuAn}";
+                    duAnRange.Font.Bold = true;
+                    duAnRange.Font.Size = 12;
+                    duAnRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
+                    duAnRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
+
+                    // Dòng 3: Địa điểm xây dựng (đồng bộ với TongMucDauTu/TH_DuToan)
+                    var diaDiemRange = ws.Range[ws.Cells[3, 1], ws.Cells[3, 9]];
+                    try { diaDiemRange.UnMerge(); } catch { }
+                    diaDiemRange.Merge();
+                    diaDiemRange.Value2 = $"Địa điểm xây dựng: {diaDiem}";
+                    diaDiemRange.Font.Bold = true;
+                    diaDiemRange.Font.Size = 12;
+                    diaDiemRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
+                    diaDiemRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
+
+                    // Dòng 4 & 5: Header 2 dòng chuẩn
+                    ws.Cells[4, 1] = "STT";
+                    ws.Cells[4, 2] = "Mã hiệu";
+                    ws.Cells[4, 3] = "Tên công tác";
+                    ws.Cells[4, 4] = "Đơn vị";
+                    ws.Cells[4, 5] = "Khối lượng";
+                    ws.Cells[4, 6] = "Đơn giá";
+                    ws.Cells[4, 9] = "Thành tiền";
+
+                    ws.Cells[5, 6] = "Vật liệu";
+                    ws.Cells[5, 7] = "Nhân công";
+                    ws.Cells[5, 8] = "Máy thi công";
+
                     try { ws.Range["A4:A5"].UnMerge(); } catch { }
                     try { ws.Range["B4:B5"].UnMerge(); } catch { }
                     try { ws.Range["C4:C5"].UnMerge(); } catch { }
@@ -383,7 +458,7 @@ namespace AIE.ExcelAddIn.Services
                     try { ws.Range["E4:E5"].UnMerge(); } catch { }
                     try { ws.Range["F4:H4"].UnMerge(); } catch { }
                     try { ws.Range["I4:I5"].UnMerge(); } catch { }
-                    
+
                     ws.Range["A4:A5"].Merge();
                     ws.Range["B4:B5"].Merge();
                     ws.Range["C4:C5"].Merge();
@@ -391,24 +466,25 @@ namespace AIE.ExcelAddIn.Services
                     ws.Range["E4:E5"].Merge();
                     ws.Range["F4:H4"].Merge();
                     ws.Range["I4:I5"].Merge();
+
+                    Range headerRange = ws.Range[ws.Cells[4, 1], ws.Cells[5, 9]];
+                    headerRange.Font.Bold = true;
+                    headerRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
+                    headerRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
+                    headerRange.Interior.Color = ColorTranslator.ToOle(Color.FromArgb(200, 220, 240));
+                    headerRange.Borders.LineStyle = XlLineStyle.xlContinuous;
+
+                    // Freeze panes at row 5
+                    ws.Activate();
+                    app.ActiveWindow.FreezePanes = false;
+                    app.ActiveWindow.SplitRow = 5;
+                    app.ActiveWindow.SplitColumn = 0;
+                    app.ActiveWindow.FreezePanes = true;
                 }
                 finally
                 {
                     app.DisplayAlerts = oldAlerts;
                 }
-                
-                Range headerRange = ws.Range[ws.Cells[4, 1], ws.Cells[5, 9]];
-                headerRange.Font.Bold = true;
-                headerRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
-                headerRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
-
-                // Freeze panes at row 5
-                ws.Activate();
-                app = ws.Application;
-                app.ActiveWindow.FreezePanes = false;
-                app.ActiveWindow.SplitRow = 5;
-                app.ActiveWindow.SplitColumn = 0;
-                app.ActiveWindow.FreezePanes = true;
             }
             catch { /* Bỏ qua lỗi format */ }
         }
@@ -436,21 +512,62 @@ namespace AIE.ExcelAddIn.Services
         public void XuatBangTongHopChiPhiXayDung(Workbook wb, DuToan duToan)
         {
             var ws = CreateOrGetSheet(wb, "TH_ChiPhiXD");
-            SetupHeader(ws, "BẢNG TỔNG HỢP CHI PHÍ XÂY DỰNG (BẢNG 3.8 TT 36/2026/TT-BXD)", 5);
+            ws.Cells.Font.Name = "Times New Roman";
+            ws.Cells.Font.Size = 12;
 
-            ws.Cells[3, 1] = "TT";
-            ws.Cells[3, 2] = "Khoản mục chi phí";
-            ws.Cells[3, 3] = "Ký hiệu";
-            ws.Cells[3, 4] = "Cách tính";
-            ws.Cells[3, 5] = "Giá trị (đồng)";
+            // Dòng 1: Tiêu đề bảng
+            var titleRange = ws.Range[ws.Cells[1, 1], ws.Cells[1, 5]];
+            titleRange.Merge();
+            titleRange.Value2 = "BẢNG TỔNG HỢP CHI PHÍ XÂY DỰNG";
+            titleRange.Font.Bold = true;
+            titleRange.Font.Size = 14;
+            titleRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
+            titleRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
 
-            var headerRange = ws.Range[ws.Cells[3, 1], ws.Cells[3, 5]];
+            // Dòng 2: Dự án (Merge A2:E2, căn giữa, in đậm, chữ thường chuẩn TitleCase)
+            string rawDuAn = !string.IsNullOrEmpty(duToan.TenDuAn) ? duToan.TenDuAn : (!string.IsNullOrEmpty(duToan.TenCongTrinh) ? duToan.TenCongTrinh : "");
+            string tenDuAn = ChuanHoaChuThuong(rawDuAn);
+            if (string.IsNullOrEmpty(tenDuAn)) tenDuAn = "................................................................";
+            var duAnRange = ws.Range[ws.Cells[2, 1], ws.Cells[2, 5]];
+            duAnRange.Merge();
+            duAnRange.Value2 = $"Dự án: {tenDuAn}";
+            duAnRange.Font.Bold = true;
+            duAnRange.Font.Size = 12;
+            duAnRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
+            duAnRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
+
+            // Dòng 3: Địa điểm xây dựng (Merge A3:E3, căn giữa, in đậm, chữ thường chuẩn TitleCase)
+            string rawDiaDiem = !string.IsNullOrEmpty(duToan.DiaDiem) ? duToan.DiaDiem : "";
+            string diaDiem = ChuanHoaChuThuong(rawDiaDiem);
+            if (string.IsNullOrEmpty(diaDiem)) diaDiem = "................................................................";
+            var diaDiemRange = ws.Range[ws.Cells[3, 1], ws.Cells[3, 5]];
+            diaDiemRange.Merge();
+            diaDiemRange.Value2 = $"Địa điểm xây dựng: {diaDiem}";
+            diaDiemRange.Font.Bold = true;
+            diaDiemRange.Font.Size = 12;
+            diaDiemRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
+            diaDiemRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
+
+            // Dòng 4: Đơn vị tính góc phải
+            ws.Cells[4, 5] = "Đơn vị tính: Đồng";
+            ws.Cells[4, 5].Font.Italic = true;
+            ws.Cells[4, 5].Font.Size = 12;
+            ws.Cells[4, 5].HorizontalAlignment = XlHAlign.xlHAlignRight;
+
+            // Dòng 5: Tiêu đề các cột
+            ws.Cells[5, 1] = "TT";
+            ws.Cells[5, 2] = "Khoản mục chi phí";
+            ws.Cells[5, 3] = "Ký hiệu";
+            ws.Cells[5, 4] = "Cách tính";
+            ws.Cells[5, 5] = "Giá trị (đồng)";
+
+            var headerRange = ws.Range[ws.Cells[5, 1], ws.Cells[5, 5]];
             headerRange.Font.Bold = true;
             headerRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
             headerRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
-            headerRange.Interior.Color = ColorTranslator.ToOle(Color.LightGray);
+            headerRange.Interior.Color = ColorTranslator.ToOle(Color.FromArgb(230, 236, 245));
 
-            int r = 4;
+            int r = 6;
             var kq = duToan.ChiPhiXD;
             if (kq == null) return;
 
@@ -475,31 +592,31 @@ namespace AIE.ExcelAddIn.Services
             string linkNC = duToan.BangTongHop.DanhSachNhanCong.Count > 0 ? $"='TH_NhanCong'!G{4 + duToan.BangTongHop.DanhSachNhanCong.Count}" : "0";
             string linkM = duToan.BangTongHop.DanhSachMay.Count > 0 ? $"='TH_CaMay'!G{4 + duToan.BangTongHop.DanhSachMay.Count}" : "0";
 
-            AddRow("I", "Chi phí trực tiếp", "T", "VL + NC + M", "=SUM(E5:E7)", true);
+            AddRow("I", "Chi phí trực tiếp", "T", "VL + NC + M", "=SUM(E7:E9)", true);
             AddRow("1", "Chi phí vật liệu", "VL", "Σ(KL × ĐG_VL)", linkVL, false);
             AddRow("2", "Chi phí nhân công", "NC", "Σ(KL × ĐG_NC)", linkNC, false);
             AddRow("3", "Chi phí máy", "M", "Σ(KL × ĐG_M)", linkM, false);
             
-            AddRow("II", "Chi phí gián tiếp", "GT", "CPC + TT", "=E9+E10", true);
-            AddRow("1", "Chi phí chung", "CPC", $"T × {kq.TiLeCPC}%", $"=E4*{kq.TiLeCPC.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100", false);
-            AddRow("2", "Chi phí không xác định được KL từ TK", "TT", $"T × {kq.TiLeTT}%", $"=E4*{kq.TiLeTT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100", false);
+            AddRow("II", "Chi phí gián tiếp", "GT", "CPC + TT", "=E11+E12", true);
+            AddRow("1", "Chi phí chung", "CPC", $"T × {kq.TiLeCPC}%", $"=E6*{kq.TiLeCPC.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100", false);
+            AddRow("2", "Chi phí không xác định được KL từ TK", "TT", $"T × {kq.TiLeTT}%", $"=E6*{kq.TiLeTT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100", false);
             
-            AddRow("III", "Thu nhập chịu thuế tính trước", "TL", $"(T + GT) × {kq.TiLeTNCTTT}%", $"=(E4+E8)*{kq.TiLeTNCTTT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100", true);
+            AddRow("III", "Thu nhập chịu thuế tính trước", "TL", $"(T + GT) × {kq.TiLeTNCTTT}%", $"=(E6+E10)*{kq.TiLeTNCTTT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100", true);
             
-            AddRow("IV", "Chi phí xây dựng trước thuế", "G", "T + GT + TL", "=E4+E8+E11", true);
+            AddRow("IV", "Chi phí xây dựng trước thuế", "G", "T + GT + TL", "=E6+E10+E13", true);
             
-            AddRow("V", "Thuế giá trị gia tăng", "GTGT", $"G × {kq.TiLeGTGT}%", $"=E12*{kq.TiLeGTGT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100", true);
+            AddRow("V", "Thuế giá trị gia tăng", "GTGT", $"G × {kq.TiLeGTGT}%", $"=E14*{kq.TiLeGTGT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100", true);
             
-            AddRow("VI", "Chi phí xây dựng sau thuế", "Gxd", "G + GTGT", "=E12+E13", true);
+            AddRow("VI", "Chi phí xây dựng sau thuế", "Gxd", "G + GTGT", "=E14+E15", true);
             
             // Dòng VII: Chi phí nhà tạm để ở và điều hành thi công
             // Theo Quyết định số 1538/QĐ-BXD ngày 28/8/2026 của Bộ Xây dựng: Đính chính công thức xác định chi phí nhà tạm
             // tại Bảng 3.8 Phụ lục III từ “GXDTT × Tỷ lệ × TGTGT” thành “GXDTT × Tỷ lệ × (1+TGTGT)”
-            AddRow("VII", "Chi phí nhà tạm để ở và điều hành thi công", "LT", $"GXDTT × {kq.TiLeNhaTam}% × (1 + {kq.TiLeGTGT}%)", $"=ROUND(E12*{kq.TiLeNhaTam.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100*(1+E13/E12), 0)", true);
+            AddRow("VII", "Chi phí nhà tạm để ở và điều hành thi công", "LT", $"GXDTT × {kq.TiLeNhaTam}% × (1 + {kq.TiLeGTGT}%)", $"=ROUND(E14*{kq.TiLeNhaTam.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100*(1+E15/E14), 0)", true);
             
-            AddRow("VIII", "TỔNG CHI PHÍ XÂY DỰNG", "GXD", "Gxd + LT", "=E14+E15", true);
+            AddRow("VIII", "TỔNG CHI PHÍ XÂY DỰNG", "GXD", "Gxd + LT", "=E16+E17", true);
 
-            DrawTableBorders(ws, 3, 1, r - 1, 5);
+            DrawTableBorders(ws, 5, 1, r - 1, 5);
             ws.Range["E:E"].NumberFormat = "#,##0";
             ws.Columns.AutoFit();
 
@@ -864,7 +981,20 @@ namespace AIE.ExcelAddIn.Services
             grandRng.Font.Size = 12;
             grandRng.Interior.Color = ColorTranslator.ToOle(Color.FromArgb(255, 255, 204));
 
-            DrawTableBorders(ws, 5, 1, grandRow, 6);
+            // Dòng Bằng chữ (Merge A..F, căn giữa, in nghiêng)
+            int textRow = grandRow + 1;
+            decimal tongSauThue = model.TongSauThue;
+            string chuTien = UIHelper.DocSoThanhChu(tongSauThue);
+            var textRange = ws.Range[ws.Cells[textRow, 1], ws.Cells[textRow, 6]];
+            textRange.Merge();
+            textRange.Value2 = $"Bằng chữ: {chuTien}.";
+            textRange.Font.Italic = true;
+            textRange.Font.Bold = false;
+            textRange.Font.Size = 12;
+            textRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
+            textRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
+
+            DrawTableBorders(ws, 5, 1, textRow, 6);
             ws.Range[$"C7:E{grandRow}"].NumberFormat = "#,##0;-#,##0;\"-\"";
             ws.Columns[1].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns[6].HorizontalAlignment = XlHAlign.xlHAlignCenter;
@@ -1267,7 +1397,20 @@ namespace AIE.ExcelAddIn.Services
             grandRng.Font.Size = 12;
             grandRng.Interior.Color = ColorTranslator.ToOle(Color.FromArgb(255, 255, 204));
 
-            DrawTableBorders(ws, 5, 1, grandRow, 6);
+            // Dòng Bằng chữ (Merge A..F, căn giữa, in nghiêng)
+            int textRow = grandRow + 1;
+            decimal tongSauThue = model.TongSauThue;
+            string chuTien = UIHelper.DocSoThanhChu(tongSauThue);
+            var textRange = ws.Range[ws.Cells[textRow, 1], ws.Cells[textRow, 6]];
+            textRange.Merge();
+            textRange.Value2 = $"Bằng chữ: {chuTien}.";
+            textRange.Font.Italic = true;
+            textRange.Font.Bold = false;
+            textRange.Font.Size = 12;
+            textRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
+            textRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
+
+            DrawTableBorders(ws, 5, 1, textRow, 6);
             ws.Range[$"C7:E{grandRow}"].NumberFormat = "#,##0;-#,##0;\"-\"";
             ws.Columns[1].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns[6].HorizontalAlignment = XlHAlign.xlHAlignCenter;

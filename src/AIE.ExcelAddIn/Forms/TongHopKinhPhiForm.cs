@@ -1380,27 +1380,6 @@ namespace AIE.ExcelAddIn.Forms
             if (txtChiPhiXD != null) txtChiPhiXD.Text = UIHelper.FormatTien(kq.G);
             if (txtChiPhiNT != null) txtChiPhiNT.Text = UIHelper.FormatTien(ntTruocThue);
 
-            if (!_isSyncingVAT && cboVATChung != null)
-            {
-                string vatText = $"{gtgt:G29}%";
-                if (!cboVATChung.Items.Contains(vatText))
-                {
-                    cboVATChung.Items.Add(vatText);
-                }
-                try
-                {
-                    _isSyncingVAT = true;
-                    _isUpdating = true;
-                    cboVATChung.SelectedItem = vatText;
-                    cboVATChung.Text = vatText;
-                }
-                finally 
-                { 
-                    _isUpdating = false; 
-                    _isSyncingVAT = false; 
-                }
-            }
-
             var colVATSync = dgvChiPhi?.Columns["colVAT"] as DataGridViewComboBoxColumn;
             if (colVATSync != null)
             {
@@ -1409,19 +1388,6 @@ namespace AIE.ExcelAddIn.Forms
                 {
                     colVATSync.Items.Add(vatTextCol);
                 }
-            }
-
-            // Đồng bộ thuế GTGT cho toàn bộ các khoản mục chi phí chịu thuế trên bảng
-            foreach (var item in _model.Items)
-            {
-                // Mặc định Chi phí QLDA không chịu thuế GTGT (0%) và giữ 0% cho các khoản phí ngân sách nhà nước
-                if (item.MaChiPhi == "G_QLDA" || item.Nhom == NhomChiPhi.QuanLyDuAn ||
-                    item.MaChiPhi == "K_TD_DA" || item.MaChiPhi == "K_TD_TK" || 
-                    item.MaChiPhi == "K_TD_DT" || item.MaChiPhi == "K_TT_QUYETTOAN")
-                {
-                    continue;
-                }
-                item.ThueSuatGTGT = vatRate;
             }
 
             var itemXD = _model.Items.FirstOrDefault(x => x.MaChiPhi == "G_XD");
@@ -1932,16 +1898,6 @@ namespace AIE.ExcelAddIn.Forms
 
                     this.BeginInvoke(new Action(() =>
                     {
-                        if (cboVATChung != null)
-                        {
-                            if (!cboVATChung.Items.Contains(formatted))
-                            {
-                                cboVATChung.Items.Add(formatted);
-                            }
-                            cboVATChung.SelectedItem = formatted;
-                            cboVATChung.Text = formatted;
-                        }
-
                         if (txtGTGTXD != null)
                         {
                             string vatNum = (vatRate * 100m).ToString("G29", UIHelper.ViCulture);
