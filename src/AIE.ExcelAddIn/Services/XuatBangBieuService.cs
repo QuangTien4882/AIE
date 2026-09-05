@@ -1627,10 +1627,6 @@ namespace AIE.ExcelAddIn.Services
                             ws.Cells[r, 3] = "Cộng chi phí Vật liệu";
                             ws.Cells[r, 7].Formula = $"=SUM(G{r - vlHaoPhi.Count}:G{r - 1})";
                             ws.Range[ws.Cells[r, 3], ws.Cells[r, 7]].Font.Bold = true;
-                            if (wsDuToan != null && ct.STT > 0)
-                            {
-                                wsDuToan.Cells[ct.STT, 6].Formula = $"='PhanTich_DonGia'!G{r}";
-                            }
                             subTotalRows.Add(r);
                             r++;
                         }
@@ -1656,10 +1652,6 @@ namespace AIE.ExcelAddIn.Services
                             ws.Cells[r, 3] = "Cộng chi phí Nhân công";
                             ws.Cells[r, 7].Formula = $"=SUM(G{r - ncHaoPhi.Count}:G{r - 1})";
                             ws.Range[ws.Cells[r, 3], ws.Cells[r, 7]].Font.Bold = true;
-                            if (wsDuToan != null && ct.STT > 0)
-                            {
-                                wsDuToan.Cells[ct.STT, 7].Formula = $"='PhanTich_DonGia'!G{r}";
-                            }
                             subTotalRows.Add(r);
                             r++;
                         }
@@ -1694,10 +1686,6 @@ namespace AIE.ExcelAddIn.Services
                             ws.Cells[r, 3] = "Cộng chi phí Máy thi công";
                             ws.Cells[r, 7].Formula = $"=SUM(G{r - mayHaoPhi.Count}:G{r - 1})";
                             ws.Range[ws.Cells[r, 3], ws.Cells[r, 7]].Font.Bold = true;
-                            if (wsDuToan != null && ct.STT > 0)
-                            {
-                                wsDuToan.Cells[ct.STT, 8].Formula = $"='PhanTich_DonGia'!G{r}";
-                            }
                             subTotalRows.Add(r);
                             r++;
                         }
