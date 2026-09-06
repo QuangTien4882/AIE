@@ -61,6 +61,7 @@ public class TinhCuocVCBoForm : Form
     private Label lblQuyDoi;
     private Label lblKetQua;
 
+    private string? _maNhanCong;
     private bool _suppressRecalc = false;
     private bool _isUpdatingGridFromCode = false;
 
@@ -69,12 +70,14 @@ public class TinhCuocVCBoForm : Form
         string donViVatLieu, 
         decimal donGiaNhanCong = 0, 
         decimal giaTriHienTai = 0,
-        string? maDinhMucCu = null)
+        string? maDinhMucCu = null,
+        string? maNhanCong = null)
     {
         _tenVatLieu = tenVatLieu;
         _donViVatLieu = string.IsNullOrWhiteSpace(donViVatLieu) ? "ĐVT" : donViVatLieu.Trim();
         _donGiaNhanCong = donGiaNhanCong > 0 ? donGiaNhanCong : 254498m;
         _maDinhMucCu = maDinhMucCu;
+        _maNhanCong = maNhanCong;
 
         InitializeComponent();
         LoadInitialData();
@@ -169,7 +172,9 @@ public class TinhCuocVCBoForm : Form
                 TongCuLyMet, 
                 1.0m, 
                 (int)numTang.Value, 
-                KetQuaCuocBo);
+                KetQuaCuocBo,
+                DonGiaNhanCong,
+                _maNhanCong ?? "");
             this.DialogResult = DialogResult.OK;
             this.Close();
         };

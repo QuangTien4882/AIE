@@ -47,17 +47,24 @@ namespace AIE.ExcelAddIn.Services
                     ReformatDuToanHeader(wsDuToan, duToan);
                 }
 
+                // Bảng 2: Bảng phân tích đơn giá chi tiết (PhanTich_DonGia) - link các đơn giá vào sheet DuToan
+                XuatPhanTichDonGia(wb, duToan, wsDuToan);
+
                 // Bảng 1: Bảng tổng hợp chi phí xây dựng (TH_ChiPhiXD - Bảng 3.8 TT 36)
                 XuatBangTongHopChiPhiXayDung(wb, duToan);
-
-                // Bảng 2: Bảng phân tích đơn giá chi tiết (PhanTich_DonGia)
-                XuatPhanTichDonGia(wb, duToan, wsDuToan);
 
                 // Bảng 7: Bảng xác định hệ số (HeSo_DieuChinh)
                 XuatBangHeSoDieuChinh(wb, duToan);
 
                 // Sắp xếp lại thứ tự sheet theo đúng chuẩn
                 SapXepLaiThuTuCacSheet(wb, wsDuToan);
+
+                // Kích hoạt tính toán toàn bộ Workbook để cập nhật các công thức liên kết chéo giữa các sheet
+                app.Calculation = XlCalculation.xlCalculationAutomatic;
+                try { app.Calculate(); } catch { }
+
+                // Sau khi toàn bộ Workbook đã được tính toán đầy đủ giá trị thực tế, cập nhật lại dòng "Bằng chữ"
+                CapNhatDongBangChuSauKhiTinhToan(wb);
             }
             finally
             {
@@ -112,13 +119,13 @@ namespace AIE.ExcelAddIn.Services
                 {
                     ReformatDuToanHeader(wsDuToan, duToan);
                 }
-                if (opts.XuatChiPhiXayDung && duToan.ChiPhiXD != null)
-                {
-                    XuatBangTongHopChiPhiXayDung(wb, duToan);
-                }
                 if (opts.XuatPhanTichDonGia)
                 {
                     XuatPhanTichDonGia(wb, duToan, wsDuToan);
+                }
+                if (opts.XuatChiPhiXayDung && duToan.ChiPhiXD != null)
+                {
+                    XuatBangTongHopChiPhiXayDung(wb, duToan);
                 }
                 if (opts.XuatHeSoDieuChinh)
                 {
@@ -135,6 +142,13 @@ namespace AIE.ExcelAddIn.Services
 
                 // Sắp xếp lại thứ tự sheet theo đúng chuẩn
                 SapXepLaiThuTuCacSheet(wb, wsDuToan);
+
+                // Kích hoạt tính toán toàn bộ Workbook để cập nhật các công thức liên kết chéo giữa các sheet (TH_ChiPhiXD -> TH_DuToan / TongMucDauTu)
+                app.Calculation = XlCalculation.xlCalculationAutomatic;
+                try { app.Calculate(); } catch { }
+
+                // Sau khi toàn bộ Workbook đã được tính toán đầy đủ giá trị thực tế, cập nhật lại dòng "Bằng chữ"
+                CapNhatDongBangChuSauKhiTinhToan(wb);
             }
             finally
             {
@@ -588,6 +602,70 @@ namespace AIE.ExcelAddIn.Services
                 }
                 catch { }
             }
+        }
+
+        private void CapNhatDongBangChuSauKhiTinhToan(Workbook wb)
+        {
+            if (wb == null) return;
+            try
+            {
+                string[] targetSheets = new[] { "TongMucDauTu", "TH_DuToan" };
+                foreach (var name in targetSheets)
+                {
+                    Worksheet ws = null;
+                    try
+                    {
+                        foreach (Worksheet s in wb.Sheets)
+                        {
+                            if (string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase))
+                            {
+                                ws = s;
+                                break;
+                            }
+                        }
+                    }
+                    catch { }
+                    if (ws == null) continue;
+
+                    try
+                    {
+                        int maxRows = Math.Min(100, ws.UsedRange.Rows.Count + ws.UsedRange.Row);
+                        for (int r = 1; r <= maxRows; r++)
+                        {
+                            object c2 = ws.Cells[r, 2]?.Value2;
+                            if (c2 == null) continue;
+                            string s2 = c2.ToString().Trim().ToUpperInvariant();
+                            if (s2.Contains("TỔNG MỨC ĐẦU TƯ XÂY DỰNG") || s2.Contains("TỔNG DỰ TOÁN CÔNG TRÌNH"))
+                            {
+                                object val = ws.Cells[r, 5]?.Value2;
+                                decimal tongSauThue = 0m;
+                                if (val is double d) tongSauThue = (decimal)d;
+                                else if (val is decimal dec) tongSauThue = dec;
+                                else if (val != null)
+                                {
+                                    if (decimal.TryParse(val.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal pVal) ||
+                                        decimal.TryParse(val.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.CurrentCulture, out pVal))
+                                    {
+                                        tongSauThue = pVal;
+                                    }
+                                }
+
+                                if (tongSauThue > 0)
+                                {
+                                    tongSauThue = Math.Round(tongSauThue / 1000m, 0, MidpointRounding.AwayFromZero) * 1000m;
+                                    string chuTien = UIHelper.DocSoThanhChu(tongSauThue);
+                                    int textRow = r + 1;
+                                    var textRange = ws.Range[ws.Cells[textRow, 1], ws.Cells[textRow, 6]];
+                                    textRange.Value2 = $"Bằng chữ: {chuTien}.";
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
         }
 
         public void XuatBangTongHopChiPhiXayDung(Workbook wb, DuToan duToan)
@@ -1094,15 +1172,22 @@ namespace AIE.ExcelAddIn.Services
             int textRow = grandRow + 1;
             try { ws.Calculate(); } catch { }
             object valGrand = ws.Cells[grandRow, 5]?.Value2;
-            decimal tongSauThue = model.TongSauThue;
-            if (valGrand != null && decimal.TryParse(valGrand.ToString(), out decimal excelGrand) && excelGrand > 0)
+            decimal tongSauThue = 0m;
+            if (valGrand is double d) tongSauThue = (decimal)d;
+            else if (valGrand is decimal dec) tongSauThue = dec;
+            else if (valGrand != null)
             {
-                tongSauThue = Math.Round(excelGrand / 1000m, 0, MidpointRounding.AwayFromZero) * 1000m;
+                if (decimal.TryParse(valGrand.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal pVal) ||
+                    decimal.TryParse(valGrand.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.CurrentCulture, out pVal))
+                {
+                    tongSauThue = pVal;
+                }
             }
-            else
+            if (tongSauThue <= 0)
             {
-                tongSauThue = Math.Round(model.TongSauThue / 1000m, 0, MidpointRounding.AwayFromZero) * 1000m;
+                tongSauThue = model.TongSauThue;
             }
+            tongSauThue = Math.Round(tongSauThue / 1000m, 0, MidpointRounding.AwayFromZero) * 1000m;
             string chuTien = UIHelper.DocSoThanhChu(tongSauThue);
             var textRange = ws.Range[ws.Cells[textRow, 1], ws.Cells[textRow, 6]];
             textRange.Merge();
@@ -1502,15 +1587,22 @@ namespace AIE.ExcelAddIn.Services
             int textRow = grandRow + 1;
             try { ws.Calculate(); } catch { }
             object valGrandTM = ws.Cells[grandRow, 5]?.Value2;
-            decimal tongSauThue = model.TongSauThue;
-            if (valGrandTM != null && decimal.TryParse(valGrandTM.ToString(), out decimal excelGrandTM) && excelGrandTM > 0)
+            decimal tongSauThue = 0m;
+            if (valGrandTM is double d) tongSauThue = (decimal)d;
+            else if (valGrandTM is decimal dec) tongSauThue = dec;
+            else if (valGrandTM != null)
             {
-                tongSauThue = Math.Round(excelGrandTM / 1000m, 0, MidpointRounding.AwayFromZero) * 1000m;
+                if (decimal.TryParse(valGrandTM.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal pVal) ||
+                    decimal.TryParse(valGrandTM.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.CurrentCulture, out pVal))
+                {
+                    tongSauThue = pVal;
+                }
             }
-            else
+            if (tongSauThue <= 0)
             {
-                tongSauThue = Math.Round(model.TongSauThue / 1000m, 0, MidpointRounding.AwayFromZero) * 1000m;
+                tongSauThue = model.TongSauThue;
             }
+            tongSauThue = Math.Round(tongSauThue / 1000m, 0, MidpointRounding.AwayFromZero) * 1000m;
             string chuTien = UIHelper.DocSoThanhChu(tongSauThue);
             var textRange = ws.Range[ws.Cells[textRow, 1], ws.Cells[textRow, 6]];
             textRange.Merge();
@@ -1553,6 +1645,43 @@ namespace AIE.ExcelAddIn.Services
             catch { }
         }
 
+        private int FindDuToanRow(Worksheet wsDuToan, DongDuToan ct, HashSet<int> usedRows)
+        {
+            if (wsDuToan == null || ct == null) return -1;
+
+            // 1. Kiểm tra ct.STT trước nếu chưa dùng và Mã hiệu khớp
+            if (ct.STT >= 6 && !usedRows.Contains(ct.STT))
+            {
+                string mh = wsDuToan.Cells[ct.STT, 2]?.Value2?.ToString()?.Trim() ?? "";
+                if (string.Equals(mh, ct.MaHieu, StringComparison.OrdinalIgnoreCase))
+                {
+                    usedRows.Add(ct.STT);
+                    return ct.STT;
+                }
+            }
+
+            // 2. Quét tuần tự từ dòng 6
+            for (int rScan = 6; rScan <= 10000; rScan++)
+            {
+                if (usedRows.Contains(rScan)) continue;
+                string ten = wsDuToan.Cells[rScan, 3]?.Value2?.ToString()?.Trim() ?? "";
+                if (ten.Equals("TỔNG CỘNG", StringComparison.OrdinalIgnoreCase) || ten.Equals("CỘNG", StringComparison.OrdinalIgnoreCase))
+                    break;
+                string mh = wsDuToan.Cells[rScan, 2]?.Value2?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(mh) && string.IsNullOrEmpty(ten))
+                    break;
+
+                if (string.Equals(mh, ct.MaHieu, StringComparison.OrdinalIgnoreCase))
+                {
+                    usedRows.Add(rScan);
+                    ct.STT = rScan;
+                    return rScan;
+                }
+            }
+
+            return -1;
+        }
+
         public void XuatPhanTichDonGia(Workbook wb, DuToan duToan, Worksheet wsDuToan)
         {
             var ws = CreateOrGetSheet(wb, "PhanTich_DonGia");
@@ -1575,9 +1704,19 @@ namespace AIE.ExcelAddIn.Services
             int r = 4;
             int stt = 1;
 
-            var dictVL = duToan.BangTongHop.DanhSachVatLieu.ToDictionary(x => x.MaVatTu, x => x.GiaHienTruong);
-            var dictNC = duToan.BangTongHop.DanhSachNhanCong.ToDictionary(x => x.MaVatTu, x => x.GiaHienTruong);
-            var dictMay = duToan.BangTongHop.DanhSachMay.ToDictionary(x => x.MaVatTu, x => x.GiaHienTruong);
+            if (wsDuToan == null)
+            {
+                foreach (Worksheet sheet in wb.Sheets)
+                {
+                    if (sheet.Name.StartsWith("DuToan", StringComparison.OrdinalIgnoreCase))
+                    {
+                        wsDuToan = sheet;
+                        break;
+                    }
+                }
+            }
+
+            var usedDuToanRows = new HashSet<int>();
 
             foreach (var hm in duToan.DanhSachHangMuc)
             {
@@ -1593,6 +1732,9 @@ namespace AIE.ExcelAddIn.Services
                     r++;
 
                     List<int> subTotalRows = new List<int>();
+                    int? rowCongVL = null;
+                    int? rowCongNC = null;
+                    int? rowCongMay = null;
 
                     // Bảng Hao Phí
                     if (ct.DanhSachHaoPhi != null && ct.DanhSachHaoPhi.Any())
@@ -1614,7 +1756,7 @@ namespace AIE.ExcelAddIn.Services
                                 
                                 if (hp.DonVi != "%")
                                 {
-                                    ws.Cells[r, 6].Formula = $"=IFERROR(VLOOKUP(B{r}, 'TH_VatLieu'!$B:$J, 9, 0), 0)";
+                                    ws.Cells[r, 6].Formula = $"=IFERROR(VLOOKUP(B{r}, 'TH_VatLieu'!$B:$I, 8, 0), 0)";
                                     ws.Cells[r, 7].Formula = $"=E{r}*F{r}";
                                 }
                                 else
@@ -1628,6 +1770,7 @@ namespace AIE.ExcelAddIn.Services
                             ws.Cells[r, 7].Formula = $"=SUM(G{r - vlHaoPhi.Count}:G{r - 1})";
                             ws.Range[ws.Cells[r, 3], ws.Cells[r, 7]].Font.Bold = true;
                             subTotalRows.Add(r);
+                            rowCongVL = r;
                             r++;
                         }
 
@@ -1645,7 +1788,7 @@ namespace AIE.ExcelAddIn.Services
                                 ws.Cells[r, 3] = hp.TenHaoPhi;
                                 ws.Cells[r, 4] = hp.DonVi;
                                 ws.Cells[r, 5] = (double)(hp.DinhMuc * hp.HeSo);
-                                ws.Cells[r, 6].Formula = $"=IFERROR(VLOOKUP(B{r}, 'TH_NhanCong'!$B:$F, 5, 0), 0)";
+                                ws.Cells[r, 6].Formula = $"=IFERROR(VLOOKUP(B{r}, 'TH_NhanCong'!$B:$E, 4, 0), 0)";
                                 ws.Cells[r, 7].Formula = $"=E{r}*F{r}";
                                 r++;
                             }
@@ -1653,6 +1796,7 @@ namespace AIE.ExcelAddIn.Services
                             ws.Cells[r, 7].Formula = $"=SUM(G{r - ncHaoPhi.Count}:G{r - 1})";
                             ws.Range[ws.Cells[r, 3], ws.Cells[r, 7]].Font.Bold = true;
                             subTotalRows.Add(r);
+                            rowCongNC = r;
                             r++;
                         }
 
@@ -1673,7 +1817,7 @@ namespace AIE.ExcelAddIn.Services
                                 
                                 if (hp.DonVi != "%")
                                 {
-                                    ws.Cells[r, 6].Formula = $"=IFERROR(VLOOKUP(B{r}, 'TH_CaMay'!$B:$F, 5, 0), 0)";
+                                    ws.Cells[r, 6].Formula = $"=IFERROR(VLOOKUP(B{r}, 'TH_CaMay'!$B:$E, 4, 0), 0)";
                                     ws.Cells[r, 7].Formula = $"=E{r}*F{r}";
                                 }
                                 else
@@ -1687,6 +1831,7 @@ namespace AIE.ExcelAddIn.Services
                             ws.Cells[r, 7].Formula = $"=SUM(G{r - mayHaoPhi.Count}:G{r - 1})";
                             ws.Range[ws.Cells[r, 3], ws.Cells[r, 7]].Font.Bold = true;
                             subTotalRows.Add(r);
+                            rowCongMay = r;
                             r++;
                         }
                     }
@@ -1699,6 +1844,33 @@ namespace AIE.ExcelAddIn.Services
                     }
                     ws.Range[ws.Cells[r, 3], ws.Cells[r, 7]].Font.Bold = true;
                     r++;
+
+                    // Gán công thức link từ PhanTich_DonGia sang sheet DuToan
+                    if (wsDuToan != null)
+                    {
+                        int rDu = FindDuToanRow(wsDuToan, ct, usedDuToanRows);
+                        if (rDu >= 6)
+                        {
+                            if (rowCongVL.HasValue)
+                                wsDuToan.Cells[rDu, 6].Formula = $"='PhanTich_DonGia'!G{rowCongVL.Value}";
+                            else if (ct.DonGiaVL == 0)
+                                wsDuToan.Cells[rDu, 6].Value2 = 0;
+
+                            if (rowCongNC.HasValue)
+                                wsDuToan.Cells[rDu, 7].Formula = $"='PhanTich_DonGia'!G{rowCongNC.Value}";
+                            else if (ct.DonGiaNC == 0)
+                                wsDuToan.Cells[rDu, 7].Value2 = 0;
+
+                            if (rowCongMay.HasValue)
+                                wsDuToan.Cells[rDu, 8].Formula = $"='PhanTich_DonGia'!G{rowCongMay.Value}";
+                            else if (ct.DonGiaMay == 0)
+                                wsDuToan.Cells[rDu, 8].Value2 = 0;
+
+                            wsDuToan.Cells[rDu, 9].Formula = $"=ROUND(E{rDu}*F{rDu}, 0)";
+                            wsDuToan.Cells[rDu, 10].Formula = $"=ROUND(E{rDu}*G{rDu}, 0)";
+                            wsDuToan.Cells[rDu, 11].Formula = $"=ROUND(E{rDu}*H{rDu}, 0)";
+                        }
+                    }
                 }
             }
 
@@ -1852,7 +2024,7 @@ namespace AIE.ExcelAddIn.Services
                 ws.Cells[r, 5] = "Mã ca máy:";
                 ws.Cells[r, 6] = dm.MaMay;
                 ws.Cells[r, 8] = "Giá ca xe (đồng/ca):";
-                ws.Cells[r, 9].Formula = $"=IFERROR(VLOOKUP(F{r}, 'TH_CaMay'!$B:$F, 5, 0), {donGiaCaMay.ToString(System.Globalization.CultureInfo.InvariantCulture)})";
+                ws.Cells[r, 9].Formula = $"=IFERROR(VLOOKUP(F{r}, 'TH_CaMay'!$B:$E, 4, 0), {donGiaCaMay.ToString(System.Globalization.CultureInfo.InvariantCulture)})";
                 ws.Range[ws.Cells[r, 2], ws.Cells[r, 9]].Font.Bold = true;
                 ws.Cells[r, 9].NumberFormat = "#,##0";
                 int giaCaXeRow = r;
@@ -2016,6 +2188,22 @@ namespace AIE.ExcelAddIn.Services
                 r += 2;
 
                 int boIdx = 1;
+                // Tìm nhân công xây dựng nhóm 1 trong DanhSachNhanCong để lấy mã hiệu và đơn giá thực tế
+                var ncNhom1 = duToan.BangTongHop?.DanhSachNhanCong?.FirstOrDefault(n => 
+                    n.LoaiNhanCong == AIE.Core.Enums.LoaiNhanCong.XayDung && 
+                    (n.TenVatTu.ToLower().Contains("nhóm 1") || n.TenVatTu.ToLower().Contains("nhóm i") || n.MaVatTu.EndsWith(".01")));
+                if (ncNhom1 == null)
+                {
+                    ncNhom1 = duToan.BangTongHop?.DanhSachNhanCong?.FirstOrDefault(n => n.LoaiNhanCong == AIE.Core.Enums.LoaiNhanCong.XayDung);
+                }
+                if (ncNhom1 == null)
+                {
+                    ncNhom1 = duToan.BangTongHop?.DanhSachNhanCong?.FirstOrDefault();
+                }
+
+                decimal defaultGiaNC = ncNhom1 != null && ncNhom1.GiaHienTruong > 0 ? ncNhom1.GiaHienTruong : 254498m;
+                string defaultMaNC = ncNhom1 != null ? ncNhom1.MaVatTu : "NC_XD_1";
+
                 foreach (var vl in materialsWithBo)
                 {
                     var cfgBo = VanChuyenStorage.GetConfigBo(vl.TenVatTu);
@@ -2024,6 +2212,9 @@ namespace AIE.ExcelAddIn.Services
                     decimal cuLyMet = cfgBo != null && cfgBo.CuLyMet > 0 ? cfgBo.CuLyMet : 30m;
                     decimal heSoDiaHinh = cfgBo != null && cfgBo.HeSoDiaHinh > 0 ? cfgBo.HeSoDiaHinh : 1.0m;
                     int soTang = cfgBo != null && cfgBo.SoTang > 0 ? cfgBo.SoTang : 1;
+
+                    decimal giaNhanCong = (cfgBo != null && cfgBo.DonGiaNhanCong > 0) ? cfgBo.DonGiaNhanCong : defaultGiaNC;
+                    string maNC = (cfgBo != null && !string.IsNullOrEmpty(cfgBo.MaNhanCong)) ? cfgBo.MaNhanCong : defaultMaNC;
 
                     ws.Cells[r, 1] = $"{boIdx++}. Vận chuyển bộ: {vl.TenVatTu} (Mã hiệu: {vl.MaVatTu}) - ĐVT: {vl.DonVi}";
                     var boTitleRng = ws.Range[ws.Cells[r, 1], ws.Cells[r, 10]];
@@ -2064,7 +2255,7 @@ namespace AIE.ExcelAddIn.Services
 
                     // Đơn giá nhân công (link từ TH_NhanCong)
                     ws.Cells[r, 2] = "Đơn giá nhân công (đồng/công):";
-                    ws.Cells[r, 3].Formula = $"=IFERROR(VLOOKUP(\"N001\", 'TH_NhanCong'!$B:$F, 5, 0), 285000)";
+                    ws.Cells[r, 3].Formula = $"=IFERROR(VLOOKUP(\"{maNC}\", 'TH_NhanCong'!$B:$E, 4, 0), {giaNhanCong.ToString(System.Globalization.CultureInfo.InvariantCulture)})";
                     ws.Cells[r, 3].NumberFormat = "#,##0";
                     int giaNcRow = r;
                     r++;
@@ -2110,21 +2301,19 @@ namespace AIE.ExcelAddIn.Services
         public void XuatBangTongHopVatLieu(Workbook wb, DuToan duToan)
         {
             var ws = CreateOrGetSheet(wb, "TH_VatLieu");
-            SetupHeader(ws, "BẢNG TỔNG HỢP VẬT LIỆU", 11);
+            SetupHeader(ws, "BẢNG TỔNG HỢP VẬT LIỆU", 9);
 
             ws.Cells[3, 1] = "STT";
             ws.Cells[3, 2] = "Mã vật liệu";
             ws.Cells[3, 3] = "Tên vật liệu";
             ws.Cells[3, 4] = "Đơn vị";
-            ws.Cells[3, 5] = "Khối lượng";
-            ws.Cells[3, 6] = "Giá mua tại nguồn (đồng)";
-            ws.Cells[3, 7] = "Chi phí bốc xếp (đồng)";
-            ws.Cells[3, 8] = "Cước VC ô tô (đồng)";
-            ws.Cells[3, 9] = "Cước VC bộ (đồng)";
-            ws.Cells[3, 10] = "Giá hiện trường (đồng)";
-            ws.Cells[3, 11] = "Thành tiền (đồng)";
+            ws.Cells[3, 5] = "Giá mua tại nguồn (đồng)";
+            ws.Cells[3, 6] = "Chi phí bốc xếp (đồng)";
+            ws.Cells[3, 7] = "Cước VC ô tô (đồng)";
+            ws.Cells[3, 8] = "Cước VC bộ (đồng)";
+            ws.Cells[3, 9] = "Giá hiện trường (đồng)";
 
-            var headerRange = ws.Range[ws.Cells[3, 1], ws.Cells[3, 11]];
+            var headerRange = ws.Range[ws.Cells[3, 1], ws.Cells[3, 9]];
             headerRange.Font.Bold = true;
             headerRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
             headerRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
@@ -2138,27 +2327,16 @@ namespace AIE.ExcelAddIn.Services
                 ws.Cells[r, 2] = vl.MaVatTu;
                 ws.Cells[r, 3] = vl.TenVatTu;
                 ws.Cells[r, 4] = vl.DonVi;
-                ws.Cells[r, 5] = (double)vl.TongKhoiLuong;
-                ws.Cells[r, 6] = (double)vl.GiaGoc;
-                ws.Cells[r, 7] = (double)vl.ChiPhiBocXep;
-                ws.Cells[r, 8].Formula = $"=IFERROR(VLOOKUP(B{r}, 'ChietTinh_CuocVC'!$B:$J, 6, 0), {((double)vl.CuocVCOTo).ToString(System.Globalization.CultureInfo.InvariantCulture)})";
-                ws.Cells[r, 9].Formula = $"=IFERROR(VLOOKUP(B{r}, 'ChietTinh_CuocVC'!$B:$J, 8, 0), {((double)vl.CuocVCBo).ToString(System.Globalization.CultureInfo.InvariantCulture)})";
-                ws.Cells[r, 10].Formula = $"=F{r}+G{r}+H{r}+I{r}";
-                ws.Cells[r, 11].Formula = $"=E{r}*J{r}";
-                r++;
-            }
-            
-            if (r > 4)
-            {
-                ws.Cells[r, 3] = "TỔNG CỘNG";
-                ws.Cells[r, 11].Formula = $"=SUM(K4:K{r - 1})";
-                ws.Range[ws.Cells[r, 3], ws.Cells[r, 11]].Font.Bold = true;
+                ws.Cells[r, 5] = (double)vl.GiaGoc;
+                ws.Cells[r, 6] = (double)vl.ChiPhiBocXep;
+                ws.Cells[r, 7].Formula = $"=IFERROR(VLOOKUP(B{r}, 'ChietTinh_CuocVC'!$B:$J, 6, 0), {((double)vl.CuocVCOTo).ToString(System.Globalization.CultureInfo.InvariantCulture)})";
+                ws.Cells[r, 8].Formula = $"=IFERROR(VLOOKUP(B{r}, 'ChietTinh_CuocVC'!$B:$J, 8, 0), {((double)vl.CuocVCBo).ToString(System.Globalization.CultureInfo.InvariantCulture)})";
+                ws.Cells[r, 9].Formula = $"=E{r}+F{r}+G{r}+H{r}";
                 r++;
             }
 
-            DrawTableBorders(ws, 3, 1, r - 1, 11);
-            ws.Range["E:E"].NumberFormat = "#,##0.000";
-            ws.Range["F:K"].NumberFormat = "#,##0";
+            DrawTableBorders(ws, 3, 1, r - 1, 9);
+            ws.Range["E:I"].NumberFormat = "#,##0";
             ws.Columns[4].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns.AutoFit();
             ApplyFreezePanes(ws, 3);
@@ -2167,17 +2345,15 @@ namespace AIE.ExcelAddIn.Services
         public void XuatBangTongHopNhanCong(Workbook wb, DuToan duToan)
         {
             var ws = CreateOrGetSheet(wb, "TH_NhanCong");
-            SetupHeader(ws, "BẢNG TỔNG HỢP NHÂN CÔNG", 7);
+            SetupHeader(ws, "BẢNG TỔNG HỢP NHÂN CÔNG", 5);
 
             ws.Cells[3, 1] = "STT";
             ws.Cells[3, 2] = "Mã nhân công";
             ws.Cells[3, 3] = "Tên nhân công";
             ws.Cells[3, 4] = "Đơn vị";
-            ws.Cells[3, 5] = "Khối lượng";
-            ws.Cells[3, 6] = "Giá hiện trường (đồng)";
-            ws.Cells[3, 7] = "Thành tiền (đồng)";
+            ws.Cells[3, 5] = "Giá hiện trường (đồng)";
 
-            var headerRange = ws.Range[ws.Cells[3, 1], ws.Cells[3, 7]];
+            var headerRange = ws.Range[ws.Cells[3, 1], ws.Cells[3, 5]];
             headerRange.Font.Bold = true;
             headerRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
             headerRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
@@ -2191,23 +2367,12 @@ namespace AIE.ExcelAddIn.Services
                 ws.Cells[r, 2] = nc.MaVatTu;
                 ws.Cells[r, 3] = nc.TenVatTu;
                 ws.Cells[r, 4] = nc.DonVi;
-                ws.Cells[r, 5] = (double)nc.TongKhoiLuong;
-                ws.Cells[r, 6] = (double)nc.GiaHienTruong;
-                ws.Cells[r, 7].Formula = $"=E{r}*F{r}";
-                r++;
-            }
-            
-            if (r > 4)
-            {
-                ws.Cells[r, 3] = "TỔNG CỘNG";
-                ws.Cells[r, 7].Formula = $"=SUM(G4:G{r - 1})";
-                ws.Range[ws.Cells[r, 3], ws.Cells[r, 7]].Font.Bold = true;
+                ws.Cells[r, 5] = (double)nc.GiaHienTruong;
                 r++;
             }
 
-            DrawTableBorders(ws, 3, 1, r - 1, 7);
-            ws.Range["E:E"].NumberFormat = "#,##0.000";
-            ws.Range["F:G"].NumberFormat = "#,##0";
+            DrawTableBorders(ws, 3, 1, r - 1, 5);
+            ws.Range["E:E"].NumberFormat = "#,##0";
             ws.Columns[4].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns.AutoFit();
             ApplyFreezePanes(ws, 3);
@@ -2216,17 +2381,15 @@ namespace AIE.ExcelAddIn.Services
         public void XuatBangTongHopCaMay(Workbook wb, DuToan duToan)
         {
             var ws = CreateOrGetSheet(wb, "TH_CaMay");
-            SetupHeader(ws, "BẢNG TỔNG HỢP MÁY THI CÔNG", 7);
+            SetupHeader(ws, "BẢNG TỔNG HỢP MÁY THI CÔNG", 5);
 
             ws.Cells[3, 1] = "STT";
             ws.Cells[3, 2] = "Mã ca máy";
             ws.Cells[3, 3] = "Tên loại máy";
             ws.Cells[3, 4] = "Đơn vị";
-            ws.Cells[3, 5] = "Khối lượng";
-            ws.Cells[3, 6] = "Giá hiện trường (đồng)";
-            ws.Cells[3, 7] = "Thành tiền (đồng)";
+            ws.Cells[3, 5] = "Giá hiện trường (đồng)";
 
-            var headerRange = ws.Range[ws.Cells[3, 1], ws.Cells[3, 7]];
+            var headerRange = ws.Range[ws.Cells[3, 1], ws.Cells[3, 5]];
             headerRange.Font.Bold = true;
             headerRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
             headerRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
@@ -2240,23 +2403,12 @@ namespace AIE.ExcelAddIn.Services
                 ws.Cells[r, 2] = m.MaVatTu;
                 ws.Cells[r, 3] = m.TenVatTu;
                 ws.Cells[r, 4] = m.DonVi;
-                ws.Cells[r, 5] = (double)m.TongKhoiLuong;
-                ws.Cells[r, 6] = (double)m.GiaHienTruong;
-                ws.Cells[r, 7].Formula = $"=E{r}*F{r}";
-                r++;
-            }
-            
-            if (r > 4)
-            {
-                ws.Cells[r, 3] = "TỔNG CỘNG";
-                ws.Cells[r, 7].Formula = $"=SUM(G4:G{r - 1})";
-                ws.Range[ws.Cells[r, 3], ws.Cells[r, 7]].Font.Bold = true;
+                ws.Cells[r, 5] = (double)m.GiaHienTruong;
                 r++;
             }
 
-            DrawTableBorders(ws, 3, 1, r - 1, 7);
-            ws.Range["E:E"].NumberFormat = "#,##0.000";
-            ws.Range["F:G"].NumberFormat = "#,##0";
+            DrawTableBorders(ws, 3, 1, r - 1, 5);
+            ws.Range["E:E"].NumberFormat = "#,##0";
             ws.Columns[4].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns.AutoFit();
             ApplyFreezePanes(ws, 3);

@@ -759,7 +759,8 @@ public class TinhGiaHienTruongForm : Form
                 vl.DonVi,
                 giaNC,
                 vl.CuocVCBo,
-                maDm);
+                maDm,
+                ncNhom1?.MaVatTu);
 
             if (frm.ShowDialog(this) == DialogResult.OK)
             {

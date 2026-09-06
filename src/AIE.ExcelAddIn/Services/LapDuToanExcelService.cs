@@ -136,10 +136,22 @@ public class LapDuToanExcelService
                 if (r < 6) continue;
                 if (r > maxR) maxR = r;
 
-                // Gán Đơn Giá (Cột F, G, H)
-                ws.Cells[r, 6].Value2 = dong.DonGiaVL;
-                ws.Cells[r, 7].Value2 = dong.DonGiaNC;
-                ws.Cells[r, 8].Value2 = dong.DonGiaMay;
+                // Gán Đơn Giá (Cột F, G, H) nếu ô chưa có công thức liên kết
+                string fForm = ws.Cells[r, 6].Formula?.ToString() ?? "";
+                if (!fForm.StartsWith("=", StringComparison.OrdinalIgnoreCase))
+                {
+                    ws.Cells[r, 6].Value2 = dong.DonGiaVL;
+                }
+                string gForm = ws.Cells[r, 7].Formula?.ToString() ?? "";
+                if (!gForm.StartsWith("=", StringComparison.OrdinalIgnoreCase))
+                {
+                    ws.Cells[r, 7].Value2 = dong.DonGiaNC;
+                }
+                string hForm = ws.Cells[r, 8].Formula?.ToString() ?? "";
+                if (!hForm.StartsWith("=", StringComparison.OrdinalIgnoreCase))
+                {
+                    ws.Cells[r, 8].Value2 = dong.DonGiaMay;
+                }
 
                 // 3 Cột Thành tiền: Vật liệu (I), Nhân công (J), Máy thi công (K)
                 ws.Cells[r, 9].Formula = $"=ROUND(E{r}*F{r}, 0)";

@@ -776,7 +776,8 @@ public class ThamDinhDonGiaForm : Form
                 vl.DonVi,
                 giaNC,
                 vl.CuocVCBo,
-                maDm);
+                maDm,
+                ncNhom1?.MaHieu);
 
             if (frm.ShowDialog(this) == DialogResult.OK)
             {

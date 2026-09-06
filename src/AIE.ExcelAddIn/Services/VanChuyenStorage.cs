@@ -25,6 +25,8 @@ public class VanChuyenBoSavedConfig
     public int SoTang { get; set; } = 1;
     public List<DoanVanChuyenBo> DoanBos { get; set; } = new();
     public decimal CuocVCBo { get; set; }
+    public decimal DonGiaNhanCong { get; set; }
+    public string MaNhanCong { get; set; } = string.Empty;
 }
 
 public class TuyenDuongTemplate
@@ -241,7 +243,15 @@ public static class VanChuyenStorage
         }
     }
 
-    public static void SaveConfigBo(string tenVatTu, string maDinhMuc, decimal cuLyMet, decimal heSoDiaHinh, int soTang, decimal cuocVCBo)
+    public static void SaveConfigBo(
+        string tenVatTu, 
+        string maDinhMuc, 
+        decimal cuLyMet, 
+        decimal heSoDiaHinh, 
+        int soTang, 
+        decimal cuocVCBo,
+        decimal donGiaNhanCong = 0,
+        string maNhanCong = "")
     {
         if (string.IsNullOrWhiteSpace(tenVatTu)) return;
         EnsureLoadedBo();
@@ -249,13 +259,16 @@ public static class VanChuyenStorage
         lock (_lock)
         {
             _cacheBo ??= new Dictionary<string, VanChuyenBoSavedConfig>(StringComparer.OrdinalIgnoreCase);
+            var existing = _cacheBo.TryGetValue(key, out var old) ? old : null;
             _cacheBo[key] = new VanChuyenBoSavedConfig
             {
                 MaDinhMuc = maDinhMuc,
                 CuLyMet = cuLyMet,
                 HeSoDiaHinh = heSoDiaHinh,
                 SoTang = soTang,
-                CuocVCBo = cuocVCBo
+                CuocVCBo = cuocVCBo,
+                DonGiaNhanCong = donGiaNhanCong > 0 ? donGiaNhanCong : (existing?.DonGiaNhanCong ?? 0),
+                MaNhanCong = !string.IsNullOrEmpty(maNhanCong) ? maNhanCong : (existing?.MaNhanCong ?? "")
             };
 
             try
