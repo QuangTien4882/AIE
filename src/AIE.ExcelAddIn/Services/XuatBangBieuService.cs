@@ -2307,17 +2307,19 @@ namespace AIE.ExcelAddIn.Services
             ws.Cells[3, 2] = "Mã vật liệu";
             ws.Cells[3, 3] = "Tên vật liệu";
             ws.Cells[3, 4] = "Đơn vị";
-            ws.Cells[3, 5] = "Giá mua tại nguồn (đồng)";
-            ws.Cells[3, 6] = "Chi phí bốc xếp (đồng)";
-            ws.Cells[3, 7] = "Cước VC ô tô (đồng)";
-            ws.Cells[3, 8] = "Cước VC bộ (đồng)";
-            ws.Cells[3, 9] = "Giá hiện trường (đồng)";
+            ws.Cells[3, 5] = "Giá gốc\n(đồng)";
+            ws.Cells[3, 6] = "Chi phí bốc xếp\n(đồng)";
+            ws.Cells[3, 7] = "Cước VC ô tô\n(đồng)";
+            ws.Cells[3, 8] = "Cước VC bộ\n(đồng)";
+            ws.Cells[3, 9] = "Giá hiện trường\n(đồng)";
 
             var headerRange = ws.Range[ws.Cells[3, 1], ws.Cells[3, 9]];
             headerRange.Font.Bold = true;
             headerRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
-            headerRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
+            headerRange.VerticalAlignment = XlVAlign.xlVAlignTop;
+            headerRange.WrapText = true;
             headerRange.Interior.Color = ColorTranslator.ToOle(Color.LightGray);
+            ws.Rows[3].RowHeight = 28;
 
             int r = 4;
             int stt = 1;
@@ -2351,13 +2353,15 @@ namespace AIE.ExcelAddIn.Services
             ws.Cells[3, 2] = "Mã nhân công";
             ws.Cells[3, 3] = "Tên nhân công";
             ws.Cells[3, 4] = "Đơn vị";
-            ws.Cells[3, 5] = "Giá hiện trường (đồng)";
+            ws.Cells[3, 5] = "Giá nhân công\n(đồng)";
 
             var headerRange = ws.Range[ws.Cells[3, 1], ws.Cells[3, 5]];
             headerRange.Font.Bold = true;
             headerRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
-            headerRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
+            headerRange.VerticalAlignment = XlVAlign.xlVAlignTop;
+            headerRange.WrapText = true;
             headerRange.Interior.Color = ColorTranslator.ToOle(Color.LightGray);
+            ws.Rows[3].RowHeight = 28;
 
             int r = 4;
             int stt = 1;
@@ -2387,13 +2391,15 @@ namespace AIE.ExcelAddIn.Services
             ws.Cells[3, 2] = "Mã ca máy";
             ws.Cells[3, 3] = "Tên loại máy";
             ws.Cells[3, 4] = "Đơn vị";
-            ws.Cells[3, 5] = "Giá hiện trường (đồng)";
+            ws.Cells[3, 5] = "Giá ca máy\n(đồng)";
 
             var headerRange = ws.Range[ws.Cells[3, 1], ws.Cells[3, 5]];
             headerRange.Font.Bold = true;
             headerRange.HorizontalAlignment = XlHAlign.xlHAlignCenter;
-            headerRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
+            headerRange.VerticalAlignment = XlVAlign.xlVAlignTop;
+            headerRange.WrapText = true;
             headerRange.Interior.Color = ColorTranslator.ToOle(Color.LightGray);
+            ws.Rows[3].RowHeight = 28;
 
             int r = 4;
             int stt = 1;
@@ -2434,6 +2440,79 @@ namespace AIE.ExcelAddIn.Services
 
             DrawTableBorders(ws, 3, 1, 8, 3);
             ws.Columns.AutoFit();
+        }
+
+        /// <summary>
+        /// Áp giá hiện trường vào dự toán: Xuất các bảng phụ thuộc (TH_NhanCong, TH_CaMay, ChietTinh_CuocVC, TH_VatLieu, PhanTich_DonGia)
+        /// và liên kết công thức sống (=PhanTich_DonGia!G...) vào sheet DuToan.
+        /// </summary>
+        public void ApGiaVaLienKetDuToan(DuToan duToan)
+        {
+            var app = (Application)ExcelDnaUtil.Application;
+            var wb = app?.ActiveWorkbook;
+            if (wb == null) throw new Exception("Không có Workbook nào đang mở.");
+
+            app.ScreenUpdating = false;
+            app.Calculation = XlCalculation.xlCalculationManual;
+
+            try
+            {
+                Worksheet wsDuToan = null;
+                foreach (Worksheet sheet in wb.Sheets)
+                {
+                    if (sheet.Name.StartsWith("DuToan", StringComparison.OrdinalIgnoreCase))
+                    {
+                        wsDuToan = sheet;
+                        break;
+                    }
+                }
+                if (wsDuToan == null) wsDuToan = wb.ActiveSheet as Worksheet;
+
+                // 1. Xuất/cập nhật các bảng thành phần theo thứ tự phụ thuộc
+                XuatBangTongHopNhanCong(wb, duToan);
+                XuatBangTongHopCaMay(wb, duToan);
+                XuatChietTinhCuocVC(wb, duToan);
+                XuatBangTongHopVatLieu(wb, duToan);
+
+                // 2. Xuất bảng phân tích đơn giá chi tiết và link công thức vào sheet DuToan
+                XuatPhanTichDonGia(wb, duToan, wsDuToan);
+
+                // 3. Sắp xếp lại thứ tự sheet theo đúng chuẩn
+                SapXepLaiThuTuCacSheet(wb, wsDuToan);
+
+                // 4. Cập nhật dòng TỔNG CỘNG trên sheet DuToan nếu có
+                if (wsDuToan != null)
+                {
+                    int maxR = 5;
+                    foreach (var hm in duToan.DanhSachHangMuc)
+                    {
+                        foreach (var dong in hm.DanhSachCongTac)
+                        {
+                            int r = dong.STT;
+                            if (r > maxR) maxR = r;
+                        }
+                    }
+                    int totalRow = maxR + 1;
+                    string cVal = wsDuToan.Cells[totalRow, 3]?.Value2?.ToString()?.Trim() ?? "";
+                    if (cVal.Equals("TỔNG CỘNG", StringComparison.OrdinalIgnoreCase) || cVal.Equals("CỘNG", StringComparison.OrdinalIgnoreCase))
+                    {
+                        wsDuToan.Cells[totalRow, 9].Formula = $"=SUM(I6:I{maxR})";
+                        wsDuToan.Cells[totalRow, 10].Formula = $"=SUM(J6:J{maxR})";
+                        wsDuToan.Cells[totalRow, 11].Formula = $"=SUM(K6:K{maxR})";
+                    }
+
+                    wsDuToan.Activate();
+                }
+
+                // 5. Kích hoạt tính toán lại toàn bộ công thức
+                app.Calculation = XlCalculation.xlCalculationAutomatic;
+                try { app.Calculate(); } catch { }
+            }
+            finally
+            {
+                app.ScreenUpdating = true;
+                app.Calculation = XlCalculation.xlCalculationAutomatic;
+            }
         }
     }
 }

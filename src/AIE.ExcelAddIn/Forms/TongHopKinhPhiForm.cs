@@ -164,15 +164,39 @@ namespace AIE.ExcelAddIn.Forms
                 hasScanned = QuetDuLieuTuSheetTHChiPhiXD();
                 if (!hasScanned)
                 {
+                    string loaiCT = !string.IsNullOrEmpty(_duToan.LoaiCongTrinh) ? _duToan.LoaiCongTrinh : "Dân dụng";
+                    string capCT = !string.IsNullOrEmpty(_duToan.CapCongTrinh) ? _duToan.CapCongTrinh : "Cấp III";
+
+                    if (_duToan.ChiPhiXD == null)
+                    {
+                        decimal cpc = 0m;
+                        var listCPC = _cpcRepo.GetByLoaiCongTrinh(loaiCT, null);
+                        if (listCPC != null && listCPC.Count > 0)
+                            cpc = InterpolationHelper.NoiSuyTiLeCPC(listCPC, _tongT);
+                        else
+                            cpc = 7.3m;
+
+                        decimal tt = 0m;
+                        var objTT = _ttRepo.GetByLoaiCongTrinh(loaiCT, null);
+                        if (objTT != null)
+                            tt = objTT.TiLe;
+                        else
+                            tt = 2.5m;
+
+                        decimal tncttt = (loaiCT == "Công nghiệp" || loaiCT == "Giao thông") ? 6.0m : 5.5m;
+                        decimal gtgt = 10.0m;
+                        decimal nhatam = 1.2m;
+
+                        _duToan.ChiPhiXD = _calcService.Tinh(_tongVL, _tongNC, _tongMay, cpc, tt, tncttt, gtgt, nhatam, "T");
+                    }
+
                     decimal gXD = _duToan.ChiPhiXD?.G ?? 0m;
                     if (gXD <= 0)
                     {
                         decimal tongT = _tongT;
                         gXD = tongT > 0 ? tongT : 10_000_000_000m;
                     }
-
-                    string loaiCT = !string.IsNullOrEmpty(_duToan.LoaiCongTrinh) ? _duToan.LoaiCongTrinh : "";
-                    string capCT = !string.IsNullOrEmpty(_duToan.CapCongTrinh) ? _duToan.CapCongTrinh : "";
+                    decimal ntTruocThue = Math.Round(gXD * (_duToan.ChiPhiXD?.TiLeNhaTam > 0 ? _duToan.ChiPhiXD.TiLeNhaTam : 1.2m) / 100m, 0);
 
                     _model = DinhMucTT38Engine.TaoBangKinhPhiMacDinh(
                         loaiCT: !string.IsNullOrEmpty(loaiCT) ? loaiCT : "Dân dụng",
@@ -181,18 +205,12 @@ namespace AIE.ExcelAddIn.Forms
                         chiPhiXD: gXD,
                         chiPhiTB: _duToan.ChiPhiThietBi,
                         chiPhiBT: 0m,
-                        chiPhiNhaTam: 0m
+                        chiPhiNhaTam: ntTruocThue
                     );
                     _model.LoaiCongTrinh = loaiCT;
                     _model.CapCongTrinh = capCT;
                     if (_duToan.SoBuocThietKe == 0) _model.SoBuocThietKe = 0;
                 }
-            }
-
-            // Nếu chưa quét sheet TH_ChiPhiXD thì thử quét lại để cập nhật chính xác G_XD và G_NHA_TAM
-            if (!hasScanned)
-            {
-                QuetDuLieuTuSheetTHChiPhiXD();
             }
         }
 
@@ -1072,7 +1090,11 @@ namespace AIE.ExcelAddIn.Forms
                 Cursor = Cursors.Hand,
                 Margin = new Padding(0, 14, 0, 0)
             };
-            btnChuyenSangTab2.Click += (s, e) => { tabMain.SelectedTab = tabTMDT; };
+            btnChuyenSangTab2.Click += (s, e) =>
+            {
+                TinhToanChiPhiXD();
+                tabMain.SelectedTab = tabTMDT;
+            };
 
             pnlLeftXD.Controls.Add(btnChuyenSangTab2);
             pnlLeftXD.Controls.Add(grpTyLeXD);
@@ -1158,7 +1180,14 @@ namespace AIE.ExcelAddIn.Forms
                 DrawMode = TabDrawMode.OwnerDrawFixed
             };
             tabMain.DrawItem += TabMain_DrawItem;
-            tabMain.SelectedIndexChanged += (s, e) => tabMain.Invalidate();
+            tabMain.SelectedIndexChanged += (s, e) =>
+            {
+                tabMain.Invalidate();
+                if (tabMain.SelectedTab == tabTMDT)
+                {
+                    TinhToanChiPhiXD();
+                }
+            };
             tabMain.TabPages.Add(tabChiPhiXD);
             tabMain.TabPages.Add(tabTMDT);
 
@@ -1226,6 +1255,13 @@ namespace AIE.ExcelAddIn.Forms
                     itemQLDA.ThueSuatGTGT = 0m;
                 }
 
+                // Mặc định thuế VAT của Chi phí bồi thường, hỗ trợ, TĐC là 0%
+                var itemBT = _model.Items.FirstOrDefault(x => x.MaChiPhi == "G_BT" || x.Nhom == NhomChiPhi.BoiThuong_TDC);
+                if (itemBT != null)
+                {
+                    itemBT.ThueSuatGTGT = 0m;
+                }
+
                 // Đồng bộ cboVATChung với thuế suất của G_XD nếu có
                 var itemXD = _model.Items.FirstOrDefault(x => x.MaChiPhi == "G_XD");
                 if (itemXD != null)
@@ -1245,6 +1281,9 @@ namespace AIE.ExcelAddIn.Forms
             {
                 _isUpdating = false;
             }
+
+            // Đảm bảo tính toán Chi phí Xây dựng và đồng bộ đầy đủ sang Tab 2 ngay từ đầu
+            TinhToanChiPhiXD();
         }
 
         private void NapDuLieuTabChiPhiXD()
@@ -1317,7 +1356,7 @@ namespace AIE.ExcelAddIn.Forms
             cboLoaiCongTrinhXD.Items.Clear();
             cboLoaiCongTrinhXD.Items.AddRange(new object[] { "-- Chọn loại công trình --", "Dân dụng", "Công nghiệp", "Giao thông", "Nông nghiệp & PTNT", "Hạ tầng kỹ thuật" });
 
-            string target = !string.IsNullOrEmpty(_duToan.LoaiCongTrinh) ? _duToan.LoaiCongTrinh : "";
+            string target = !string.IsNullOrEmpty(_duToan.LoaiCongTrinh) ? _duToan.LoaiCongTrinh : (!string.IsNullOrEmpty(_model?.LoaiCongTrinh) ? _model.LoaiCongTrinh : "Dân dụng");
             if (target == "Nông nghiệp và môi trường") target = "Nông nghiệp & PTNT";
 
             if (!string.IsNullOrEmpty(target) && cboLoaiCongTrinhXD.Items.Contains(target))
@@ -1326,7 +1365,7 @@ namespace AIE.ExcelAddIn.Forms
             }
             else
             {
-                cboLoaiCongTrinhXD.SelectedIndex = 0;
+                cboLoaiCongTrinhXD.SelectedIndex = 1;
             }
         }
 
@@ -1555,7 +1594,7 @@ namespace AIE.ExcelAddIn.Forms
             DinhMucTT38Engine.CapNhatToanBoDinhMucVaTinhToan(_model);
             _model.TinhToanLai();
 
-            if (dgvChiPhi != null && dgvChiPhi.Rows.Count > 0)
+            if (dgvChiPhi != null)
             {
                 DanhLaiSoThuTu();
                 HienThiDuLieuLenGrid();
@@ -1573,7 +1612,11 @@ namespace AIE.ExcelAddIn.Forms
                 // CHẾ ĐỘ TỔNG MỨC ĐẦU TƯ (BẢNG 1.2)
                 txtChiPhiBT.Enabled = true;
                 var itemBT = _model.Items.FirstOrDefault(x => x.Nhom == NhomChiPhi.BoiThuong_TDC);
-                if (itemBT != null) itemBT.IsActive = true;
+                if (itemBT != null)
+                {
+                    itemBT.IsActive = true;
+                    itemBT.ThueSuatGTGT = 0m;
+                }
 
                 // Dự phòng TMĐT chuẩn 10%
                 var itemDP = _model.Items.FirstOrDefault(x => x.Nhom == NhomChiPhi.ChiPhiDuPhong);
@@ -1921,9 +1964,13 @@ namespace AIE.ExcelAddIn.Forms
             foreach (var item in _model.Items)
             {
                 // Mặc định Chi phí QLDA không chịu thuế GTGT (0%) và giữ 0% cho các khoản phí ngân sách nhà nước
+                // G_XD và G_NHA_TAM được đồng bộ riêng từ Tab Chi phí XD, không đổi qua cboVATChung
+                // G_BT luôn 0% (chi phí bồi thường không chịu thuế GTGT)
                 if (item.MaChiPhi == "G_QLDA" || item.Nhom == NhomChiPhi.QuanLyDuAn ||
                     item.MaChiPhi == "K_TD_DA" || item.MaChiPhi == "K_TD_TK" || 
-                    item.MaChiPhi == "K_TD_DT" || item.MaChiPhi == "K_TT_QUYETTOAN")
+                    item.MaChiPhi == "K_TD_DT" || item.MaChiPhi == "K_TT_QUYETTOAN" ||
+                    item.MaChiPhi == "G_XD" || item.MaChiPhi == "G_NHA_TAM" ||
+                    item.MaChiPhi == "G_BT")
                 {
                     continue;
                 }

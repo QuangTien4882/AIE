@@ -468,9 +468,9 @@ public class TinhGiaHienTruongForm : Form
                 catch { }
             }
 
-            // 4. Ghi vào Excel
-            var excelService = new LapDuToanExcelService();
-            excelService.WriteDonGiaToExcel(_duToan);
+            // 4. Ghi vào Excel: Xuất các bảng thành phần và liên kết công thức sống vào sheet DuToan
+            var xuatService = new XuatBangBieuService();
+            xuatService.ApGiaVaLienKetDuToan(_duToan);
 
             MessageBox.Show("Đã áp giá thành công vào file Excel!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
             this.Close();
