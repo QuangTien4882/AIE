@@ -61,12 +61,21 @@ public class LapDuToanExcelService
         duToan.TenCongTrinh = string.IsNullOrEmpty(tenDuAn) ? "Công trình mặc định" : tenDuAn;
         duToan.DiaDiem = string.IsNullOrEmpty(diaDiem) ? "Không xác định" : diaDiem;
 
-        // Đọc Vùng áp dụng từ ô J1 (lưu dưới dạng int enum)
-        string vungStr = GetCellValue(ws, 1, 10);
+        // Đọc Vùng áp dụng từ ô Z1 (cột 26), nếu không có thử đọc từ L1 (cột 12) hoặc J1 (cột 10)
+        string vungStr = GetCellValue(ws, 1, 26);
+        if (string.IsNullOrEmpty(vungStr)) vungStr = GetCellValue(ws, 1, 12);
+        if (string.IsNullOrEmpty(vungStr)) vungStr = GetCellValue(ws, 1, 10);
         if (int.TryParse(vungStr, out int vungInt) && System.Enum.IsDefined(typeof(AIE.Core.Enums.Vung), vungInt))
         {
             duToan.VungApDung = (AIE.Core.Enums.Vung)vungInt;
         }
+
+        // Đảm bảo mở lại hiển thị cột 10 (J - Thành tiền Nhân công) nếu vô tình bị ẩn trước đó
+        try
+        {
+            ((Range)ws.Columns[10]).Hidden = false;
+        }
+        catch { }
 
         Range usedRange = ws.UsedRange;
         int maxRow = usedRange.Rows.Count + usedRange.Row - 1;
@@ -93,10 +102,10 @@ public class LapDuToanExcelService
             string maHieu = GetCellValue(ws, r, 2).Trim(); // Cột B
             string ten = GetCellValue(ws, r, 3).Trim();    // Cột C
             string donVi = GetCellValue(ws, r, 4).Trim();  // Cột D
-            string klStr = GetCellValue(ws, r, 5).Trim();  // Cột E
-            string dgVLStr = GetCellValue(ws, r, 6).Trim();  // Cột F
-            string dgNCStr = GetCellValue(ws, r, 7).Trim();  // Cột G
-            string dgMayStr = GetCellValue(ws, r, 8).Trim(); // Cột H
+            decimal khoiLuong = GetCellDecimal(ws, r, 5);  // Cột E
+            decimal donGiaVL = GetCellDecimal(ws, r, 6);   // Cột F
+            decimal donGiaNC = GetCellDecimal(ws, r, 7);   // Cột G
+            decimal donGiaMay = GetCellDecimal(ws, r, 8);  // Cột H
 
             // Dòng hoàn toàn rỗng -> bỏ qua
             if (string.IsNullOrWhiteSpace(sttRaw) && 
@@ -118,7 +127,7 @@ public class LapDuToanExcelService
 
             // Phân biệt: Công tác vs Dòng Tiêu đề (Header)
             bool isWorkItem = !string.IsNullOrWhiteSpace(maHieu) || 
-                              (!string.IsNullOrWhiteSpace(donVi) && decimal.TryParse(klStr, out _));
+                              (!string.IsNullOrWhiteSpace(donVi) && khoiLuong > 0);
 
             if (!isWorkItem && !string.IsNullOrWhiteSpace(ten))
             {
@@ -184,11 +193,6 @@ public class LapDuToanExcelService
                 };
                 duToan.DanhSachHangMuc.Add(currentHM);
             }
-
-            decimal.TryParse(klStr, out decimal khoiLuong);
-            decimal.TryParse(dgVLStr, out decimal donGiaVL);
-            decimal.TryParse(dgNCStr, out decimal donGiaNC);
-            decimal.TryParse(dgMayStr, out decimal donGiaMay);
 
             var dong = new DongDuToan
             {
@@ -297,25 +301,43 @@ public class LapDuToanExcelService
             }
         }
 
-        // Cập nhật dòng TỔNG CỘNG TOÀN DỰ ÁN nếu có
+        // Cập nhật dòng TỔNG CỘNG TOÀN DỰ ÁN
         int totalRow = maxR + 1;
-        string cVal = ws.Cells[totalRow, 3]?.Value2?.ToString()?.Trim() ?? "";
-        if (cVal.StartsWith("TỔNG CỘNG", StringComparison.OrdinalIgnoreCase) || cVal.Equals("CỘNG", StringComparison.OrdinalIgnoreCase))
+        ws.Cells[totalRow, 3].Value2 = "TỔNG CỘNG TOÀN DỰ ÁN";
+        var validHms = duToan.DanhSachHangMuc.Where(h => h.RowIndex > 0).ToList();
+        if (validHms.Count > 1)
         {
-            var validHms = duToan.DanhSachHangMuc.Where(h => h.RowIndex > 0).ToList();
-            if (validHms.Count > 1)
-            {
-                ws.Cells[totalRow, 9].Formula = $"={string.Join("+", validHms.Select(h => $"I{h.RowIndex}"))}";
-                ws.Cells[totalRow, 10].Formula = $"={string.Join("+", validHms.Select(h => $"J{h.RowIndex}"))}";
-                ws.Cells[totalRow, 11].Formula = $"={string.Join("+", validHms.Select(h => $"K{h.RowIndex}"))}";
-            }
-            else
-            {
-                ws.Cells[totalRow, 9].Formula = $"=SUM(I6:I{maxR})";
-                ws.Cells[totalRow, 10].Formula = $"=SUM(J6:J{maxR})";
-                ws.Cells[totalRow, 11].Formula = $"=SUM(K6:K{maxR})";
-            }
+            ws.Cells[totalRow, 9].Formula = $"={string.Join("+", validHms.Select(h => $"I{h.RowIndex}"))}";
+            ws.Cells[totalRow, 10].Formula = $"={string.Join("+", validHms.Select(h => $"J{h.RowIndex}"))}";
+            ws.Cells[totalRow, 11].Formula = $"={string.Join("+", validHms.Select(h => $"K{h.RowIndex}"))}";
         }
+        else if (validHms.Count == 1)
+        {
+            ws.Cells[totalRow, 9].Formula = $"=I{validHms[0].RowIndex}";
+            ws.Cells[totalRow, 10].Formula = $"=J{validHms[0].RowIndex}";
+            ws.Cells[totalRow, 11].Formula = $"=K{validHms[0].RowIndex}";
+        }
+        else
+        {
+            ws.Cells[totalRow, 9].Formula = $"=SUM(I6:I{maxR})";
+            ws.Cells[totalRow, 10].Formula = $"=SUM(J6:J{maxR})";
+            ws.Cells[totalRow, 11].Formula = $"=SUM(K6:K{maxR})";
+        }
+
+        ws.Range[ws.Cells[totalRow, 1], ws.Cells[totalRow, 11]].Font.Bold = true;
+        ws.Range[ws.Cells[totalRow, 1], ws.Cells[totalRow, 11]].Interior.Color = ColorTranslator.ToOle(Color.FromArgb(200, 225, 250));
+
+        // Kẻ khung toàn bộ bảng và định dạng số
+        Range fullTable = ws.Range[ws.Cells[4, 1], ws.Cells[totalRow, 11]];
+        fullTable.Borders.LineStyle = XlLineStyle.xlContinuous;
+        ExcelFormatHelper.ApplyQuantityFormat(ws.Range[ws.Cells[6, 5], ws.Cells[totalRow, 5]], 2);
+        ExcelFormatHelper.ApplyIntegerFormat(ws.Range[ws.Cells[6, 6], ws.Cells[totalRow, 11]]);
+        try 
+        { 
+            ((Range)ws.Columns[10]).Hidden = false; 
+            ((Range)ws.Columns[10]).ColumnWidth = 16; 
+        } 
+        catch { }
     }
 
     /// <summary>
@@ -561,8 +583,8 @@ public class LapDuToanExcelService
                 Range numberCols = ws.Range[$"E6:K{r - 1}"];
                 numberCols.HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignRight;
 
-                ws.Range[$"E6:E{r - 1}"].NumberFormat = "#,##0.000";
-                ws.Range[$"F6:K{r - 1}"].NumberFormat = "#,##0";
+                ExcelFormatHelper.ApplyQuantityFormat(ws.Range[$"E6:E{r - 1}"], 2);
+                ExcelFormatHelper.ApplyIntegerFormat(ws.Range[$"F6:K{r - 1}"]);
             }
             
             // Freeze panes at row 5 (headers are rows 4 & 5)
@@ -589,6 +611,26 @@ public class LapDuToanExcelService
         catch
         {
             return string.Empty;
+        }
+    }
+
+    private decimal GetCellDecimal(Worksheet ws, int row, int col)
+    {
+        try
+        {
+            Range range = ws.Cells[row, col];
+            if (range == null || range.Value2 == null) return 0m;
+            object val = range.Value2;
+            if (val is double d) return Convert.ToDecimal(d);
+            if (val is int i) return (decimal)i;
+            if (val is decimal m) return m;
+            if (val is float f) return Convert.ToDecimal(f);
+            string str = val.ToString().Trim();
+            return UIHelper.ParseFlexibleDecimal(str, isPercentage: false);
+        }
+        catch
+        {
+            return 0m;
         }
     }
 

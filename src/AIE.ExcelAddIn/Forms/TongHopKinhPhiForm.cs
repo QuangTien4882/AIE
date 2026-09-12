@@ -161,9 +161,9 @@ namespace AIE.ExcelAddIn.Forms
             _ttRepo = new DinhMucTTRepository(db.Context.GetConnection());
             _calcService = new ChiPhiXayDungCalc();
 
-            _tongVL = _duToan.DanhSachHangMuc?.Sum(hm => hm.DanhSachCongTac.Sum(c => Math.Round(c.KhoiLuong * c.DonGiaVL, 0))) ?? 0m;
-            _tongNC = _duToan.DanhSachHangMuc?.Sum(hm => hm.DanhSachCongTac.Sum(c => Math.Round(c.KhoiLuong * c.DonGiaNC, 0))) ?? 0m;
-            _tongMay = _duToan.DanhSachHangMuc?.Sum(hm => hm.DanhSachCongTac.Sum(c => Math.Round(c.KhoiLuong * c.DonGiaMay, 0))) ?? 0m;
+            _tongVL = _duToan.DanhSachHangMuc?.Sum(hm => hm.TongVL) ?? 0m;
+            _tongNC = _duToan.DanhSachHangMuc?.Sum(hm => hm.TongNC) ?? 0m;
+            _tongMay = _duToan.DanhSachHangMuc?.Sum(hm => hm.TongMay) ?? 0m;
             _tongT = _tongVL + _tongNC + _tongMay;
 
             bool hasScanned = false;
@@ -265,10 +265,14 @@ namespace AIE.ExcelAddIn.Forms
                                         object valI = sheet.Cells[r, 9]?.Value2;
                                         object valJ = sheet.Cells[r, 10]?.Value2;
                                         object valK = sheet.Cells[r, 11]?.Value2;
-                                        if (valI != null && decimal.TryParse(valI.ToString(), out decimal vI) && vI > 0) _tongVL = vI;
-                                        if (valJ != null && decimal.TryParse(valJ.ToString(), out decimal vJ) && vJ > 0) _tongNC = vJ;
-                                        if (valK != null && decimal.TryParse(valK.ToString(), out decimal vK) && vK > 0) _tongMay = vK;
-                                        _tongT = _tongVL + _tongNC + _tongMay;
+                                        decimal vI = valI != null ? UIHelper.ParseTien(valI.ToString()) : 0m;
+                                        decimal vJ = valJ != null ? UIHelper.ParseTien(valJ.ToString()) : 0m;
+                                        decimal vK = valK != null ? UIHelper.ParseTien(valK.ToString()) : 0m;
+                                        if (vI > 0) _tongVL = vI;
+                                        if (vJ > 0) _tongNC = vJ;
+                                        if (vK > 0) _tongMay = vK;
+                                        if (_tongVL > 0 || _tongNC > 0 || _tongMay > 0)
+                                            _tongT = _tongVL + _tongNC + _tongMay;
                                         break;
                                     }
                                 }
@@ -377,12 +381,15 @@ namespace AIE.ExcelAddIn.Forms
                     }
                 }
 
-                if (scannedVL > 0) _tongVL = scannedVL;
-                if (scannedNC > 0) _tongNC = scannedNC;
-                if (scannedM > 0) _tongMay = scannedM;
-                if (_tongVL > 0 || _tongNC > 0 || _tongMay > 0)
+                if (_tongT == 0)
                 {
-                    _tongT = _tongVL + _tongNC + _tongMay;
+                    if (scannedVL > 0) _tongVL = scannedVL;
+                    if (scannedNC > 0) _tongNC = scannedNC;
+                    if (scannedM > 0) _tongMay = scannedM;
+                    if (_tongVL > 0 || _tongNC > 0 || _tongMay > 0)
+                    {
+                        _tongT = _tongVL + _tongNC + _tongMay;
+                    }
                 }
 
                 if (_duToan.ChiPhiXD == null) _duToan.ChiPhiXD = new ChiPhiXayDung();
@@ -1389,7 +1396,7 @@ namespace AIE.ExcelAddIn.Forms
             _isChangingHangMuc = true;
             try
             {
-                cboHangMucSelector.SelectedIndex = _duToan?.DanhSachHangMuc?.Count > 1 ? 1 : 0;
+                cboHangMucSelector.SelectedIndex = 0;
             }
             finally
             {
@@ -1397,16 +1404,24 @@ namespace AIE.ExcelAddIn.Forms
             }
 
             int idx = cboHangMucSelector.SelectedIndex;
-            int hmIdx = (_duToan.DanhSachHangMuc != null && _duToan.DanhSachHangMuc.Count > 1) ? idx - 1 : idx;
-            if (_duToan.DanhSachHangMuc != null && hmIdx >= 0 && hmIdx < _duToan.DanhSachHangMuc.Count)
+            if (_duToan.DanhSachHangMuc != null && _duToan.DanhSachHangMuc.Count > 1 && idx == 0)
             {
-                _currentHangMuc = _duToan.DanhSachHangMuc[hmIdx];
-                NapDuLieuChoHangMucHienHanh(_currentHangMuc);
+                _currentHangMuc = null;
+                HienThiTongHopToanDuAn();
             }
             else
             {
-                CapNhatTrangThaiQuyMoXD();
-                TuDongTraTiLeXD();
+                int hmIdx = (_duToan.DanhSachHangMuc != null && _duToan.DanhSachHangMuc.Count > 1) ? idx - 1 : idx;
+                if (_duToan.DanhSachHangMuc != null && hmIdx >= 0 && hmIdx < _duToan.DanhSachHangMuc.Count)
+                {
+                    _currentHangMuc = _duToan.DanhSachHangMuc[hmIdx];
+                    NapDuLieuChoHangMucHienHanh(_currentHangMuc);
+                }
+                else
+                {
+                    CapNhatTrangThaiQuyMoXD();
+                    TuDongTraTiLeXD();
+                }
             }
         }
 
@@ -1438,6 +1453,42 @@ namespace AIE.ExcelAddIn.Forms
             _tongVL = hm.TongVL;
             _tongNC = hm.TongNC;
             _tongMay = hm.TongMay;
+
+            // Đồng bộ trực tiếp từ ô công thức tổng của hạng mục trên sheet DuToan nếu đang mở
+            if (hm.RowIndex > 0)
+            {
+                try
+                {
+                    var app = (ExcelApp)ExcelDnaUtil.Application;
+                    var wb = app?.ActiveWorkbook;
+                    if (wb != null)
+                    {
+                        Microsoft.Office.Interop.Excel.Worksheet wsDuToan = null;
+                        foreach (Microsoft.Office.Interop.Excel.Worksheet sheet in wb.Sheets)
+                        {
+                            if (sheet.Name.StartsWith("DuToan", StringComparison.OrdinalIgnoreCase))
+                            {
+                                wsDuToan = sheet;
+                                break;
+                            }
+                        }
+                        if (wsDuToan != null)
+                        {
+                            object valI = wsDuToan.Cells[hm.RowIndex, 9]?.Value2;
+                            object valJ = wsDuToan.Cells[hm.RowIndex, 10]?.Value2;
+                            object valK = wsDuToan.Cells[hm.RowIndex, 11]?.Value2;
+                            decimal vI = valI != null ? UIHelper.ParseTien(valI.ToString()) : 0m;
+                            decimal vJ = valJ != null ? UIHelper.ParseTien(valJ.ToString()) : 0m;
+                            decimal vK = valK != null ? UIHelper.ParseTien(valK.ToString()) : 0m;
+                            if (vI > 0) _tongVL = vI;
+                            if (vJ > 0) _tongNC = vJ;
+                            if (vK > 0) _tongMay = vK;
+                        }
+                    }
+                }
+                catch { }
+            }
+
             _tongT = _tongVL + _tongNC + _tongMay;
 
             if (!string.IsNullOrEmpty(hm.LoaiCongTrinh) && cboLoaiCongTrinhXD.Items.Contains(hm.LoaiCongTrinh))
@@ -1500,6 +1551,12 @@ namespace AIE.ExcelAddIn.Forms
                 GTGT = totalGTGT,
                 LT = totalLT
             };
+
+            if (_model != null)
+            {
+                _model.ChiPhiXDTruocThue = _duToan.ChiPhiXD.GXDTT;
+                _model.ChiPhiNhaTamTruocThue = totalLT;
+            }
         }
 
         private void HienThiTongHopToanDuAn()
@@ -2141,16 +2198,132 @@ namespace AIE.ExcelAddIn.Forms
             // Lọc các khoản mục hiển thị:
             // 1. Nếu là THDT thì ẩn nhóm Bồi thường GPMB
             // 2. Nếu không có chi phí Thiết bị (G_TB == 0), ẩn hoàn toàn dòng Chi phí thiết bị và các khoản mục phụ thuộc thiết bị
+            bool laTMDT = LaCheDoTongMucDauTu;
             bool hasTB = _model.ChiPhiTBTruocThue > 0;
+            int prefixXD = laTMDT ? 2 : 1;
+            int prefixQLDA = hasTB ? (laTMDT ? 4 : 3) : (laTMDT ? 3 : 2);
+            int prefixTV = prefixQLDA + 1;
+            int prefixKhac = prefixTV + 1;
+            int prefixDP = prefixKhac + 1;
+
             var itemsToShow = _model.Items.Where(x =>
             {
-                if (!LaCheDoTongMucDauTu && x.Nhom == NhomChiPhi.BoiThuong_TDC) return false;
+                if (!laTMDT && x.Nhom == NhomChiPhi.BoiThuong_TDC) return false;
                 if (!hasTB && (x.Nhom == NhomChiPhi.ChiPhiThietBi || x.CoSoTinh == CoSoTinhChiPhi.ChiPhiThietBi)) return false;
                 return true;
             }).ToList();
 
+            bool addedXDHeader = false;
+            bool addedTVHeader = false;
+            bool addedKhacHeader = false;
+            bool addedDPHeader = false;
+
             foreach (var item in itemsToShow)
             {
+                // Thêm dòng tổng nhóm 2 (hoặc 1 nếu THDT): Chi phí xây dựng
+                if (item.Nhom == NhomChiPhi.ChiPhiXayDung && !addedXDHeader)
+                {
+                    addedXDHeader = true;
+                    decimal ttXD = itemsToShow.Where(x => x.IsActive && x.Nhom == NhomChiPhi.ChiPhiXayDung).Sum(x => x.GiaTriTruocThue);
+                    decimal stXD = _model.GetTongSauThueNhom(NhomChiPhi.ChiPhiXayDung);
+
+                    int gRowIdx = dgvChiPhi.Rows.Add();
+                    var gRow = dgvChiPhi.Rows[gRowIdx];
+                    gRow.Tag = "GROUP_XD";
+                    gRow.Cells["colActive"] = new DataGridViewTextBoxCell { Value = "" };
+                    gRow.Cells["colSTT"].Value = prefixXD.ToString();
+                    gRow.Cells["colTen"].Value = "Chi phí xây dựng";
+                    gRow.Cells["colCachTinh"] = new DataGridViewTextBoxCell { Value = "" };
+                    gRow.Cells["colCoSo"] = new DataGridViewTextBoxCell { Value = "" };
+                    gRow.Cells["colTyLe"].Value = "";
+                    gRow.Cells["colHeSo"].Value = "";
+                    gRow.Cells["colTruocThue"].Value = UIHelper.FormatTien(ttXD);
+                    gRow.Cells["colVAT"] = new DataGridViewTextBoxCell { Value = "" };
+                    gRow.Cells["colSauThue"].Value = UIHelper.FormatTien(stXD);
+                    gRow.Cells["colKyHieu"].Value = "GXD";
+                    gRow.ReadOnly = true;
+                    gRow.DefaultCellStyle.Font = UIHelper.GetFont(10.5f, FontStyle.Bold);
+                    gRow.DefaultCellStyle.BackColor = Color.FromArgb(220, 235, 252);
+                }
+
+                // Thêm dòng tổng nhóm 4 (hoặc 5 nếu có TB): Chi phí tư vấn đầu tư xây dựng
+                if (item.Nhom == NhomChiPhi.TuVanDauTuXD && !addedTVHeader)
+                {
+                    addedTVHeader = true;
+                    decimal ttTV = itemsToShow.Where(x => x.IsActive && x.Nhom == NhomChiPhi.TuVanDauTuXD).Sum(x => x.GiaTriTruocThue);
+                    decimal stTV = _model.GetTongSauThueNhom(NhomChiPhi.TuVanDauTuXD);
+
+                    int gRowIdx = dgvChiPhi.Rows.Add();
+                    var gRow = dgvChiPhi.Rows[gRowIdx];
+                    gRow.Tag = "GROUP_TV";
+                    gRow.Cells["colActive"] = new DataGridViewTextBoxCell { Value = "" };
+                    gRow.Cells["colSTT"].Value = prefixTV.ToString();
+                    gRow.Cells["colTen"].Value = "Chi phí tư vấn đầu tư xây dựng";
+                    gRow.Cells["colCachTinh"] = new DataGridViewTextBoxCell { Value = "" };
+                    gRow.Cells["colCoSo"] = new DataGridViewTextBoxCell { Value = "" };
+                    gRow.Cells["colTyLe"].Value = "";
+                    gRow.Cells["colHeSo"].Value = "";
+                    gRow.Cells["colTruocThue"].Value = UIHelper.FormatTien(ttTV);
+                    gRow.Cells["colVAT"] = new DataGridViewTextBoxCell { Value = "" };
+                    gRow.Cells["colSauThue"].Value = UIHelper.FormatTien(stTV);
+                    gRow.Cells["colKyHieu"].Value = "Gtv";
+                    gRow.ReadOnly = true;
+                    gRow.DefaultCellStyle.Font = UIHelper.GetFont(10.5f, FontStyle.Bold);
+                    gRow.DefaultCellStyle.BackColor = Color.FromArgb(220, 235, 252);
+                }
+
+                // Thêm dòng tổng nhóm 5 (hoặc 6 nếu có TB): Chi phí khác
+                if (item.Nhom == NhomChiPhi.ChiPhiKhac && !addedKhacHeader)
+                {
+                    addedKhacHeader = true;
+                    decimal ttK = itemsToShow.Where(x => x.IsActive && x.Nhom == NhomChiPhi.ChiPhiKhac).Sum(x => x.GiaTriTruocThue);
+                    decimal stK = _model.GetTongSauThueNhom(NhomChiPhi.ChiPhiKhac);
+
+                    int gRowIdx = dgvChiPhi.Rows.Add();
+                    var gRow = dgvChiPhi.Rows[gRowIdx];
+                    gRow.Tag = "GROUP_KHAC";
+                    gRow.Cells["colActive"] = new DataGridViewTextBoxCell { Value = "" };
+                    gRow.Cells["colSTT"].Value = prefixKhac.ToString();
+                    gRow.Cells["colTen"].Value = "Chi phí khác";
+                    gRow.Cells["colCachTinh"] = new DataGridViewTextBoxCell { Value = "" };
+                    gRow.Cells["colCoSo"] = new DataGridViewTextBoxCell { Value = "" };
+                    gRow.Cells["colTyLe"].Value = "";
+                    gRow.Cells["colHeSo"].Value = "";
+                    gRow.Cells["colTruocThue"].Value = UIHelper.FormatTien(ttK);
+                    gRow.Cells["colVAT"] = new DataGridViewTextBoxCell { Value = "" };
+                    gRow.Cells["colSauThue"].Value = UIHelper.FormatTien(stK);
+                    gRow.Cells["colKyHieu"].Value = "Gk";
+                    gRow.ReadOnly = true;
+                    gRow.DefaultCellStyle.Font = UIHelper.GetFont(10.5f, FontStyle.Bold);
+                    gRow.DefaultCellStyle.BackColor = Color.FromArgb(220, 235, 252);
+                }
+
+                // Thêm dòng tổng nhóm 6 (hoặc 7 nếu có TB): Chi phí dự phòng
+                if (item.Nhom == NhomChiPhi.ChiPhiDuPhong && !addedDPHeader)
+                {
+                    addedDPHeader = true;
+                    decimal ttDP = itemsToShow.Where(x => x.IsActive && x.Nhom == NhomChiPhi.ChiPhiDuPhong).Sum(x => x.GiaTriTruocThue);
+                    decimal stDP = _model.GetTongSauThueNhom(NhomChiPhi.ChiPhiDuPhong);
+
+                    int gRowIdx = dgvChiPhi.Rows.Add();
+                    var gRow = dgvChiPhi.Rows[gRowIdx];
+                    gRow.Tag = "GROUP_DP";
+                    gRow.Cells["colActive"] = new DataGridViewTextBoxCell { Value = "" };
+                    gRow.Cells["colSTT"].Value = prefixDP.ToString();
+                    gRow.Cells["colTen"].Value = "Chi phí dự phòng";
+                    gRow.Cells["colCachTinh"] = new DataGridViewTextBoxCell { Value = "" };
+                    gRow.Cells["colCoSo"] = new DataGridViewTextBoxCell { Value = "" };
+                    gRow.Cells["colTyLe"].Value = "";
+                    gRow.Cells["colHeSo"].Value = "";
+                    gRow.Cells["colTruocThue"].Value = UIHelper.FormatTien(ttDP);
+                    gRow.Cells["colVAT"] = new DataGridViewTextBoxCell { Value = "" };
+                    gRow.Cells["colSauThue"].Value = UIHelper.FormatTien(stDP);
+                    gRow.Cells["colKyHieu"].Value = "GDP";
+                    gRow.ReadOnly = true;
+                    gRow.DefaultCellStyle.Font = UIHelper.GetFont(10.5f, FontStyle.Bold);
+                    gRow.DefaultCellStyle.BackColor = Color.FromArgb(220, 235, 252);
+                }
+
                 string cachTinhStr = item.CachTinh == CachTinhChiPhi.TheoTyLeDinhMuc ? "Theo tỷ lệ %" : "Tự nhập tiền";
                 string coSoStr = "-";
                 if (item.CachTinh == CachTinhChiPhi.TheoTyLeDinhMuc)
@@ -2172,10 +2345,16 @@ namespace AIE.ExcelAddIn.Forms
                     colVATCol.Items.Add(vatStr);
                 }
 
+                string tenHienThi = item.TenChiPhi;
+                if ((item.Nhom == NhomChiPhi.ChiPhiXayDung || item.Nhom == NhomChiPhi.ChiPhiDuPhong) && !tenHienThi.StartsWith("-"))
+                {
+                    tenHienThi = "- " + tenHienThi;
+                }
+
                 int rowIdx = dgvChiPhi.Rows.Add(
                     item.IsActive,
                     item.STT,
-                    item.TenChiPhi,
+                    tenHienThi,
                     cachTinhStr,
                     coSoStr,
                     item.TyLePhanTram > 0 ? UIHelper.FormatTyLe(item.TyLePhanTram) : "",
@@ -2194,13 +2373,18 @@ namespace AIE.ExcelAddIn.Forms
                     row.Cells["colCoSo"].ReadOnly = true;
                 }
 
-                // Định dạng nổi bật các dòng tổng nhóm chính
-                if (item.Nhom == NhomChiPhi.BoiThuong_TDC || item.Nhom == NhomChiPhi.ChiPhiXayDung ||
-                    item.Nhom == NhomChiPhi.ChiPhiThietBi || item.Nhom == NhomChiPhi.QuanLyDuAn ||
-                    item.Nhom == NhomChiPhi.ChiPhiDuPhong)
+                // Định dạng nổi bật các dòng chi phí đơn cấp 1 (Bồi thường, Thiết bị, QLDA)
+                if (item.Nhom == NhomChiPhi.BoiThuong_TDC || 
+                    item.Nhom == NhomChiPhi.ChiPhiThietBi || 
+                    item.Nhom == NhomChiPhi.QuanLyDuAn)
                 {
                     row.DefaultCellStyle.Font = UIHelper.GetFont(10.5f, FontStyle.Bold);
-                    row.DefaultCellStyle.BackColor = Color.FromArgb(240, 245, 255);
+                    row.DefaultCellStyle.BackColor = Color.FromArgb(220, 235, 252);
+                }
+                else
+                {
+                    // Tất cả các dòng chi tiết con (2.1, 2.2, 4.1.., 5.1.., 6.1..) hiển thị chữ thường
+                    row.DefaultCellStyle.Font = UIHelper.GetFont(10f, FontStyle.Regular);
                 }
 
                 if (!item.IsActive)
@@ -2214,8 +2398,49 @@ namespace AIE.ExcelAddIn.Forms
             _isUpdating = false;
         }
 
+        private void CapNhatTongNhomTrenGrid()
+        {
+            if (dgvChiPhi == null || dgvChiPhi.Rows.Count == 0) return;
+
+            foreach (DataGridViewRow r in dgvChiPhi.Rows)
+            {
+                if (r.Tag is string tag)
+                {
+                    if (tag == "GROUP_XD")
+                    {
+                        decimal ttXD = _model.Items.Where(x => x.IsActive && x.Nhom == NhomChiPhi.ChiPhiXayDung).Sum(x => x.GiaTriTruocThue);
+                        decimal stXD = _model.GetTongSauThueNhom(NhomChiPhi.ChiPhiXayDung);
+                        r.Cells["colTruocThue"].Value = UIHelper.FormatTien(ttXD);
+                        r.Cells["colSauThue"].Value = UIHelper.FormatTien(stXD);
+                    }
+                    else if (tag == "GROUP_TV")
+                    {
+                        decimal ttTV = _model.Items.Where(x => x.IsActive && x.Nhom == NhomChiPhi.TuVanDauTuXD).Sum(x => x.GiaTriTruocThue);
+                        decimal stTV = _model.GetTongSauThueNhom(NhomChiPhi.TuVanDauTuXD);
+                        r.Cells["colTruocThue"].Value = UIHelper.FormatTien(ttTV);
+                        r.Cells["colSauThue"].Value = UIHelper.FormatTien(stTV);
+                    }
+                    else if (tag == "GROUP_KHAC")
+                    {
+                        decimal ttK = _model.Items.Where(x => x.IsActive && x.Nhom == NhomChiPhi.ChiPhiKhac).Sum(x => x.GiaTriTruocThue);
+                        decimal stK = _model.GetTongSauThueNhom(NhomChiPhi.ChiPhiKhac);
+                        r.Cells["colTruocThue"].Value = UIHelper.FormatTien(ttK);
+                        r.Cells["colSauThue"].Value = UIHelper.FormatTien(stK);
+                    }
+                    else if (tag == "GROUP_DP")
+                    {
+                        decimal ttDP = _model.Items.Where(x => x.IsActive && x.Nhom == NhomChiPhi.ChiPhiDuPhong).Sum(x => x.GiaTriTruocThue);
+                        decimal stDP = _model.GetTongSauThueNhom(NhomChiPhi.ChiPhiDuPhong);
+                        r.Cells["colTruocThue"].Value = UIHelper.FormatTien(ttDP);
+                        r.Cells["colSauThue"].Value = UIHelper.FormatTien(stDP);
+                    }
+                }
+            }
+        }
+
         private void CapNhatThanhTongCong()
         {
+            CapNhatTongNhomTrenGrid();
             lblTongTruocThue.Text = $"Trước thuế: {UIHelper.FormatTien(_model.TongTruocThue)} đ";
             lblTongGTGT.Text = $"Thuế GTGT: {UIHelper.FormatTien(_model.TongTienThueGTGT)} đ";
             lblTongSauThue.Text = $"{UIHelper.FormatTien(_model.TongSauThue)} đ";

@@ -289,11 +289,57 @@ namespace AIE.ExcelAddIn.Forms
                 }
                 ws.Cells[row, 1].Value2 = stt;
 
-                // Add borders and align
-                var rowRange = ws.Range[ws.Cells[row, 1], ws.Cells[row, 9]];
+                // Định dạng dòng công tác (cả 11 cột từ A đến K)
+                var rowRange = ws.Range[ws.Cells[row, 1], ws.Cells[row, 11]];
                 rowRange.Borders.LineStyle = Microsoft.Office.Interop.Excel.XlLineStyle.xlContinuous;
                 rowRange.VerticalAlignment = Microsoft.Office.Interop.Excel.XlVAlign.xlVAlignCenter;
-                
+                rowRange.Font.Bold = false;
+                rowRange.Interior.ColorIndex = Microsoft.Office.Interop.Excel.XlColorIndex.xlColorIndexNone;
+
+                ws.Cells[row, 1].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                ws.Cells[row, 2].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                ws.Cells[row, 3].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignJustify;
+                ws.Cells[row, 3].WrapText = true;
+                ws.Cells[row, 4].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+
+                ExcelFormatHelper.ApplyQuantityFormat(ws.Cells[row, 5], 2);
+                ExcelFormatHelper.ApplyIntegerFormat(ws.Range[ws.Cells[row, 6], ws.Cells[row, 11]]);
+                ws.Range[ws.Cells[row, 5], ws.Cells[row, 11]].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignRight;
+
+                // Quét từ dòng 6 đến dòng hiện tại để định dạng nổi bật tất cả các dòng Hạng mục
+                for (int r = 6; r <= row; r++)
+                {
+                    string mh = ws.Cells[r, 2]?.Value2?.ToString()?.Trim() ?? "";
+                    string sttVal = ws.Cells[r, 1]?.Value2?.ToString()?.Trim() ?? "";
+                    string tenVal = ws.Cells[r, 3]?.Value2?.ToString()?.Trim() ?? "";
+
+                    if (string.IsNullOrEmpty(mh) && (!string.IsNullOrEmpty(sttVal) || !string.IsNullOrEmpty(tenVal)))
+                    {
+                        if (!tenVal.StartsWith("TỔNG CỘNG", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var catRange = ws.Range[ws.Cells[r, 1], ws.Cells[r, 11]];
+                            catRange.Font.Bold = true;
+                            catRange.Interior.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(220, 235, 252));
+                            catRange.Borders.LineStyle = Microsoft.Office.Interop.Excel.XlLineStyle.xlContinuous;
+                            catRange.VerticalAlignment = Microsoft.Office.Interop.Excel.XlVAlign.xlVAlignCenter;
+                            ws.Cells[r, 1].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                            ws.Cells[r, 3].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignLeft;
+                        }
+                    }
+                }
+
+                // Đóng khung toàn bộ bảng từ dòng 4 đến dòng hiện tại
+                var wholeTable = ws.Range[ws.Cells[4, 1], ws.Cells[row, 11]];
+                wholeTable.Borders.LineStyle = Microsoft.Office.Interop.Excel.XlLineStyle.xlContinuous;
+
+                // Đảm bảo hiển thị cột 10 (J) nếu bị ẩn
+                try
+                {
+                    ((Microsoft.Office.Interop.Excel.Range)ws.Columns[10]).Hidden = false;
+                    ((Microsoft.Office.Interop.Excel.Range)ws.Columns[10]).ColumnWidth = 16;
+                }
+                catch { }
+
                 // Move to the next row
                 ws.Cells[row + 1, 2].Select();
             }

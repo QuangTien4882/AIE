@@ -4,8 +4,86 @@ using System.Drawing.Text;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using Microsoft.Office.Interop.Excel;
+using Font = System.Drawing.Font;
 
 namespace AIE.ExcelAddIn.Helpers;
+
+public static class ExcelFormatHelper
+{
+    public static void GetSeparators(Microsoft.Office.Interop.Excel.Application? app, out string thouSep, out string decSep)
+    {
+        try
+        {
+            thouSep = app?.International[XlApplicationInternational.xlThousandsSeparator]?.ToString() ?? ".";
+            decSep = app?.International[XlApplicationInternational.xlDecimalSeparator]?.ToString() ?? ",";
+        }
+        catch
+        {
+            thouSep = ".";
+            decSep = ",";
+        }
+    }
+
+    public static string GetIntegerFormat(Microsoft.Office.Interop.Excel.Application? app)
+    {
+        GetSeparators(app, out string thouSep, out _);
+        return $"#{thouSep}##0;-#{thouSep}##0;\"-\"";
+    }
+
+    public static string GetQuantityFormat(Microsoft.Office.Interop.Excel.Application? app, int decimals = 2)
+    {
+        GetSeparators(app, out string thouSep, out string decSep);
+        string zeros = new string('0', decimals);
+        return $"#{thouSep}##0{decSep}{zeros};-#{thouSep}##0{decSep}{zeros};\"-\"";
+    }
+
+    public static string GetRateFormat(Microsoft.Office.Interop.Excel.Application? app, int decimals = 4)
+    {
+        GetSeparators(app, out string thouSep, out string decSep);
+        string zeros = new string('0', decimals);
+        return $"#{thouSep}##0{decSep}{zeros};-#{thouSep}##0{decSep}{zeros};\"-\"";
+    }
+
+    public static void ApplyIntegerFormat(Range range)
+    {
+        if (range == null) return;
+        try
+        {
+            range.NumberFormatLocal = GetIntegerFormat(range.Application);
+        }
+        catch
+        {
+            try { range.NumberFormatLocal = "#.##0;-#.##0;\"-\""; } catch { }
+        }
+    }
+
+    public static void ApplyQuantityFormat(Range range, int decimals = 2)
+    {
+        if (range == null) return;
+        try
+        {
+            range.NumberFormatLocal = GetQuantityFormat(range.Application, decimals);
+        }
+        catch
+        {
+            try { range.NumberFormatLocal = "#.##0,00;-#.##0,00;\"-\""; } catch { }
+        }
+    }
+
+    public static void ApplyRateFormat(Range range, int decimals = 4)
+    {
+        if (range == null) return;
+        try
+        {
+            range.NumberFormatLocal = GetRateFormat(range.Application, decimals);
+        }
+        catch
+        {
+            try { range.NumberFormatLocal = "#.##0,0000;-#.##0,0000;\"-\""; } catch { }
+        }
+    }
+}
 
 public static class UIHelper
 {

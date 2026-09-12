@@ -12,6 +12,7 @@ using AIE.Data;
 using AIE.Data.ImportExport;
 using AIE.Data.Repositories;
 using AIE.ExcelAddIn.Forms;
+using AIE.ExcelAddIn.Helpers;
 using Dapper;
 
 namespace AIE.ExcelAddIn.Ribbon
@@ -505,64 +506,125 @@ namespace AIE.ExcelAddIn.Ribbon
                 if (ws == null) return;
 
                 var selection = app.Selection as Range;
-                if (selection == null) return;
 
                 // Create DB context and repo
                 var dbManager = new DatabaseManager();
                 var repo = new AIE.Data.Repositories.CongTacRepository(dbManager.Context);
 
-                int updatedCount = 0;
-                
-                // Get all rows in the selection
-                foreach (Range row in selection.Rows)
+                // Tìm phạm vi dòng dữ liệu trong sheet (từ dòng 6)
+                int usedMax = ws.UsedRange.Rows.Count + ws.UsedRange.Row - 1;
+                int maxRow = Math.Max(usedMax, 6);
+
+                // Xác định dòng kết thúc thực sự có dữ liệu
+                for (int r = 6; r <= Math.Max(usedMax, 200); r++)
                 {
-                    int rowIndex = row.Row;
-                    
-                    // Assume Mã hiệu is in Column 2 (B) based on our template
-                    var maHieuCell = ws.Cells[rowIndex, 2] as Range;
-                    if (maHieuCell != null && maHieuCell.Value2 != null)
+                    string a = ws.Cells[r, 1]?.Value2?.ToString()?.Trim() ?? "";
+                    string b = ws.Cells[r, 2]?.Value2?.ToString()?.Trim() ?? "";
+                    string c = ws.Cells[r, 3]?.Value2?.ToString()?.Trim() ?? "";
+                    if (!string.IsNullOrEmpty(a) || !string.IsNullOrEmpty(b) || !string.IsNullOrEmpty(c))
                     {
-                        string maHieu = maHieuCell.Value2.ToString().Trim();
-                        if (!string.IsNullOrEmpty(maHieu))
+                        if (r > maxRow) maxRow = r;
+                    }
+                }
+
+                // Tập hợp các dòng được chọn (nếu có)
+                var selectedRowIndices = new HashSet<int>();
+                if (selection != null)
+                {
+                    foreach (Range r in selection.Rows)
+                    {
+                        if (r.Row >= 6) selectedRowIndices.Add(r.Row);
+                    }
+                }
+
+                int updatedCount = 0;
+                int currentStt = 0;
+
+                // Duyệt qua TOÀN BỘ các dòng từ dòng 6 đến maxRow để định dạng và tra cứu
+                for (int rowIndex = 6; rowIndex <= maxRow; rowIndex++)
+                {
+                    var rowRange = ws.Range[ws.Cells[rowIndex, 1], ws.Cells[rowIndex, 11]];
+                    rowRange.Borders.LineStyle = Microsoft.Office.Interop.Excel.XlLineStyle.xlContinuous;
+                    rowRange.VerticalAlignment = Microsoft.Office.Interop.Excel.XlVAlign.xlVAlignCenter;
+
+                    var maHieuCell = ws.Cells[rowIndex, 2] as Range;
+                    string maHieu = maHieuCell?.Value2?.ToString()?.Trim() ?? "";
+                    string sttText = ws.Cells[rowIndex, 1]?.Value2?.ToString()?.Trim() ?? "";
+                    string tenText = ws.Cells[rowIndex, 3]?.Value2?.ToString()?.Trim() ?? "";
+
+                    // Kiểm tra xem dòng có phải là dòng Dữ liệu/Hạng mục không
+                    if (string.IsNullOrEmpty(maHieu) && string.IsNullOrEmpty(sttText) && string.IsNullOrEmpty(tenText))
+                    {
+                        continue;
+                    }
+
+                    if (!string.IsNullOrEmpty(maHieu))
+                    {
+                        // Dòng CÔNG TÁC
+                        // Nếu dòng nằm trong selection hoặc tên đang trống thì tra cứu DB
+                        bool shouldLookup = selectedRowIndices.Count <= 1 || selectedRowIndices.Contains(rowIndex) || string.IsNullOrEmpty(tenText);
+                        if (shouldLookup)
                         {
                             var congTac = repo.GetByMaHieu(maHieu);
                             if (congTac != null)
                             {
                                 ws.Cells[rowIndex, 3].Value2 = congTac.TenCongTac;
                                 ws.Cells[rowIndex, 4].Value2 = congTac.DonVi;
-                                
-                                // Calculate STT if empty
-                                var sttCell = ws.Cells[rowIndex, 1].Value2;
-                                if (sttCell == null || string.IsNullOrWhiteSpace(sttCell.ToString()))
-                                {
-                                    int stt = 1;
-                                    for (int i = rowIndex - 1; i >= 5; i--) // row 4 is header
-                                    {
-                                        var prevCell = ws.Cells[i, 1].Value2;
-                                        int prevStt = 0;
-                                        if (prevCell != null && int.TryParse(prevCell.ToString(), out prevStt))
-                                        {
-                                            stt = prevStt + 1;
-                                            break;
-                                        }
-                                    }
-                                    ws.Cells[rowIndex, 1].Value2 = stt;
-                                }
-
-                                // Apply borders and alignment
-                                var rowRange = ws.Range[ws.Cells[rowIndex, 1], ws.Cells[rowIndex, 9]];
-                                rowRange.Borders.LineStyle = Microsoft.Office.Interop.Excel.XlLineStyle.xlContinuous;
-                                rowRange.VerticalAlignment = Microsoft.Office.Interop.Excel.XlVAlign.xlVAlignCenter;
-
                                 updatedCount++;
                             }
+                        }
+
+                        // Đánh số STT tăng dần nếu chưa có
+                        if (string.IsNullOrWhiteSpace(sttText) || !int.TryParse(sttText, out _))
+                        {
+                            currentStt++;
+                            ws.Cells[rowIndex, 1].Value2 = currentStt;
+                        }
+                        else if (int.TryParse(sttText, out int s))
+                        {
+                            currentStt = s;
+                        }
+
+                        // Định dạng cho dòng công tác
+                        rowRange.Font.Bold = false;
+                        rowRange.Interior.ColorIndex = Microsoft.Office.Interop.Excel.XlColorIndex.xlColorIndexNone;
+                        ws.Cells[rowIndex, 1].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                        ws.Cells[rowIndex, 4].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                        ws.Cells[rowIndex, 3].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignJustify;
+                        ws.Cells[rowIndex, 3].WrapText = true;
+
+                        ExcelFormatHelper.ApplyQuantityFormat(ws.Cells[rowIndex, 5], 2);
+                        ExcelFormatHelper.ApplyIntegerFormat(ws.Range[ws.Cells[rowIndex, 6], ws.Cells[rowIndex, 11]]);
+                        ws.Range[ws.Cells[rowIndex, 5], ws.Cells[rowIndex, 11]].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignRight;
+                    }
+                    else
+                    {
+                        // Dòng HẠNG MỤC hoặc dòng tiêu đề
+                        if (!tenText.StartsWith("TỔNG CỘNG", StringComparison.OrdinalIgnoreCase))
+                        {
+                            rowRange.Font.Bold = true;
+                            rowRange.Interior.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(220, 235, 252));
+                            ws.Cells[rowIndex, 1].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                            ws.Cells[rowIndex, 3].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignLeft;
                         }
                     }
                 }
 
-                if (updatedCount == 0)
+                // Đóng khung toàn bộ bảng từ dòng 4 đến maxRow
+                var wholeTable = ws.Range[ws.Cells[4, 1], ws.Cells[maxRow, 11]];
+                wholeTable.Borders.LineStyle = Microsoft.Office.Interop.Excel.XlLineStyle.xlContinuous;
+
+                // Đảm bảo mở lại hiển thị cột 10 (J) nếu vô tình bị ẩn
+                try
                 {
-                    MessageBox.Show("Không tìm thấy Mã hiệu nào hợp lệ trong vùng đang chọn. Vui lòng chọn các ô ở cột Mã hiệu (cột B).", "AIE Dự Toán", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    ((Range)ws.Columns[10]).Hidden = false;
+                    ((Range)ws.Columns[10]).ColumnWidth = 16;
+                }
+                catch { }
+
+                if (updatedCount == 0 && selectedRowIndices.Count > 1)
+                {
+                    MessageBox.Show("Đã chuẩn hóa định dạng bảng và các dòng Hạng mục. Không tìm thấy Mã hiệu mới nào cần tra cứu.", "AIE Dự Toán", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
             catch (Exception ex)

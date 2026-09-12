@@ -145,17 +145,17 @@ public class DongDuToan
     /// <summary>Đơn giá tổng hợp = VL + NC + M</summary>
     public decimal DonGiaTongHop => DonGiaVL + DonGiaNC + DonGiaMay;
 
-    /// <summary>Thành tiền = Khối lượng × Đơn giá tổng hợp</summary>
-    public decimal ThanhTien => KhoiLuong * DonGiaTongHop;
+    /// <summary>Thành tiền VL = KL × Đơn giá VL (làm tròn 0 chữ số thập phân theo RoundingRules)</summary>
+    public decimal ThanhTienVL => Math.Round(KhoiLuong * DonGiaVL, 0);
 
-    /// <summary>Thành tiền VL = KL × Đơn giá VL</summary>
-    public decimal ThanhTienVL => KhoiLuong * DonGiaVL;
+    /// <summary>Thành tiền NC = KL × Đơn giá NC (làm tròn 0 chữ số thập phân theo RoundingRules)</summary>
+    public decimal ThanhTienNC => Math.Round(KhoiLuong * DonGiaNC, 0);
 
-    /// <summary>Thành tiền NC = KL × Đơn giá NC</summary>
-    public decimal ThanhTienNC => KhoiLuong * DonGiaNC;
+    /// <summary>Thành tiền Máy = KL × Đơn giá Máy (làm tròn 0 chữ số thập phân theo RoundingRules)</summary>
+    public decimal ThanhTienMay => Math.Round(KhoiLuong * DonGiaMay, 0);
 
-    /// <summary>Thành tiền Máy = KL × Đơn giá Máy</summary>
-    public decimal ThanhTienMay => KhoiLuong * DonGiaMay;
+    /// <summary>Thành tiền = Thành tiền VL + NC + Máy</summary>
+    public decimal ThanhTien => ThanhTienVL + ThanhTienNC + ThanhTienMay;
 }
 
 /// <summary>

@@ -506,42 +506,8 @@ namespace AIE.ExcelAddIn.Services
                     ((Range)ws.Columns[10]).ColumnWidth = 16;
                     ((Range)ws.Columns[11]).ColumnWidth = 16;
 
-                    // Cập nhật công thức 3 cột Thành tiền cho từng dòng dữ liệu
-                    int dataStartRow = 6;
-                    int maxDataRow = dataStartRow - 1;
-                    for (int r = dataStartRow; r <= 10000; r++)
-                    {
-                        string mh = ws.Cells[r, 2]?.Value2?.ToString()?.Trim() ?? "";
-                        string ten = ws.Cells[r, 3]?.Value2?.ToString()?.Trim() ?? "";
-                        if (ten.Equals("TỔNG CỘNG", StringComparison.OrdinalIgnoreCase) || ten.Equals("CỘNG", StringComparison.OrdinalIgnoreCase))
-                        {
-                            break;
-                        }
-                        if (string.IsNullOrEmpty(mh) && string.IsNullOrEmpty(ten))
-                        {
-                            break;
-                        }
-                        maxDataRow = r;
-                        ws.Cells[r, 9].Formula = $"=ROUND(E{r}*F{r}, 0)";
-                        ws.Cells[r, 10].Formula = $"=ROUND(E{r}*G{r}, 0)";
-                        ws.Cells[r, 11].Formula = $"=ROUND(E{r}*H{r}, 0)";
-                    }
-
-                    int totalRow = maxDataRow + 1;
-                    if (maxDataRow >= dataStartRow)
-                    {
-                        ws.Cells[totalRow, 3] = "TỔNG CỘNG";
-                        ws.Cells[totalRow, 9].Formula = $"=SUM(I6:I{maxDataRow})";
-                        ws.Cells[totalRow, 10].Formula = $"=SUM(J6:J{maxDataRow})";
-                        ws.Cells[totalRow, 11].Formula = $"=SUM(K6:K{maxDataRow})";
-                        ws.Range[ws.Cells[totalRow, 1], ws.Cells[totalRow, 11]].Font.Bold = true;
-                        ws.Range[ws.Cells[totalRow, 1], ws.Cells[totalRow, 11]].Interior.Color = ColorTranslator.ToOle(Color.FromArgb(240, 245, 252));
-
-                        Range allData = ws.Range[ws.Cells[4, 1], ws.Cells[totalRow, 11]];
-                        allData.Borders.LineStyle = XlLineStyle.xlContinuous;
-                        ws.Range[$"E6:E{totalRow}"].NumberFormat = "#,##0.000";
-                        ws.Range[$"F6:K{totalRow}"].NumberFormat = "#,##0";
-                    }
+                    // Cập nhật công thức và định dạng dữ liệu cho sheet DuToan (đa hạng mục chuẩn)
+                    CapNhatCongThucVaDinhDangDuToan(ws, duToan);
 
                     // Freeze panes at row 5
                     ws.Activate();
@@ -556,6 +522,182 @@ namespace AIE.ExcelAddIn.Services
                 }
             }
             catch { /* Bỏ qua lỗi format */ }
+        }
+
+        /// <summary>
+        /// Chuẩn hóa công thức 3 cột Thành tiền cho các công tác, tính tổng cho từng Hạng mục,
+        /// và tạo duy nhất 1 dòng TỔNG CỘNG TOÀN DỰ ÁN đúng chuẩn trên sheet DuToan.
+        /// </summary>
+        public void CapNhatCongThucVaDinhDangDuToan(Worksheet wsDuToan, DuToan duToan)
+        {
+            if (wsDuToan == null) return;
+
+            // Đảm bảo mở hiển thị cột 10 (J - Nhân công)
+            try
+            {
+                ((Range)wsDuToan.Columns[10]).Hidden = false;
+                ((Range)wsDuToan.Columns[10]).ColumnWidth = 16;
+            }
+            catch { }
+
+            // Nếu duToan chưa có cấu trúc hạng mục, thử đọc từ sheet
+            if (duToan == null || duToan.DanhSachHangMuc == null || duToan.DanhSachHangMuc.Count == 0 || duToan.DanhSachHangMuc.Sum(h => h.DanhSachCongTac.Count) == 0)
+            {
+                try
+                {
+                    var reader = new LapDuToanExcelService();
+                    var parsed = reader.ReadBOQFromActiveSheet();
+                    if (parsed != null && parsed.DanhSachHangMuc != null && parsed.DanhSachHangMuc.Count > 0)
+                    {
+                        duToan = parsed;
+                    }
+                }
+                catch { }
+            }
+
+            int maxR = 5;
+            var hmRows = new List<int>();
+
+            if (duToan != null && duToan.DanhSachHangMuc != null && duToan.DanhSachHangMuc.Count > 0)
+            {
+                foreach (var hm in duToan.DanhSachHangMuc)
+                {
+                    // 1. Cập nhật công thức cho các dòng công tác
+                    foreach (var dong in hm.DanhSachCongTac)
+                    {
+                        int r = dong.STT;
+                        if (r >= 6)
+                        {
+                            if (r > maxR) maxR = r;
+                            wsDuToan.Cells[r, 9].Formula = $"=ROUND(E{r}*F{r}, 0)";
+                            wsDuToan.Cells[r, 10].Formula = $"=ROUND(E{r}*G{r}, 0)";
+                            wsDuToan.Cells[r, 11].Formula = $"=ROUND(E{r}*H{r}, 0)";
+                        }
+                    }
+
+                    // 2. Gán công thức tổng cho Hạng mục con và Hạng mục cha
+                    if (hm.DanhSachHangMucCon != null && hm.DanhSachHangMucCon.Count > 0)
+                    {
+                        var hmcRows = new List<int>();
+                        foreach (var hmc in hm.DanhSachHangMucCon)
+                        {
+                            if (hmc.RowIndex > 0 && hmc.DanhSachCongTac.Count > 0)
+                            {
+                                hmcRows.Add(hmc.RowIndex);
+                                int minR = hmc.DanhSachCongTac.Min(x => x.STT);
+                                int maxR_hmc = hmc.DanhSachCongTac.Max(x => x.STT);
+                                wsDuToan.Cells[hmc.RowIndex, 9].Formula = $"=SUM(I{minR}:I{maxR_hmc})";
+                                wsDuToan.Cells[hmc.RowIndex, 10].Formula = $"=SUM(J{minR}:J{maxR_hmc})";
+                                wsDuToan.Cells[hmc.RowIndex, 11].Formula = $"=SUM(K{minR}:K{maxR_hmc})";
+                                wsDuToan.Range[wsDuToan.Cells[hmc.RowIndex, 1], wsDuToan.Cells[hmc.RowIndex, 11]].Font.Bold = true;
+                                wsDuToan.Range[wsDuToan.Cells[hmc.RowIndex, 1], wsDuToan.Cells[hmc.RowIndex, 11]].Font.Italic = true;
+                                wsDuToan.Range[wsDuToan.Cells[hmc.RowIndex, 1], wsDuToan.Cells[hmc.RowIndex, 11]].Interior.Color = ColorTranslator.ToOle(Color.FromArgb(242, 245, 249));
+                            }
+                        }
+
+                        if (hm.RowIndex > 0)
+                        {
+                            hmRows.Add(hm.RowIndex);
+                            if (hmcRows.Count > 0)
+                            {
+                                wsDuToan.Cells[hm.RowIndex, 9].Formula = $"={string.Join("+", hmcRows.Select(c => $"I{c}"))}";
+                                wsDuToan.Cells[hm.RowIndex, 10].Formula = $"={string.Join("+", hmcRows.Select(c => $"J{c}"))}";
+                                wsDuToan.Cells[hm.RowIndex, 11].Formula = $"={string.Join("+", hmcRows.Select(c => $"K{c}"))}";
+                            }
+                            wsDuToan.Range[wsDuToan.Cells[hm.RowIndex, 1], wsDuToan.Cells[hm.RowIndex, 11]].Font.Bold = true;
+                            wsDuToan.Range[wsDuToan.Cells[hm.RowIndex, 1], wsDuToan.Cells[hm.RowIndex, 11]].Interior.Color = ColorTranslator.ToOle(Color.FromArgb(220, 235, 252));
+                            wsDuToan.Cells[hm.RowIndex, 1].HorizontalAlignment = XlHAlign.xlHAlignCenter;
+                            wsDuToan.Cells[hm.RowIndex, 3].HorizontalAlignment = XlHAlign.xlHAlignLeft;
+                        }
+                    }
+                    else if (hm.RowIndex > 0 && hm.DanhSachCongTac.Count > 0)
+                    {
+                        hmRows.Add(hm.RowIndex);
+                        int minR = hm.DanhSachCongTac.Min(x => x.STT);
+                        int maxR_hm = hm.DanhSachCongTac.Max(x => x.STT);
+                        wsDuToan.Cells[hm.RowIndex, 9].Formula = $"=SUM(I{minR}:I{maxR_hm})";
+                        wsDuToan.Cells[hm.RowIndex, 10].Formula = $"=SUM(J{minR}:J{maxR_hm})";
+                        wsDuToan.Cells[hm.RowIndex, 11].Formula = $"=SUM(K{minR}:K{maxR_hm})";
+                        wsDuToan.Range[wsDuToan.Cells[hm.RowIndex, 1], wsDuToan.Cells[hm.RowIndex, 11]].Font.Bold = true;
+                        wsDuToan.Range[wsDuToan.Cells[hm.RowIndex, 1], wsDuToan.Cells[hm.RowIndex, 11]].Interior.Color = ColorTranslator.ToOle(Color.FromArgb(220, 235, 252));
+                        wsDuToan.Cells[hm.RowIndex, 1].HorizontalAlignment = XlHAlign.xlHAlignCenter;
+                        wsDuToan.Cells[hm.RowIndex, 3].HorizontalAlignment = XlHAlign.xlHAlignLeft;
+                    }
+                }
+            }
+            else
+            {
+                // Fallback nếu không có cấu trúc hạng mục: quét dòng dữ liệu thông thường
+                int dataStartRow = 6;
+                for (int r = dataStartRow; r <= 10000; r++)
+                {
+                    string mh = wsDuToan.Cells[r, 2]?.Value2?.ToString()?.Trim() ?? "";
+                    string ten = wsDuToan.Cells[r, 3]?.Value2?.ToString()?.Trim() ?? "";
+                    if (ten.StartsWith("TỔNG CỘNG", StringComparison.OrdinalIgnoreCase) || ten.Equals("CỘNG", StringComparison.OrdinalIgnoreCase))
+                    {
+                        break;
+                    }
+                    if (string.IsNullOrEmpty(mh) && string.IsNullOrEmpty(ten))
+                    {
+                        break;
+                    }
+                    if (!string.IsNullOrEmpty(mh))
+                    {
+                        maxR = r;
+                        wsDuToan.Cells[r, 9].Formula = $"=ROUND(E{r}*F{r}, 0)";
+                        wsDuToan.Cells[r, 10].Formula = $"=ROUND(E{r}*G{r}, 0)";
+                        wsDuToan.Cells[r, 11].Formula = $"=ROUND(E{r}*H{r}, 0)";
+                    }
+                }
+            }
+
+            if (maxR < 6) return;
+
+            // Xóa sạch các dòng TỔNG CỘNG thừa (nếu có từ lần chạy cũ sau maxR)
+            for (int rCheck = maxR + 1; rCheck <= maxR + 10; rCheck++)
+            {
+                string t3 = wsDuToan.Cells[rCheck, 3]?.Value2?.ToString()?.Trim() ?? "";
+                string t1 = wsDuToan.Cells[rCheck, 1]?.Value2?.ToString()?.Trim() ?? "";
+                if (rCheck > maxR + 1 && (t3.StartsWith("TỔNG CỘNG", StringComparison.OrdinalIgnoreCase) || t1.StartsWith("TỔNG CỘNG", StringComparison.OrdinalIgnoreCase) || t3.Equals("TỔNG CỘNG")))
+                {
+                    try
+                    {
+                        var clrRng = wsDuToan.Range[wsDuToan.Cells[rCheck, 1], wsDuToan.Cells[rCheck, 11]];
+                        clrRng.Clear();
+                    }
+                    catch { }
+                }
+            }
+
+            // Dòng TỔNG CỘNG TOÀN DỰ ÁN tại đúng vị trí maxR + 1
+            int totalRow = maxR + 1;
+            wsDuToan.Cells[totalRow, 3].Value2 = "TỔNG CỘNG TOÀN DỰ ÁN";
+            if (hmRows.Count > 1)
+            {
+                wsDuToan.Cells[totalRow, 9].Formula = $"={string.Join("+", hmRows.Select(h => $"I{h}"))}";
+                wsDuToan.Cells[totalRow, 10].Formula = $"={string.Join("+", hmRows.Select(h => $"J{h}"))}";
+                wsDuToan.Cells[totalRow, 11].Formula = $"={string.Join("+", hmRows.Select(h => $"K{h}"))}";
+            }
+            else if (hmRows.Count == 1)
+            {
+                wsDuToan.Cells[totalRow, 9].Formula = $"=I{hmRows[0]}";
+                wsDuToan.Cells[totalRow, 10].Formula = $"=J{hmRows[0]}";
+                wsDuToan.Cells[totalRow, 11].Formula = $"=K{hmRows[0]}";
+            }
+            else
+            {
+                wsDuToan.Cells[totalRow, 9].Formula = $"=SUM(I6:I{maxR})";
+                wsDuToan.Cells[totalRow, 10].Formula = $"=SUM(J6:J{maxR})";
+                wsDuToan.Cells[totalRow, 11].Formula = $"=SUM(K6:K{maxR})";
+            }
+
+            wsDuToan.Range[wsDuToan.Cells[totalRow, 1], wsDuToan.Cells[totalRow, 11]].Font.Bold = true;
+            wsDuToan.Range[wsDuToan.Cells[totalRow, 1], wsDuToan.Cells[totalRow, 11]].Interior.Color = ColorTranslator.ToOle(Color.FromArgb(200, 225, 250));
+
+            // Đóng khung toàn bộ bảng DuToan từ dòng 4 đến totalRow
+            DrawTableBorders(wsDuToan, 4, 1, totalRow, 11);
+            ExcelFormatHelper.ApplyQuantityFormat(wsDuToan.Range[wsDuToan.Cells[6, 5], wsDuToan.Cells[totalRow, 5]], 2);
+            ExcelFormatHelper.ApplyIntegerFormat(wsDuToan.Range[wsDuToan.Cells[6, 6], wsDuToan.Cells[totalRow, 11]]);
         }
 
         private void SetupHeader(Worksheet ws, string title, int colsCount)
@@ -836,7 +978,7 @@ namespace AIE.ExcelAddIn.Services
                     hmLTRows.Add(r);
                     AddRow("V", "Chi phí nhà tạm", "LT",
                         $"GXDTT × {cpxd.TiLeNhaTam}% × (1 + {cpxd.TiLeGTGT}%)",
-                        $"=ROUND(E{rowGXDTT}*{cpxd.TiLeNhaTam.ToString(inv)}/100*(1+E{rowGTGT}/E{rowGXDTT}), 0)", true);
+                        $"=ROUND(E{rowGXDTT}*{cpxd.TiLeNhaTam.ToString(inv)}/100*(1+{cpxd.TiLeGTGT.ToString(inv)}/100), 0)", true);
 
                     r++; // Dòng trống phân cách
                 }
@@ -921,14 +1063,14 @@ namespace AIE.ExcelAddIn.Services
                 AddRow("", "Chi phí xây dựng trước thuế", "GXDTT", "T + GT + TL", "=E6+E10+E13", true);
                 AddRow("IV", "Thuế giá trị gia tăng", "GTGT", $"GXDTT × {kqSingle.TiLeGTGT}%", $"=ROUND(E14*{kqSingle.TiLeGTGT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100, 0)", true);
                 AddRow("", "CHI PHÍ XÂY DỰNG SAU THUẾ", "GXD", "GXDTT + GTGT", "=E14+E15", true);
-                AddRow("V", "Chi phí nhà tạm để ở và điều hành thi công", "LT", $"GXDTT × {kqSingle.TiLeNhaTam}% × (1 + {kqSingle.TiLeGTGT}%)", $"=ROUND(E14*{kqSingle.TiLeNhaTam.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100*(1+E15/E14), 0)", true);
+                AddRow("V", "Chi phí nhà tạm để ở và điều hành thi công", "LT", $"GXDTT × {kqSingle.TiLeNhaTam}% × (1 + {kqSingle.TiLeGTGT}%)", $"=ROUND(E14*{kqSingle.TiLeNhaTam.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100*(1+{kqSingle.TiLeGTGT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100), 0)", true);
 
                 lastDataRow = 17;
             }
 
             // Vẽ viền bảng tổng hợp chi phí xây dựng
             DrawTableBorders(ws, 5, 1, lastDataRow, 5);
-            ws.Range["E:E"].NumberFormat = "#,##0";
+            ExcelFormatHelper.ApplyIntegerFormat(ws.Range[$"E6:E{lastDataRow}"]);
             ws.Columns.AutoFit();
             ApplyFreezePanes(ws, 5);
 
@@ -1028,9 +1170,32 @@ namespace AIE.ExcelAddIn.Services
             ws.Range["A:A"].NumberFormat = "@";
 
             bool hasChiPhiXD = false;
+            int gxdttRow = 0;
+            int ltRow = 0;
             foreach (Worksheet sh in wb.Sheets)
             {
-                if (sh.Name == "TH_ChiPhiXD") { hasChiPhiXD = true; break; }
+                if (sh.Name == "TH_ChiPhiXD")
+                {
+                    hasChiPhiXD = true;
+                    try
+                    {
+                        for (int rowScan = 6; rowScan <= 200; rowScan++)
+                        {
+                            string kyHieu = sh.Cells[rowScan, 3]?.Value2?.ToString()?.Trim() ?? "";
+                            string noiDung = sh.Cells[rowScan, 2]?.Value2?.ToString()?.Trim() ?? "";
+                            if (kyHieu == "GXDTT" || noiDung.StartsWith("Chi phí xây dựng trước thuế", StringComparison.OrdinalIgnoreCase))
+                            {
+                                gxdttRow = rowScan;
+                            }
+                            if (kyHieu == "LT" || noiDung.StartsWith("Chi phí nhà tạm", StringComparison.OrdinalIgnoreCase))
+                            {
+                                ltRow = rowScan;
+                            }
+                        }
+                    }
+                    catch { }
+                    break;
+                }
             }
 
             var model = duToan.BangKinhPhi ?? DinhMucTT38Engine.TaoBangKinhPhiMacDinh(
@@ -1055,13 +1220,16 @@ namespace AIE.ExcelAddIn.Services
             int rowXD_Con = r;
             ws.Cells[r, 1] = "'1.1";
             ws.Cells[r, 2] = "- Chi phí xây dựng";
-            if (hasChiPhiXD)
+            if (hasChiPhiXD && gxdttRow > 0)
             {
-                ws.Cells[r, 3].Formula = "='TH_ChiPhiXD'!E14";
+                ws.Cells[r, 3].Formula = $"='TH_ChiPhiXD'!E{gxdttRow}";
             }
             else
             {
-                ws.Cells[r, 3] = (double)model.ChiPhiXDTruocThue;
+                decimal cpXDFallback = model.ChiPhiXDTruocThue;
+                if (cpXDFallback <= 0) cpXDFallback = duToan.ChiPhiXD?.GXDTT ?? 0m;
+                if (cpXDFallback <= 0 && duToan.DanhSachHangMuc != null) cpXDFallback = duToan.DanhSachHangMuc.Sum(h => h.ChiPhiXD?.GXDTT ?? h.TongChiPhi);
+                ws.Cells[r, 3] = (double)cpXDFallback;
             }
             var itemXD = model.Items.FirstOrDefault(x => x.MaChiPhi == "G_XD");
             decimal vatXD = itemXD != null ? itemXD.ThueSuatGTGT : (duToan.ChiPhiXD != null && duToan.ChiPhiXD.TiLeGTGT > 0 ? duToan.ChiPhiXD.TiLeGTGT / 100m : 0.10m);
@@ -1078,22 +1246,31 @@ namespace AIE.ExcelAddIn.Services
             var itemNT = model.Items.FirstOrDefault(x => x.MaChiPhi == "G_NHA_TAM");
             decimal vatNT = itemNT != null ? itemNT.ThueSuatGTGT : vatXD;
             string vatNTStr = vatNT.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            decimal tiLeNT = duToan.ChiPhiXD != null && duToan.ChiPhiXD.TiLeNhaTam > 0 ? duToan.ChiPhiXD.TiLeNhaTam : 1.0m;
+            string tlNTStr = (tiLeNT / 100m).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
-            if (hasChiPhiXD)
+            if (hasChiPhiXD && ltRow > 0)
             {
-                if (duToan.ChiPhiXD != null && duToan.ChiPhiXD.TiLeNhaTam > 0)
-                {
-                    string tlNT = (duToan.ChiPhiXD.TiLeNhaTam / 100m).ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    ws.Cells[r, 3].Formula = $"=ROUND('TH_ChiPhiXD'!E14 * {tlNT}, 0)";
-                }
-                else
-                {
-                    ws.Cells[r, 3].Formula = $"=ROUND('TH_ChiPhiXD'!E17 / (1 + {vatNTStr}), 0)";
-                }
+                ws.Cells[r, 3].Formula = $"=ROUND('TH_ChiPhiXD'!E{ltRow} / (1 + {vatNTStr}), 0)";
+            }
+            else if (model.ChiPhiNhaTamTruocThue > 0)
+            {
+                ws.Cells[r, 3] = (double)model.ChiPhiNhaTamTruocThue;
+            }
+            else if (hasChiPhiXD && gxdttRow > 0)
+            {
+                ws.Cells[r, 3].Formula = $"=ROUND('TH_ChiPhiXD'!E{gxdttRow} * {tlNTStr}, 0)";
             }
             else
             {
-                ws.Cells[r, 3] = (double)model.ChiPhiNhaTamTruocThue;
+                decimal cpNTFallback = model.ChiPhiNhaTamTruocThue;
+                if (cpNTFallback <= 0) cpNTFallback = duToan.ChiPhiXD?.LT ?? 0m;
+                if (cpNTFallback <= 0)
+                {
+                    decimal cpXDFallback = model.ChiPhiXDTruocThue > 0 ? model.ChiPhiXDTruocThue : (duToan.ChiPhiXD?.GXDTT ?? 0m);
+                    cpNTFallback = Math.Round(cpXDFallback * tiLeNT / 100m, 0);
+                }
+                ws.Cells[r, 3] = (double)cpNTFallback;
             }
             ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatNTStr}, 0)";
             ws.Cells[r, 5].Formula = $"=C{r}+D{r}";
@@ -1334,7 +1511,7 @@ namespace AIE.ExcelAddIn.Services
             textRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
 
             DrawTableBorders(ws, 5, 1, textRow, 6);
-            ws.Range[$"C7:E{grandRow}"].NumberFormat = "#,##0;-#,##0;\"-\"";
+            ExcelFormatHelper.ApplyIntegerFormat(ws.Range[$"C7:E{grandRow}"]);
             ws.Columns[1].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns[6].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns.AutoFit();
@@ -1432,9 +1609,32 @@ namespace AIE.ExcelAddIn.Services
             ws.Range["A:A"].NumberFormat = "@";
 
             bool hasChiPhiXD = false;
+            int gxdttRow = 0;
+            int ltRow = 0;
             foreach (Worksheet sh in wb.Sheets)
             {
-                if (sh.Name == "TH_ChiPhiXD") { hasChiPhiXD = true; break; }
+                if (sh.Name == "TH_ChiPhiXD")
+                {
+                    hasChiPhiXD = true;
+                    try
+                    {
+                        for (int rowScan = 6; rowScan <= 200; rowScan++)
+                        {
+                            string kyHieu = sh.Cells[rowScan, 3]?.Value2?.ToString()?.Trim() ?? "";
+                            string noiDung = sh.Cells[rowScan, 2]?.Value2?.ToString()?.Trim() ?? "";
+                            if (kyHieu == "GXDTT" || noiDung.StartsWith("Chi phí xây dựng trước thuế", StringComparison.OrdinalIgnoreCase))
+                            {
+                                gxdttRow = rowScan;
+                            }
+                            if (kyHieu == "LT" || noiDung.StartsWith("Chi phí nhà tạm", StringComparison.OrdinalIgnoreCase))
+                            {
+                                ltRow = rowScan;
+                            }
+                        }
+                    }
+                    catch { }
+                    break;
+                }
             }
 
             var model = duToan.BangKinhPhi ?? DinhMucTT38Engine.TaoBangKinhPhiMacDinh(
@@ -1470,13 +1670,16 @@ namespace AIE.ExcelAddIn.Services
             int rowXD_Con = r;
             ws.Cells[r, 1] = "'2.1";
             ws.Cells[r, 2] = "- Chi phí xây dựng";
-            if (hasChiPhiXD)
+            if (hasChiPhiXD && gxdttRow > 0)
             {
-                ws.Cells[r, 3].Formula = "='TH_ChiPhiXD'!E14";
+                ws.Cells[r, 3].Formula = $"='TH_ChiPhiXD'!E{gxdttRow}";
             }
             else
             {
-                ws.Cells[r, 3] = (double)model.ChiPhiXDTruocThue;
+                decimal cpXDFallback = model.ChiPhiXDTruocThue;
+                if (cpXDFallback <= 0) cpXDFallback = duToan.ChiPhiXD?.GXDTT ?? 0m;
+                if (cpXDFallback <= 0 && duToan.DanhSachHangMuc != null) cpXDFallback = duToan.DanhSachHangMuc.Sum(h => h.ChiPhiXD?.GXDTT ?? h.TongChiPhi);
+                ws.Cells[r, 3] = (double)cpXDFallback;
             }
             var itemXD = model.Items.FirstOrDefault(x => x.MaChiPhi == "G_XD");
             decimal vatXD = itemXD != null ? itemXD.ThueSuatGTGT : (duToan.ChiPhiXD != null && duToan.ChiPhiXD.TiLeGTGT > 0 ? duToan.ChiPhiXD.TiLeGTGT / 100m : 0.10m);
@@ -1493,22 +1696,31 @@ namespace AIE.ExcelAddIn.Services
             var itemNT = model.Items.FirstOrDefault(x => x.MaChiPhi == "G_NHA_TAM");
             decimal vatNT = itemNT != null ? itemNT.ThueSuatGTGT : vatXD;
             string vatNTStr = vatNT.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            decimal tiLeNT = duToan.ChiPhiXD != null && duToan.ChiPhiXD.TiLeNhaTam > 0 ? duToan.ChiPhiXD.TiLeNhaTam : 1.0m;
+            string tlNTStr = (tiLeNT / 100m).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
-            if (hasChiPhiXD)
+            if (hasChiPhiXD && ltRow > 0)
             {
-                if (duToan.ChiPhiXD != null && duToan.ChiPhiXD.TiLeNhaTam > 0)
-                {
-                    string tlNT = (duToan.ChiPhiXD.TiLeNhaTam / 100m).ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    ws.Cells[r, 3].Formula = $"=ROUND('TH_ChiPhiXD'!E14 * {tlNT}, 0)";
-                }
-                else
-                {
-                    ws.Cells[r, 3].Formula = $"=ROUND('TH_ChiPhiXD'!E17 / (1 + {vatNTStr}), 0)";
-                }
+                ws.Cells[r, 3].Formula = $"=ROUND('TH_ChiPhiXD'!E{ltRow} / (1 + {vatNTStr}), 0)";
+            }
+            else if (model.ChiPhiNhaTamTruocThue > 0)
+            {
+                ws.Cells[r, 3] = (double)model.ChiPhiNhaTamTruocThue;
+            }
+            else if (hasChiPhiXD && gxdttRow > 0)
+            {
+                ws.Cells[r, 3].Formula = $"=ROUND('TH_ChiPhiXD'!E{gxdttRow} * {tlNTStr}, 0)";
             }
             else
             {
-                ws.Cells[r, 3] = (double)model.ChiPhiNhaTamTruocThue;
+                decimal cpNTFallback = model.ChiPhiNhaTamTruocThue;
+                if (cpNTFallback <= 0) cpNTFallback = duToan.ChiPhiXD?.LT ?? 0m;
+                if (cpNTFallback <= 0)
+                {
+                    decimal cpXDFallback = model.ChiPhiXDTruocThue > 0 ? model.ChiPhiXDTruocThue : (duToan.ChiPhiXD?.GXDTT ?? 0m);
+                    cpNTFallback = Math.Round(cpXDFallback * tiLeNT / 100m, 0);
+                }
+                ws.Cells[r, 3] = (double)cpNTFallback;
             }
             ws.Cells[r, 4].Formula = $"=ROUND(C{r} * {vatNTStr}, 0)";
             ws.Cells[r, 5].Formula = $"=C{r}+D{r}";
@@ -1749,7 +1961,7 @@ namespace AIE.ExcelAddIn.Services
             textRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
 
             DrawTableBorders(ws, 5, 1, textRow, 6);
-            ws.Range[$"C7:E{grandRow}"].NumberFormat = "#,##0;-#,##0;\"-\"";
+            ExcelFormatHelper.ApplyIntegerFormat(ws.Range[$"C7:E{grandRow}"]);
             ws.Columns[1].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns[6].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns.AutoFit();
@@ -2010,8 +2222,8 @@ namespace AIE.ExcelAddIn.Services
             }
 
             DrawTableBorders(ws, 3, 1, r - 1, 7);
-            ws.Range["F:F"].NumberFormat = "#,##0";
-            ws.Range["G:G"].NumberFormat = "#,##0";
+            ExcelFormatHelper.ApplyRateFormat(ws.Range[$"E4:E{r - 1}"], 4);
+            ExcelFormatHelper.ApplyIntegerFormat(ws.Range[$"F4:G{r - 1}"]);
             ws.Columns[4].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns.AutoFit();
             ApplyFreezePanes(ws, 3);
@@ -2085,10 +2297,8 @@ namespace AIE.ExcelAddIn.Services
             if (endTable1Row >= 6)
             {
                 DrawTableBorders(ws, 5, 1, endTable1Row, 10);
-                ws.Range[$"F6:F{endTable1Row}"].NumberFormat = "#,##0.000";
-                ws.Range[$"G6:G{endTable1Row}"].NumberFormat = "#,##0";
-                ws.Range[$"H6:H{endTable1Row}"].NumberFormat = "#,##0";
-                ws.Range[$"I6:J{endTable1Row}"].NumberFormat = "#,##0";
+                ExcelFormatHelper.ApplyQuantityFormat(ws.Range[$"F6:F{endTable1Row}"], 2);
+                ExcelFormatHelper.ApplyIntegerFormat(ws.Range[$"G6:J{endTable1Row}"]);
             }
             ws.Columns[1].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns[2].HorizontalAlignment = XlHAlign.xlHAlignCenter;
@@ -2474,7 +2684,7 @@ namespace AIE.ExcelAddIn.Services
             }
 
             DrawTableBorders(ws, 3, 1, r - 1, 9);
-            ws.Range["E:I"].NumberFormat = "#,##0";
+            ExcelFormatHelper.ApplyIntegerFormat(ws.Range[$"E4:I{r - 1}"]);
             ws.Columns[4].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns.AutoFit();
             ApplyFreezePanes(ws, 3);
@@ -2512,7 +2722,7 @@ namespace AIE.ExcelAddIn.Services
             }
 
             DrawTableBorders(ws, 3, 1, r - 1, 5);
-            ws.Range["E:E"].NumberFormat = "#,##0";
+            ExcelFormatHelper.ApplyIntegerFormat(ws.Range[$"E4:E{r - 1}"]);
             ws.Columns[4].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns.AutoFit();
             ApplyFreezePanes(ws, 3);
@@ -2550,7 +2760,7 @@ namespace AIE.ExcelAddIn.Services
             }
 
             DrawTableBorders(ws, 3, 1, r - 1, 5);
-            ws.Range["E:E"].NumberFormat = "#,##0";
+            ExcelFormatHelper.ApplyIntegerFormat(ws.Range[$"E4:E{r - 1}"]);
             ws.Columns[4].HorizontalAlignment = XlHAlign.xlHAlignCenter;
             ws.Columns.AutoFit();
             ApplyFreezePanes(ws, 3);
@@ -2616,27 +2826,10 @@ namespace AIE.ExcelAddIn.Services
                 // 3. Sắp xếp lại thứ tự sheet theo đúng chuẩn
                 SapXepLaiThuTuCacSheet(wb, wsDuToan);
 
-                // 4. Cập nhật dòng TỔNG CỘNG trên sheet DuToan nếu có
+                // 4. Cập nhật công thức tổng cho từng Hạng mục & dòng TỔNG CỘNG TOÀN DỰ ÁN trên sheet DuToan
                 if (wsDuToan != null)
                 {
-                    int maxR = 5;
-                    foreach (var hm in duToan.DanhSachHangMuc)
-                    {
-                        foreach (var dong in hm.DanhSachCongTac)
-                        {
-                            int r = dong.STT;
-                            if (r > maxR) maxR = r;
-                        }
-                    }
-                    int totalRow = maxR + 1;
-                    string cVal = wsDuToan.Cells[totalRow, 3]?.Value2?.ToString()?.Trim() ?? "";
-                    if (cVal.Equals("TỔNG CỘNG", StringComparison.OrdinalIgnoreCase) || cVal.Equals("CỘNG", StringComparison.OrdinalIgnoreCase))
-                    {
-                        wsDuToan.Cells[totalRow, 9].Formula = $"=SUM(I6:I{maxR})";
-                        wsDuToan.Cells[totalRow, 10].Formula = $"=SUM(J6:J{maxR})";
-                        wsDuToan.Cells[totalRow, 11].Formula = $"=SUM(K6:K{maxR})";
-                    }
-
+                    CapNhatCongThucVaDinhDangDuToan(wsDuToan, duToan);
                     wsDuToan.Activate();
                 }
 

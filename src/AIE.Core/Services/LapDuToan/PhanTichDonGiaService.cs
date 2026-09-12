@@ -29,7 +29,10 @@ public class PhanTichDonGiaService
             DonVi = congTac.DonVi
         };
 
-        foreach (var hp in congTac.DanhSachHaoPhi)
+        var dsBinhThuong = congTac.DanhSachHaoPhi.Where(x => x.DonVi != "%");
+        var dsTyLe = congTac.DanhSachHaoPhi.Where(x => x.DonVi == "%");
+
+        void XuLyHaoPhi(HaoPhi hp, bool laTyLe)
         {
             var chiTiet = new ChiTietHaoPhi
             {
@@ -43,21 +46,24 @@ public class PhanTichDonGiaService
             switch (hp.LoaiHaoPhi)
             {
                 case Enums.LoaiHaoPhi.VL:
-                    chiTiet.DonGia = giaVatLieu.TryGetValue(hp.MaHieuHP, out var giaVL) ? giaVL : 0;
+                    chiTiet.DonGia = laTyLe ? ketQua.ChiTietVatLieu.Sum(x => x.ThanhTien) : (giaVatLieu.TryGetValue(hp.MaHieuHP, out var giaVL) ? giaVL : 0);
                     ketQua.ChiTietVatLieu.Add(chiTiet);
                     break;
 
                 case Enums.LoaiHaoPhi.NC:
-                    chiTiet.DonGia = giaNhanCong.TryGetValue(hp.MaHieuHP, out var giaNC) ? giaNC : 0;
+                    chiTiet.DonGia = laTyLe ? ketQua.ChiTietNhanCong.Sum(x => x.ThanhTien) : (giaNhanCong.TryGetValue(hp.MaHieuHP, out var giaNC) ? giaNC : 0);
                     ketQua.ChiTietNhanCong.Add(chiTiet);
                     break;
 
                 case Enums.LoaiHaoPhi.MAY:
-                    chiTiet.DonGia = giaMay.TryGetValue(hp.MaHieuHP, out var giaM) ? giaM : 0;
+                    chiTiet.DonGia = laTyLe ? ketQua.ChiTietMay.Sum(x => x.ThanhTien) : (giaMay.TryGetValue(hp.MaHieuHP, out var giaM) ? giaM : 0);
                     ketQua.ChiTietMay.Add(chiTiet);
                     break;
             }
         }
+
+        foreach (var hp in dsBinhThuong) XuLyHaoPhi(hp, false);
+        foreach (var hp in dsTyLe) XuLyHaoPhi(hp, true);
 
         return ketQua;
     }

@@ -36,11 +36,13 @@ public class PhanTichDonGiaService
                 decimal dgNC = 0;
                 decimal dgMay = 0;
 
-                // Tách riêng vật liệu khác (tỷ lệ %) để tính sau cùng
-                var cacHaoPhiBinhThuong = congTacChuan.DanhSachHaoPhi
-                    .Where(hp => !(hp.LoaiHaoPhi == LoaiHaoPhi.VL && (hp.DonVi == "%" || hp.TenHaoPhi.ToLower().Contains("vật liệu khác"))));
-                var cacHaoPhiKhac = congTacChuan.DanhSachHaoPhi
-                    .Where(hp => hp.LoaiHaoPhi == LoaiHaoPhi.VL && (hp.DonVi == "%" || hp.TenHaoPhi.ToLower().Contains("vật liệu khác")));
+                // Tách riêng các hao phí tỷ lệ % (vật liệu khác, máy khác, nhân công khác) để tính sau cùng
+                bool IsPercentageHaoPhi(HaoPhi hp) =>
+                    hp.DonVi == "%" || 
+                    (hp.TenHaoPhi != null && hp.TenHaoPhi.ToLower().Contains("khác"));
+
+                var cacHaoPhiBinhThuong = congTacChuan.DanhSachHaoPhi.Where(hp => !IsPercentageHaoPhi(hp));
+                var cacHaoPhiKhac = congTacChuan.DanhSachHaoPhi.Where(hp => IsPercentageHaoPhi(hp));
 
                 foreach (var hp in cacHaoPhiBinhThuong)
                 {
@@ -66,12 +68,22 @@ public class PhanTichDonGiaService
                     else if (hp.LoaiHaoPhi == LoaiHaoPhi.MAY) dgMay += chiPhi;
                 }
 
-                // Tính vật liệu khác (theo %)
+                // Tính các hao phí khác (theo % của tổng chi phí tương ứng)
                 foreach (var hp in cacHaoPhiKhac)
                 {
-                    // Vật liệu khác = (Tổng chi phí vật liệu chính) * Định mức %
-                    decimal chiPhiVlKhac = dgVL * (hp.DinhMuc / 100m);
-                    dgVL += chiPhiVlKhac;
+                    decimal rate = (hp.DinhMuc * hp.HeSo) / 100m;
+                    if (hp.LoaiHaoPhi == LoaiHaoPhi.VL)
+                    {
+                        dgVL += dgVL * rate;
+                    }
+                    else if (hp.LoaiHaoPhi == LoaiHaoPhi.MAY)
+                    {
+                        dgMay += dgMay * rate;
+                    }
+                    else if (hp.LoaiHaoPhi == LoaiHaoPhi.NC)
+                    {
+                        dgNC += dgNC * rate;
+                    }
                 }
 
                 ct.DonGiaVL = dgVL;

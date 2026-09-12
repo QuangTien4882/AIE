@@ -61,6 +61,6 @@ public class ChiTietHaoPhi
     /// <summary>Hệ số</summary>
     public decimal HeSo { get; set; } = 1.0m;
 
-    /// <summary>Thành tiền = Định mức × Đơn giá × Hệ số</summary>
-    public decimal ThanhTien => DinhMuc * DonGia * HeSo;
+    /// <summary>Thành tiền = Định mức × Đơn giá × Hệ số (nếu Đơn vị là % thì chia 100)</summary>
+    public decimal ThanhTien => DonVi == "%" ? (DinhMuc / 100m) * DonGia * HeSo : DinhMuc * DonGia * HeSo;
 }
