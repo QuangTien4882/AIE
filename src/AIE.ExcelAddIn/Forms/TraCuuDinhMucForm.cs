@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using AIE.Data;
 using AIE.Data.Repositories;
 using AIE.Core.Models;
+using AIE.ExcelAddIn.Helpers;
 
 namespace AIE.ExcelAddIn.Forms
 {
@@ -37,6 +38,7 @@ namespace AIE.ExcelAddIn.Forms
             _settingsPath = Path.Combine(appData, "grid_settings.txt");
 
             InitializeComponents();
+            FormStateHelper.Attach(this);
         }
 
         private void InitializeComponents()
@@ -394,6 +396,7 @@ namespace AIE.ExcelAddIn.Forms
                     }).ToList();
                     
                     dgvHaoPhi.DataSource = viewList;
+                    dgvHaoPhi.AutoFit();
                 }
                 else
                 {

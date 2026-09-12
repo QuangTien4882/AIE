@@ -37,20 +37,28 @@ namespace AIE.ExcelAddIn.Forms
             LuaChon = new LuaChonXuatExcel();
 
             InitializeComponent();
+            FormStateHelper.Attach(this);
             ApDungMacDinh();
         }
 
         private void InitializeComponent()
         {
             this.Text = "Tùy chọn Bảng biểu Xuất sang Excel (AIE Dự Toán)";
-            this.ClientSize = new Size(740, 640);
+            
+            // Tính toán kích thước tự động co giãn rộng rãi theo độ phân giải màn hình
+            var area = Screen.PrimaryScreen.WorkingArea;
+            int targetW = Math.Min(1180, Math.Max(1080, area.Width - 40));
+            int targetH = Math.Min(690, Math.Max(580, area.Height - 60));
+            this.ClientSize = new Size(targetW, targetH);
+            this.MinimumSize = new Size(980, 540);
             this.StartPosition = FormStartPosition.CenterParent;
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.ShowInTaskbar = false;
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.MaximizeBox = true;
+            this.MinimizeBox = true;
+            this.ShowInTaskbar = true;
             this.BackColor = Color.FromArgb(248, 250, 253);
-            this.Font = UIHelper.GetFont(10f);
+            this.Font = UIHelper.GetFont(9.5f);
+            this.AutoScaleMode = AutoScaleMode.Font;
 
             // =========================================================================
             // 1. HEADER BANNER
@@ -91,9 +99,10 @@ namespace AIE.ExcelAddIn.Forms
             var pnlToolbar = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
-                Height = 42,
+                Height = 44,
                 FlowDirection = FlowDirection.LeftToRight,
-                Padding = new Padding(15, 6, 15, 4),
+                WrapContents = false,
+                Padding = new Padding(16, 7, 16, 7),
                 BackColor = Color.FromArgb(240, 244, 248)
             };
 
@@ -146,13 +155,14 @@ namespace AIE.ExcelAddIn.Forms
             this.Controls.Add(pnlToolbar);
 
             // =========================================================================
-            // 3. BOTTOM PANEL: NÚT XUẤT & HỦY (CỐ ĐỊNH CHÂN MODAL, ANCHOR RIGHT)
+            // 3. BOTTOM PANEL: NÚT XUẤT & HỦY (CỐ ĐỊNH CHÂN MODAL, TABLELAYOUT KHÔNG BAO GIỜ WRAP)
             // =========================================================================
             var pnlBottom = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 65,
-                BackColor = Color.White
+                Height = 60,
+                BackColor = Color.White,
+                Padding = new Padding(12, 8, 16, 8)
             };
             pnlBottom.Paint += (s, e) =>
             {
@@ -160,26 +170,47 @@ namespace AIE.ExcelAddIn.Forms
                 e.Graphics.DrawLine(pen, 0, 0, pnlBottom.Width, 0);
             };
 
+            var tblBottom = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                RowCount = 1,
+                ColumnCount = 2,
+                BackColor = Color.Transparent,
+                Margin = new Padding(0),
+                Padding = new Padding(0)
+            };
+            tblBottom.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            tblBottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f)); // Cột trái: Tip
+            tblBottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));      // Cột phải: Buttons
+
             var lblBottomTip = new Label
             {
-                Text = "💡 Chỉ xuất các bảng biểu được tích chọn ở trên sang Excel.",
-                AutoSize = true,
-                Location = new Point(18, 22),
-                Font = UIHelper.GetFont(9.5f, FontStyle.Italic),
+                Text = "💡 Mẹo: Bảng kỹ thuật đã được tạo khi 'Áp giá'. Tại đây chỉ cần tích chọn nếu muốn xuất lại toàn bộ.",
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = UIHelper.GetFont(9f, FontStyle.Italic),
                 ForeColor = Color.FromArgb(100, 116, 139)
+            };
+
+            var pnlBottomButtons = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Right,
+                AutoSize = true,
+                WrapContents = false, // KHÔNG BAO GIỜ WRAP DÒNG
+                FlowDirection = FlowDirection.LeftToRight,
+                Margin = new Padding(0)
             };
 
             btnDong = new Button
             {
                 Text = "Đóng",
-                Size = new Size(110, 40),
-                Location = new Point(pnlBottom.ClientSize.Width - 365, 12),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Size = new Size(100, 40),
                 BackColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = UIHelper.GetFont(10f),
                 Cursor = Cursors.Hand,
-                UseCompatibleTextRendering = true
+                UseCompatibleTextRendering = true,
+                Margin = new Padding(0, 0, 10, 0)
             };
             btnDong.FlatAppearance.BorderColor = Color.FromArgb(209, 213, 219);
             btnDong.Click += (s, e) => { this.DialogResult = DialogResult.Cancel; this.Close(); };
@@ -187,82 +218,174 @@ namespace AIE.ExcelAddIn.Forms
             btnXuat = new Button
             {
                 Text = "📥 Bắt đầu xuất Excel",
-                Size = new Size(230, 40),
-                Location = new Point(pnlBottom.ClientSize.Width - 245, 12),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Size = new Size(220, 40),
                 BackColor = Color.FromArgb(16, 124, 65), // Excel Green
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = UIHelper.GetFont(10.5f, FontStyle.Bold),
                 Cursor = Cursors.Hand,
-                UseCompatibleTextRendering = true
+                UseCompatibleTextRendering = true,
+                Margin = new Padding(0)
             };
             btnXuat.FlatAppearance.BorderSize = 0;
             btnXuat.Click += BtnXuat_Click;
 
-            pnlBottom.Controls.Add(lblBottomTip);
-            pnlBottom.Controls.Add(btnDong);
-            pnlBottom.Controls.Add(btnXuat);
+            pnlBottomButtons.Controls.Add(btnDong);
+            pnlBottomButtons.Controls.Add(btnXuat);
+
+            tblBottom.Controls.Add(lblBottomTip, 0, 0);
+            tblBottom.Controls.Add(pnlBottomButtons, 1, 0);
+            pnlBottom.Controls.Add(tblBottom);
             this.Controls.Add(pnlBottom);
 
             // =========================================================================
-            // 4. MAIN CONTENT PANEL CHỨA 2 GROUPBOX CHECKBOXES
+            // 4. MAIN CONTENT PANEL: BỐ CỤC 2 CỘT TỰ CO GIÃN (RESPONSIVE TABLELAYOUT)
             // =========================================================================
             var pnlContent = new Panel
             {
                 Dock = DockStyle.Fill,
                 AutoScroll = true,
-                Padding = new Padding(18, 8, 18, 8)
+                Padding = new Padding(16, 8, 16, 8),
+                BackColor = Color.FromArgb(248, 250, 253)
             };
 
-            // GROUP 1: BẢNG TỔNG HỢP KINH PHÍ (TT 36/2026/TT-BXD)
-            var grpTongHop = new GroupBox
-            {
-                Text = "  1. BẢNG TỔNG HỢP KINH PHÍ (THÔNG TƯ 36/2026/TT-BXD)  ",
-                Dock = DockStyle.Top,
-                Height = 135,
-                Font = UIHelper.GetFont(10f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(0, 51, 102),
-                Padding = new Padding(15, 10, 15, 8),
-                Margin = new Padding(0, 0, 0, 8)
-            };
-
-            var pnlGrp1 = new FlowLayoutPanel
+            var tblContent = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                AutoScroll = false
+                RowCount = 1,
+                ColumnCount = 2,
+                Margin = new Padding(0),
+                Padding = new Padding(0),
+                BackColor = Color.Transparent
             };
+            tblContent.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            tblContent.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f)); // Cột trái: 50%
+            tblContent.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f)); // Cột phải: 50%
+
+            // CỘT 1: BẢNG TỔNG HỢP KINH PHÍ (TT 36/2026/TT-BXD)
+            var grpTongHop = new GroupBox
+            {
+                Text = "  1. BẢNG TỔNG HỢP KINH PHÍ (TT 36/2026)  ",
+                Dock = DockStyle.Fill,
+                Font = UIHelper.GetFont(10f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(0, 51, 102),
+                Padding = new Padding(12, 8, 12, 8),
+                Margin = new Padding(0, 0, 6, 0)
+            };
+
+            var pnlGrp1 = new Panel
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true,
+                BackColor = Color.Transparent
+            };
+
+            var tblGrp1 = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 1,
+                RowCount = 4,
+                Padding = new Padding(4),
+                BackColor = Color.Transparent
+            };
+            tblGrp1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
 
             chkTMDT = CreateCheckbox("Bảng 1.2: Tổng mức đầu tư xây dựng", "TongMucDauTu", Color.FromArgb(153, 51, 0));
             chkTHDT = CreateCheckbox("Bảng 2.1: Tổng hợp dự toán công trình", "TH_DuToan", Color.FromArgb(0, 102, 204));
             chkTHCPXD = CreateCheckbox("Bảng 3.8: Bảng tổng hợp chi phí xây dựng", "TH_ChiPhiXD", Color.FromArgb(0, 102, 0));
 
-            pnlGrp1.Controls.Add(chkTMDT);
-            pnlGrp1.Controls.Add(chkTHDT);
-            pnlGrp1.Controls.Add(chkTHCPXD);
+            var pnlNoteTMDT = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 175,
+                BackColor = Color.FromArgb(240, 248, 255),
+                Padding = new Padding(12, 10, 12, 10),
+                Margin = new Padding(2, 14, 2, 4)
+            };
+            pnlNoteTMDT.Paint += (s, e) =>
+            {
+                using var pen = new Pen(Color.FromArgb(186, 230, 253), 1);
+                e.Graphics.DrawRectangle(pen, 0, 0, pnlNoteTMDT.Width - 1, pnlNoteTMDT.Height - 1);
+            };
+
+            var lblNoteTitle = new Label
+            {
+                Text = "📌 Quy chuẩn Thông tư 36/2026/TT-BXD:",
+                Dock = DockStyle.Top,
+                Height = 24,
+                Font = UIHelper.GetFont(9.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(3, 105, 161),
+                UseCompatibleTextRendering = true
+            };
+            var lblNoteContent = new Label
+            {
+                Text = "• Bảng 1.2: Dành cho Báo cáo KT-KT hoặc Tổng mức đầu tư.\n" +
+                       "• Bảng 2.1: Dành cho giai đoạn Lập dự toán xây dựng công trình.\n" +
+                       "• Bảng 3.8: Bảng tổng hợp chi phí xây dựng làm cơ sở tính toán.",
+                Dock = DockStyle.Fill,
+                Font = UIHelper.GetFont(9f, FontStyle.Regular),
+                ForeColor = Color.FromArgb(12, 74, 110),
+                TextAlign = ContentAlignment.TopLeft,
+                UseCompatibleTextRendering = true
+            };
+            pnlNoteTMDT.Controls.Add(lblNoteContent);
+            pnlNoteTMDT.Controls.Add(lblNoteTitle);
+
+            Action adjustNoteHeight = () =>
+            {
+                try
+                {
+                    int w = pnlNoteTMDT.ClientSize.Width - pnlNoteTMDT.Padding.Horizontal;
+                    if (w <= 50) w = 400;
+                    using var g = pnlNoteTMDT.CreateGraphics();
+                    var szTitle = TextRenderer.MeasureText(g, lblNoteTitle.Text, lblNoteTitle.Font, new Size(w, int.MaxValue), TextFormatFlags.WordBreak);
+                    var szContent = TextRenderer.MeasureText(g, lblNoteContent.Text, lblNoteContent.Font, new Size(w, int.MaxValue), TextFormatFlags.WordBreak);
+                    int h = szTitle.Height + szContent.Height + pnlNoteTMDT.Padding.Vertical + 16;
+                    pnlNoteTMDT.Height = Math.Max(170, h);
+                }
+                catch { }
+            };
+            pnlNoteTMDT.SizeChanged += (s, e) => adjustNoteHeight();
+
+            tblGrp1.Controls.Add(chkTMDT, 0, 0);
+            tblGrp1.Controls.Add(chkTHDT, 0, 1);
+            tblGrp1.Controls.Add(chkTHCPXD, 0, 2);
+            tblGrp1.Controls.Add(pnlNoteTMDT, 0, 3);
+
+            pnlGrp1.Controls.Add(tblGrp1);
             grpTongHop.Controls.Add(pnlGrp1);
 
-            // GROUP 2: BẢNG BIỂU KỸ THUẬT & DỰ TOÁN CHI TIẾT
+            // CỘT 2: BẢNG BIỂU KỸ THUẬT & DỰ TOÁN CHI TIẾT
             var grpKyThuat = new GroupBox
             {
-                Text = "  2. HỆ THỐNG BẢNG BIỂU KỸ THUẬT & DỰ TOÁN CHI TIẾT  ",
-                Dock = DockStyle.Top,
-                Height = 280,
+                Text = "  2. HỆ THỐNG BẢNG BIỂU KỸ THUẬT DỰ TOÁN CHI TIẾT  ",
+                Dock = DockStyle.Fill,
                 Font = UIHelper.GetFont(10f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(0, 51, 102),
-                Padding = new Padding(15, 10, 15, 8),
-                Margin = new Padding(0, 8, 0, 0)
+                Padding = new Padding(12, 8, 12, 8),
+                Margin = new Padding(6, 0, 0, 0)
             };
 
-            var pnlGrp2 = new FlowLayoutPanel
+            var pnlGrp2 = new Panel
             {
                 Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                AutoScroll = false
+                AutoScroll = true,
+                BackColor = Color.Transparent
             };
+
+            var tblGrp2 = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 1,
+                RowCount = 7,
+                Padding = new Padding(4),
+                BackColor = Color.Transparent
+            };
+            tblGrp2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
 
             chkDuToan = CreateCheckbox("Dự toán chi phí xây dựng công trình", "DuToan", Color.Black);
             chkPhanTich = CreateCheckbox("Bảng phân tích đơn giá chi tiết", "PhanTich_DonGia", Color.Black);
@@ -272,40 +395,71 @@ namespace AIE.ExcelAddIn.Forms
             chkCuocVC = CreateCheckbox("Bảng chiết tính cước vận chuyển", "ChietTinh_CuocVC", Color.Black);
             chkHeSo = CreateCheckbox("Bảng xác định hệ số điều chỉnh", "HeSo_DieuChinh", Color.Black);
 
-            pnlGrp2.Controls.Add(chkDuToan);
-            pnlGrp2.Controls.Add(chkPhanTich);
-            pnlGrp2.Controls.Add(chkTHVL);
-            pnlGrp2.Controls.Add(chkTHNC);
-            pnlGrp2.Controls.Add(chkTHMay);
-            pnlGrp2.Controls.Add(chkCuocVC);
-            pnlGrp2.Controls.Add(chkHeSo);
+            tblGrp2.Controls.Add(chkDuToan, 0, 0);
+            tblGrp2.Controls.Add(chkPhanTich, 0, 1);
+            tblGrp2.Controls.Add(chkTHVL, 0, 2);
+            tblGrp2.Controls.Add(chkTHNC, 0, 3);
+            tblGrp2.Controls.Add(chkTHMay, 0, 4);
+            tblGrp2.Controls.Add(chkCuocVC, 0, 5);
+            tblGrp2.Controls.Add(chkHeSo, 0, 6);
+
+            pnlGrp2.Controls.Add(tblGrp2);
             grpKyThuat.Controls.Add(pnlGrp2);
 
-            pnlContent.Controls.Add(grpKyThuat);
-            pnlContent.Controls.Add(grpTongHop);
-
+            tblContent.Controls.Add(grpTongHop, 0, 0);
+            tblContent.Controls.Add(grpKyThuat, 1, 0);
+            pnlContent.Controls.Add(tblContent);
             this.Controls.Add(pnlContent);
 
-            // Reorder dock hierarchy
+            // Thứ tự hiển thị Z-Order
             pnlHeader.BringToFront();
             pnlToolbar.BringToFront();
             pnlBottom.SendToBack();
             pnlContent.BringToFront();
+
+            this.Shown += (s, e) =>
+            {
+                adjustNoteHeight();
+                foreach (Control c in tblGrp1.Controls)
+                    if (c is CheckBox cb) AdjustCheckboxHeight(cb);
+                foreach (Control c in tblGrp2.Controls)
+                    if (c is CheckBox cb) AdjustCheckboxHeight(cb);
+            };
         }
 
         private CheckBox CreateCheckbox(string title, string sheetName, Color tagColor)
         {
             var chk = new CheckBox
             {
-                Text = $"{title}  (sheet '{sheetName}')",
-                AutoSize = true,
-                Font = UIHelper.GetFont(10f, FontStyle.Regular),
+                Text = $"{title}  [{sheetName}]",
+                AutoSize = false,
+                Dock = DockStyle.Top,
+                Height = 30,
+                Font = UIHelper.GetFont(9.5f, FontStyle.Regular),
                 ForeColor = tagColor,
-                Margin = new Padding(4, 3, 4, 3),
+                Margin = new Padding(2, 4, 2, 4),
+                Padding = new Padding(2, 2, 2, 2),
                 Cursor = Cursors.Hand,
+                CheckAlign = ContentAlignment.TopLeft,
+                TextAlign = ContentAlignment.TopLeft,
                 UseCompatibleTextRendering = true
             };
+
+            chk.SizeChanged += (s, e) => AdjustCheckboxHeight(chk);
             return chk;
+        }
+
+        private void AdjustCheckboxHeight(CheckBox chk)
+        {
+            try
+            {
+                int textWidth = chk.ClientSize.Width - 28;
+                if (textWidth <= 50) textWidth = 400;
+                using var g = chk.CreateGraphics();
+                var size = TextRenderer.MeasureText(g, chk.Text, chk.Font, new Size(textWidth, int.MaxValue), TextFormatFlags.WordBreak);
+                chk.Height = Math.Max(28, size.Height + 8);
+            }
+            catch { }
         }
 
         private void SetAllCheckboxes(bool isChecked)
@@ -339,15 +493,39 @@ namespace AIE.ExcelAddIn.Forms
             // Bảng tổng hợp chi phí xây dựng luôn mặc định chọn
             chkTHCPXD.Checked = true;
 
-            // Bảng kỹ thuật cơ bản mặc định chọn
-            chkDuToan.Checked = true;
-            chkPhanTich.Checked = true;
-            chkTHVL.Checked = true;
-            chkTHNC.Checked = true;
-            chkTHMay.Checked = true;
-            chkCuocVC.Checked = true;
-            chkHeSo.Checked = true;
+            // Kiểm tra xem trong Workbook hiện tại đã có các bảng kỹ thuật chưa (đã xuất từ bước 'Áp giá vào dự toán')
+            bool daCoBangKyThuat = false;
+            try
+            {
+                var app = (Microsoft.Office.Interop.Excel.Application)ExcelDna.Integration.ExcelDnaUtil.Application;
+                var wb = app?.ActiveWorkbook;
+                if (wb != null)
+                {
+                    foreach (Microsoft.Office.Interop.Excel.Worksheet ws in wb.Sheets)
+                    {
+                        if (ws.Name.StartsWith("PhanTich", StringComparison.OrdinalIgnoreCase) ||
+                            ws.Name.StartsWith("TH_VatLieu", StringComparison.OrdinalIgnoreCase))
+                        {
+                            daCoBangKyThuat = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            // Nếu đã có các bảng kỹ thuật (được tạo khi Áp giá), mặc định không tích lại để tránh ghi đè không cần thiết.
+            // Nếu chưa có, vẫn tích chọn để xuất trọn bộ hồ sơ.
+            bool chonBangKyThuat = !daCoBangKyThuat;
+            chkDuToan.Checked = chonBangKyThuat;
+            chkPhanTich.Checked = chonBangKyThuat;
+            chkTHVL.Checked = chonBangKyThuat;
+            chkTHNC.Checked = chonBangKyThuat;
+            chkTHMay.Checked = chonBangKyThuat;
+            chkCuocVC.Checked = chonBangKyThuat;
+            chkHeSo.Checked = chonBangKyThuat;
         }
+
 
         private void BtnXuat_Click(object sender, EventArgs e)
         {

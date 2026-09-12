@@ -118,6 +118,7 @@ public class ThamDinhConfigForm : Form
     public ThamDinhConfigForm(List<string> sheetNames)
     {
         InitializeComponent();
+        AIE.ExcelAddIn.Helpers.FormStateHelper.Attach(this);
         PopulateColumns();
 
         // Nạp danh sách sheet nhưng KHÔNG chọn mặc định
@@ -146,7 +147,7 @@ public class ThamDinhConfigForm : Form
         this.StartPosition = FormStartPosition.CenterParent;
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
-        this.MinimizeBox = false;
+        this.MinimizeBox = true;
         this.AutoSize = true;
         this.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         

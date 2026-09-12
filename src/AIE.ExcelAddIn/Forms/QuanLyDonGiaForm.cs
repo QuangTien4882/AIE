@@ -59,7 +59,12 @@ public class QuanLyDonGiaForm : Form
         BuildMayViewModels();
 
         InitializeComponent();
+        FormStateHelper.Attach(this);
         LoadData();
+        this.Shown += (s, e) =>
+        {
+            dgvVL?.AutoFit();
+        };
     }
 
     private void BuildMayViewModels()
@@ -239,6 +244,9 @@ public class QuanLyDonGiaForm : Form
         tabControl.SelectedIndexChanged += (s, e) => {
             txtSearch.Text = "";
             ApplyFilter();
+            if (tabControl.SelectedIndex == 0) dgvVL?.AutoFit();
+            else if (tabControl.SelectedIndex == 1) dgvNC?.AutoFit();
+            else if (tabControl.SelectedIndex == 2) dgvMay?.AutoFit();
         };
 
         // ===== Bottom Panel: Buttons =====
@@ -574,7 +582,7 @@ public class QuanLyDonGiaForm : Form
                 ? _allVL
                 : _allVL.Where(x => MatchAllKeywords(keyword, x.MaVL, x.TenVL)).ToList();
             dgvVL.DataSource = new BindingSource { DataSource = filteredVL };
-            dgvVL.AutoResizeRows(DataGridViewAutoSizeRowsMode.AllCells);
+            dgvVL.AutoFit();
             lblCount.Text = $"Hiển thị {filteredVL.Count} / {_allVL.Count} vật liệu";
             _lastFilterVL = keyword;
         }
@@ -589,7 +597,7 @@ public class QuanLyDonGiaForm : Form
             
             var sortedNC = filteredNC.OrderBy(x => x.LoaiNhanCong).ThenBy(x => x.Nhom).ToList();
             dgvNC.DataSource = new BindingSource { DataSource = sortedNC };
-            dgvNC.AutoResizeRows(DataGridViewAutoSizeRowsMode.AllCells);
+            dgvNC.AutoFit();
             lblCount.Text = $"Hiển thị {sortedNC.Count} / {_allNC.Count} nhân công";
             _lastFilterNC = keyword;
         }
@@ -599,7 +607,7 @@ public class QuanLyDonGiaForm : Form
                 ? _mayViewModels
                 : _mayViewModels.Where(x => MatchAllKeywords(keyword, x.MaHieu, x.Ten)).ToList();
             dgvMay.DataSource = new BindingSource { DataSource = filteredMay };
-            dgvMay.AutoResizeRows(DataGridViewAutoSizeRowsMode.AllCells);
+            dgvMay.AutoFit();
             lblCount.Text = $"Hiển thị {filteredMay.Count} / {_mayViewModels.Count} máy thi công";
             _lastFilterMay = keyword;
         }

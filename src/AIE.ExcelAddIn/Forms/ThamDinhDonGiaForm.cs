@@ -1,6 +1,7 @@
 using AIE.Core.Models;
 using AIE.Data;
 using AIE.Data.Repositories;
+using AIE.ExcelAddIn.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -36,8 +37,26 @@ public class ThamDinhDonGiaForm : Form
         _vungApDung = vungApDung;
         _loadedBoId = loadedBoId;
         InitializeComponent();
+        FormStateHelper.Attach(this);
         PrepareData(extractedItems);
         LoadDataToGrids();
+
+        this.Shown += (s, e) =>
+        {
+            dgvVL?.AutoFit();
+            dgvNC?.AutoFit();
+            dgvMay?.AutoFit();
+        };
+
+        if (tabControl != null)
+        {
+            tabControl.SelectedIndexChanged += (s, e) =>
+            {
+                if (tabControl.SelectedIndex == 0) dgvVL?.AutoFit();
+                else if (tabControl.SelectedIndex == 1) dgvNC?.AutoFit();
+                else if (tabControl.SelectedIndex == 2) dgvMay?.AutoFit();
+            };
+        }
     }
 
     private void InitializeComponent()
@@ -46,6 +65,8 @@ public class ThamDinhDonGiaForm : Form
         var workingArea = Screen.PrimaryScreen.WorkingArea;
         this.Size = new Size((int)(workingArea.Width * 0.9), (int)(workingArea.Height * 0.9));
         this.StartPosition = FormStartPosition.CenterScreen;
+        this.MinimizeBox = true;
+        this.ShowInTaskbar = true;
         this.Font = new Font("Be Vietnam Pro", 9.5f);
 
         // Header Panel (Tên bộ đơn giá & Nút lưu)
@@ -523,9 +544,9 @@ public class ThamDinhDonGiaForm : Form
         dgvNC.DataSource = new BindingSource { DataSource = _nhanCongList };
         dgvMay.DataSource = new BindingSource { DataSource = _mayThiCongList };
         
-        dgvVL.AutoResizeRows(DataGridViewAutoSizeRowsMode.AllCells);
-        dgvNC.AutoResizeRows(DataGridViewAutoSizeRowsMode.AllCells);
-        dgvMay.AutoResizeRows(DataGridViewAutoSizeRowsMode.AllCells);
+        dgvVL?.AutoFit();
+        dgvNC?.AutoFit();
+        dgvMay?.AutoFit();
         RecalculateMachineCosts();
     }
 

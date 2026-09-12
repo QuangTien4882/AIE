@@ -38,9 +38,12 @@ namespace AIE.ExcelAddIn.Forms
         private TabPage tabTMDT;
 
         // Controls Tab 1: Chi phí Xây dựng (Bảng 3.8 TT 36)
+        private ComboBox cboGiaiDoanXD;
         private ComboBox cboLoaiCongTrinhXD;
         private ComboBox cboPhanLoaiPhuXD;
         private TextBox txtQuyMoXD;
+        private ComboBox cboLoaiNhaTamXD;
+        private CheckBox chkVungSauXaXD;
         private TextBox txtCPCXD;
         private TextBox txtTTXD;
         private TextBox txtTNCTTTXD;
@@ -129,17 +132,22 @@ namespace AIE.ExcelAddIn.Forms
 
             NapDuLieuLenGiaoDien();
 
-            // Yêu cầu 1: Mở mặc định 100% màn hình làm việc (Maximized)
-            this.WindowState = FormWindowState.Maximized;
-            this.Load += (s, e) =>
-            {
-                this.WindowState = FormWindowState.Maximized;
-                this.Bounds = Screen.FromControl(this).WorkingArea;
-            };
+            FormStateHelper.Attach(this);
+
             this.Shown += (s, e) =>
             {
-                this.WindowState = FormWindowState.Maximized;
+                dgvPreviewChiPhiXD?.AutoFit();
+                dgvChiPhi?.AutoFit();
             };
+
+            if (tabMain != null)
+            {
+                tabMain.SelectedIndexChanged += (s, e) =>
+                {
+                    if (tabMain.SelectedTab == tabChiPhiXD) dgvPreviewChiPhiXD?.AutoFit();
+                    else if (tabMain.SelectedTab == tabTMDT) dgvChiPhi?.AutoFit();
+                };
+            }
         }
 
         private void KhoiTaoDuLieu()
@@ -447,6 +455,9 @@ namespace AIE.ExcelAddIn.Forms
             this.MinimumSize = new Size(1100, 700);
             this.WindowState = FormWindowState.Maximized; // Yêu cầu 1: Mở full 100% màn hình
             this.StartPosition = FormStartPosition.CenterScreen;
+            this.MinimizeBox = true;
+            this.MaximizeBox = true;
+            this.ShowInTaskbar = true;
             this.Font = UIHelper.GetFont(10.5f); // Yêu cầu 4: Font Be Vietnam Pro chuẩn
 
             // =========================================================================
@@ -998,35 +1009,66 @@ namespace AIE.ExcelAddIn.Forms
             var pnlLeftXD = new Panel
             {
                 Dock = DockStyle.Left,
-                Width = 475,
+                Width = 530,
                 Padding = new Padding(8, 8, 12, 8),
                 AutoScroll = true
             };
 
             var grpThongSoXD = new GroupBox
             {
-                Text = "  1. Thông số phân loại công trình  ",
+                Text = "  1. Thông số phân loại công trình (TT 36/2026)  ",
                 Dock = DockStyle.Top,
-                Height = 150,
+                Height = 255,
                 Font = UIHelper.GetFont(10.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(0, 51, 102),
                 Padding = new Padding(10, 12, 10, 10)
             };
 
-            var lblLoaiCTXD = new Label { Text = "Loại công trình:", Location = new Point(14, 30), Width = 150, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
-            cboLoaiCongTrinhXD = new ComboBox { Location = new Point(170, 26), Width = 280, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.GetFont(10f) };
+            int ty = 26;
+            var lblGiaiDoanXD = new Label { Text = "Giai đoạn thực hiện:", Location = new Point(14, ty), Width = 175, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
+            cboGiaiDoanXD = new ComboBox { Location = new Point(190, ty - 4), Width = 310, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.GetFont(10f) };
+            cboGiaiDoanXD.SelectedIndexChanged += (s, e) => TuDongTraTiLeXD();
+
+            ty += 35;
+            var lblLoaiCTXD = new Label { Text = "Loại công trình:", Location = new Point(14, ty), Width = 175, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
+            cboLoaiCongTrinhXD = new ComboBox { Location = new Point(190, ty - 4), Width = 310, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.GetFont(10f) };
             cboLoaiCongTrinhXD.SelectedIndexChanged += CboLoaiCongTrinhXD_SelectedIndexChanged;
 
-            var lblPhanLoaiXD = new Label { Text = "Phân loại chi tiết:", Location = new Point(14, 68), Width = 150, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
-            cboPhanLoaiPhuXD = new ComboBox { Location = new Point(170, 64), Width = 280, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.GetFont(10f) };
+            ty += 35;
+            var lblPhanLoaiXD = new Label { Text = "Phân loại chi tiết:", Location = new Point(14, ty), Width = 175, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
+            cboPhanLoaiPhuXD = new ComboBox { Location = new Point(190, ty - 4), Width = 310, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.GetFont(10f) };
             cboPhanLoaiPhuXD.SelectedIndexChanged += (s, e) => TuDongTraTiLeXD();
 
-            var lblQuyMoXD = new Label { Text = "CP XD trong TMĐT:", Location = new Point(14, 106), Width = 150, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
-            txtQuyMoXD = new TextBox { Location = new Point(170, 102), Width = 110, Font = UIHelper.GetFont(10f), Text = "15", TextAlign = HorizontalAlignment.Right };
-            var lblDonViQuyMo = new Label { Text = "(tỷ đồng)", Location = new Point(288, 106), Width = 80, Font = UIHelper.GetFont(10f), ForeColor = Color.FromArgb(74, 85, 104) };
+            ty += 35;
+            var lblQuyMoXD = new Label { Text = "CP XD trong TMĐT:", Location = new Point(14, ty), Width = 175, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
+            txtQuyMoXD = new TextBox { Location = new Point(190, ty - 4), Width = 110, Font = UIHelper.GetFont(10f), Text = "15", TextAlign = HorizontalAlignment.Right };
+            var lblDonViQuyMo = new Label { Text = "(tỷ đồng)", Location = new Point(308, ty), Width = 80, Font = UIHelper.GetFont(10f), ForeColor = Color.FromArgb(74, 85, 104) };
             txtQuyMoXD.TextChanged += (s, e) => TuDongTraTiLeXD();
 
-            grpThongSoXD.Controls.AddRange(new Control[] { lblLoaiCTXD, cboLoaiCongTrinhXD, lblPhanLoaiXD, cboPhanLoaiPhuXD, lblQuyMoXD, txtQuyMoXD, lblDonViQuyMo });
+            ty += 35;
+            var lblLoaiNhaTamXD = new Label { Text = "Loại CT tính Nhà tạm:", Location = new Point(14, ty), Width = 175, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
+            cboLoaiNhaTamXD = new ComboBox { Location = new Point(190, ty - 4), Width = 310, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.GetFont(10f) };
+            cboLoaiNhaTamXD.SelectedIndexChanged += (s, e) => TuDongTraTiLeXD();
+
+            ty += 35;
+            chkVungSauXaXD = new CheckBox
+            {
+                Text = "Công trình tại vùng núi, biên giới, hải đảo (hệ số CPC x 1,1)",
+                Location = new Point(14, ty),
+                Width = 490,
+                Font = UIHelper.GetFont(9.5f),
+                ForeColor = Color.FromArgb(180, 50, 0)
+            };
+            chkVungSauXaXD.CheckedChanged += (s, e) => TuDongTraTiLeXD();
+
+            grpThongSoXD.Controls.AddRange(new Control[] {
+                lblGiaiDoanXD, cboGiaiDoanXD,
+                lblLoaiCTXD, cboLoaiCongTrinhXD,
+                lblPhanLoaiXD, cboPhanLoaiPhuXD,
+                lblQuyMoXD, txtQuyMoXD, lblDonViQuyMo,
+                lblLoaiNhaTamXD, cboLoaiNhaTamXD,
+                chkVungSauXaXD
+            });
 
             var grpTyLeXD = new GroupBox
             {
@@ -1093,6 +1135,7 @@ namespace AIE.ExcelAddIn.Forms
             btnChuyenSangTab2.Click += (s, e) =>
             {
                 TinhToanChiPhiXD();
+                CapNhatGiaTriDauVao();
                 tabMain.SelectedTab = tabTMDT;
             };
 
@@ -1186,6 +1229,7 @@ namespace AIE.ExcelAddIn.Forms
                 if (tabMain.SelectedTab == tabTMDT)
                 {
                     TinhToanChiPhiXD();
+                    CapNhatGiaTriDauVao();
                 }
             };
             tabMain.TabPages.Add(tabChiPhiXD);
@@ -1283,20 +1327,30 @@ namespace AIE.ExcelAddIn.Forms
             }
 
             // Đảm bảo tính toán Chi phí Xây dựng và đồng bộ đầy đủ sang Tab 2 ngay từ đầu
-            TinhToanChiPhiXD();
+            TuDongTraTiLeXD();
         }
 
         private void NapDuLieuTabChiPhiXD()
         {
+            LoadGiaiDoanXD();
             LoadLoaiCongTrinhXD();
+            LoadLoaiNhaTamXD();
 
             if (_duToan.ChiPhiXD != null)
             {
+                if (!string.IsNullOrEmpty(_duToan.ChiPhiXD.GiaiDoan) && cboGiaiDoanXD.Items.Contains(_duToan.ChiPhiXD.GiaiDoan))
+                    cboGiaiDoanXD.SelectedItem = _duToan.ChiPhiXD.GiaiDoan;
+
+                if (!string.IsNullOrEmpty(_duToan.ChiPhiXD.LoaiCongTrinhNhaTam) && cboLoaiNhaTamXD.Items.Contains(_duToan.ChiPhiXD.LoaiCongTrinhNhaTam))
+                    cboLoaiNhaTamXD.SelectedItem = _duToan.ChiPhiXD.LoaiCongTrinhNhaTam;
+
+                chkVungSauXaXD.Checked = _duToan.ChiPhiXD.LaVungSauXa;
+
                 txtCPCXD.Text = _duToan.ChiPhiXD.TiLeCPC.ToString("0.000").Replace('.', ',');
                 txtTTXD.Text = _duToan.ChiPhiXD.TiLeTT.ToString("0.000").Replace('.', ',');
                 txtTNCTTTXD.Text = _duToan.ChiPhiXD.TiLeTNCTTT.ToString("0.0").Replace('.', ',');
                 txtGTGTXD.Text = _duToan.ChiPhiXD.TiLeGTGT.ToString("0").Replace('.', ',');
-                txtNhaTamXD.Text = _duToan.ChiPhiXD.TiLeNhaTam.ToString("0.0").Replace('.', ',');
+                txtNhaTamXD.Text = _duToan.ChiPhiXD.TiLeNhaTam.ToString("0.00").Replace('.', ',');
                 TinhToanChiPhiXD();
             }
             else
@@ -1304,6 +1358,30 @@ namespace AIE.ExcelAddIn.Forms
                 TuDongTraTiLeXD();
             }
         }
+
+        private void LoadGiaiDoanXD()
+        {
+            cboGiaiDoanXD.DataSource = null;
+            cboGiaiDoanXD.Items.Clear();
+            cboGiaiDoanXD.Items.AddRange(new object[] {
+                "Lập dự toán xây dựng",
+                "Lập Báo cáo kinh tế - kỹ thuật",
+                "Lập Báo cáo NCKT (Tổng mức đầu tư)"
+            });
+            cboGiaiDoanXD.SelectedIndex = 0;
+        }
+
+        private void LoadLoaiNhaTamXD()
+        {
+            cboLoaiNhaTamXD.DataSource = null;
+            cboLoaiNhaTamXD.Items.Clear();
+            cboLoaiNhaTamXD.Items.AddRange(new object[] {
+                "Công trình xây dựng còn lại",
+                "Công trình xây dựng theo tuyến"
+            });
+            cboLoaiNhaTamXD.SelectedIndex = 0;
+        }
+
 
         private void TabMain_DrawItem(object sender, DrawItemEventArgs e)
         {
@@ -1437,10 +1515,9 @@ namespace AIE.ExcelAddIn.Forms
             }
             cboPhanLoaiPhuXD.SelectedIndex = 0;
 
-            if (loaiCT == "Công nghiệp" || loaiCT == "Giao thông")
-                txtTNCTTTXD.Text = "6,0";
-            else
-                txtTNCTTTXD.Text = "5,5";
+            // Tra Thu nhập chịu thuế tính trước theo Bảng 3.6
+            decimal defTNCTTT = InterpolationHelper.LayTiLeTNCTTT(loaiCT);
+            txtTNCTTTXD.Text = defTNCTTT.ToString("0.0").Replace('.', ',');
 
             TuDongTraTiLeXD();
         }
@@ -1453,19 +1530,67 @@ namespace AIE.ExcelAddIn.Forms
             string phanLoai = cboPhanLoaiPhuXD.SelectedIndex > 0 ? cboPhanLoaiPhuXD.SelectedItem.ToString() : null;
 
             decimal.TryParse(txtQuyMoXD.Text.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal quyMo);
+            if (quyMo <= 0) quyMo = 15m;
 
-            // Tra CPC
-            var listCPC = _cpcRepo.GetByLoaiCongTrinh(loaiCT, phanLoai);
-            if (listCPC.Count == 0 && phanLoai != null)
-                listCPC = _cpcRepo.GetByLoaiCongTrinh(loaiCT, null);
+            string giaiDoan = cboGiaiDoanXD?.SelectedItem?.ToString() ?? "Lập dự toán xây dựng";
+            string loaiNhaTam = cboLoaiNhaTamXD?.SelectedItem?.ToString() ?? "Công trình xây dựng còn lại";
+            bool laVungSauXa = chkVungSauXaXD?.Checked ?? false;
 
-            if (listCPC.Count > 0)
+            decimal cpc = 0m;
+
+            if (giaiDoan.IndexOf("Tổng mức đầu tư", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                giaiDoan.IndexOf("NCKT", StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                decimal cpc = InterpolationHelper.NoiSuyTiLeCPC(listCPC, quyMo);
+                // Bảng 3.2 TT 36: Giai đoạn lập TMĐT (tỷ lệ cố định theo loại CT)
+                cpc = InterpolationHelper.LayTiLeCPCTMDT(loaiCT, phanLoai);
+            }
+            else if (giaiDoan.IndexOf("kinh tế - kỹ thuật", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     giaiDoan.IndexOf("KT-KT", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     giaiDoan.IndexOf("KTKT", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                // Điểm đ khoản 3.1.2 TT 36: Dự án chỉ lập BC KT-KT thì lấy theo cột [3] Bảng 3.3 (mốc <= 40 tỷ)
+                var listCPC = _cpcRepo.GetByLoaiCongTrinh(loaiCT, phanLoai);
+                if (listCPC.Count == 0 && phanLoai != null)
+                    listCPC = _cpcRepo.GetByLoaiCongTrinh(loaiCT, null);
+
+                if (listCPC.Count > 0)
+                {
+                    cpc = listCPC.OrderBy(x => x.QuyMoMin).First().TiLe;
+                }
+                else
+                {
+                    cpc = InterpolationHelper.LayTiLeCPCTMDT(loaiCT, phanLoai);
+                }
+            }
+            else
+            {
+                // Khoản 3.1.2.a TT 36: Giai đoạn lập dự toán xây dựng (nội suy Bảng 3.3)
+                var listCPC = _cpcRepo.GetByLoaiCongTrinh(loaiCT, phanLoai);
+                if (listCPC.Count == 0 && phanLoai != null)
+                    listCPC = _cpcRepo.GetByLoaiCongTrinh(loaiCT, null);
+
+                if (listCPC.Count > 0)
+                {
+                    cpc = InterpolationHelper.NoiSuyTiLeCPC(listCPC, quyMo);
+                }
+                else
+                {
+                    cpc = InterpolationHelper.LayTiLeCPCTMDT(loaiCT, phanLoai);
+                }
+            }
+
+            // Khoản 3.1.4: Công trình tại vùng núi, biên giới, hải đảo x 1.1
+            if (laVungSauXa && cpc > 0)
+            {
+                cpc = Math.Round(cpc * 1.1m, 3, MidpointRounding.AwayFromZero);
+            }
+
+            if (cpc > 0)
+            {
                 txtCPCXD.Text = cpc.ToString("0.000").Replace('.', ',');
             }
 
-            // Tra TT
+            // Tra TT (Bảng 3.5)
             var tt = _ttRepo.GetByLoaiCongTrinh(loaiCT, phanLoai);
             if (tt == null && phanLoai != null)
                 tt = _ttRepo.GetByLoaiCongTrinh(loaiCT, null);
@@ -1473,6 +1598,35 @@ namespace AIE.ExcelAddIn.Forms
             if (tt != null)
             {
                 txtTTXD.Text = tt.TiLe.ToString("0.000").Replace('.', ',');
+            }
+
+            // Tra Thu nhập chịu thuế tính trước (Bảng 3.6)
+            decimal tncttt = InterpolationHelper.LayTiLeTNCTTT(loaiCT);
+            txtTNCTTTXD.Text = tncttt.ToString("0.0").Replace('.', ',');
+
+            // Tra Chi phí nhà tạm (Bảng 3.7)
+            decimal tlNhaTam = InterpolationHelper.NoiSuyTiLeNhaTam(loaiNhaTam, quyMo);
+            txtNhaTamXD.Text = tlNhaTam.ToString("0.00").Replace('.', ',');
+
+            // Đồng bộ giai đoạn với Tab 2 (Chế độ bảng tính và số bước thiết kế)
+            if (giaiDoan.IndexOf("kinh tế - kỹ thuật", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                giaiDoan.IndexOf("KT-KT", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                giaiDoan.IndexOf("KTKT", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                if (radBangTMDT != null && !radBangTMDT.Checked) radBangTMDT.Checked = true;
+                if (cboSoBuocThietKe != null && cboSoBuocThietKe.Items.Count > 1 && cboSoBuocThietKe.SelectedIndex != 1)
+                {
+                    cboSoBuocThietKe.SelectedIndex = 1; // 1 bước (Báo cáo KT-KT)
+                }
+            }
+            else if (giaiDoan.IndexOf("Tổng mức đầu tư", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     giaiDoan.IndexOf("NCKT", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                if (radBangTMDT != null && !radBangTMDT.Checked) radBangTMDT.Checked = true;
+            }
+            else
+            {
+                if (radBangTHDT != null && !radBangTHDT.Checked) radBangTHDT.Checked = true;
             }
 
             TinhToanChiPhiXD();
@@ -1498,30 +1652,37 @@ namespace AIE.ExcelAddIn.Forms
                 tongVL = _tongT - _tongNC - tongMay;
             }
 
-            var kq = _calcService.Tinh(tongVL, tongNC, tongMay, cpc, tt, tncttt, gtgt, nhatam, "T");
+            string giaiDoan = cboGiaiDoanXD?.SelectedItem?.ToString() ?? "Lập dự toán xây dựng";
+            string loaiNhaTam = cboLoaiNhaTamXD?.SelectedItem?.ToString() ?? "Công trình xây dựng còn lại";
+            bool laVungSauXa = chkVungSauXaXD?.Checked ?? false;
+
+            var kq = _calcService.Tinh(tongVL, tongNC, tongMay, cpc, tt, tncttt, gtgt, nhatam, "T", giaiDoan, loaiNhaTam, laVungSauXa);
             _duToan.ChiPhiXD = kq;
 
             if (dgvPreviewChiPhiXD != null)
             {
                 dgvPreviewChiPhiXD.Rows.Clear();
                 dgvPreviewChiPhiXD.Rows.Add("I. Chi phí trực tiếp", "T", "VL + NC + M", kq.T);
-                dgvPreviewChiPhiXD.Rows.Add("- Chi phí vật liệu", "VL", "", kq.VL);
-                dgvPreviewChiPhiXD.Rows.Add("- Chi phí nhân công", "NC", "", kq.NC);
-                dgvPreviewChiPhiXD.Rows.Add("- Chi phí máy", "M", "", kq.M);
-                dgvPreviewChiPhiXD.Rows.Add("II. Chi phí gián tiếp", "GT", "CPC + TT", kq.GT);
-                dgvPreviewChiPhiXD.Rows.Add($"- Chi phí chung ({cpc}%)", "CPC", "T × tỷ lệ", kq.CPC);
-                dgvPreviewChiPhiXD.Rows.Add($"- CP không xác định KL ({tt}%)", "TT", "T × tỷ lệ", kq.TT);
+                dgvPreviewChiPhiXD.Rows.Add("1. Chi phí vật liệu", "VL", "Σ(KL × ĐG_VL)", kq.VL);
+                dgvPreviewChiPhiXD.Rows.Add("2. Chi phí nhân công", "NC", "Σ(KL × ĐG_NC × Knc)", kq.NC);
+                dgvPreviewChiPhiXD.Rows.Add("3. Chi phí máy và thiết bị thi công", "M", "Σ(KL × ĐG_M × Km)", kq.M);
+                dgvPreviewChiPhiXD.Rows.Add("II. Chi phí gián tiếp", "GT", "C + TT", kq.GT);
+                dgvPreviewChiPhiXD.Rows.Add($"1. Chi phí chung ({cpc}%)", "C", "T × tỷ lệ", kq.CPC);
+                dgvPreviewChiPhiXD.Rows.Add($"2. CP một số CV không XĐ được KL ({tt}%)", "TT", "T × tỷ lệ", kq.TT);
                 dgvPreviewChiPhiXD.Rows.Add($"III. Thu nhập chịu thuế tính trước ({tncttt}%)", "TL", "(T + GT) × tỷ lệ", kq.TL);
-                dgvPreviewChiPhiXD.Rows.Add("IV. Chi phí xây dựng trước thuế", "G", "T + GT + TL", kq.G);
-                dgvPreviewChiPhiXD.Rows.Add($"V. Thuế GTGT ({gtgt}%)", "GTGT", "G × tỷ lệ", kq.GTGT);
-                dgvPreviewChiPhiXD.Rows.Add("VI. Chi phí xây dựng sau thuế", "Gxd", "G + GTGT", kq.Gxd);
-                dgvPreviewChiPhiXD.Rows.Add($"VII. Chi phí nhà tạm ({nhatam}%)", "LT", "Gxd × tỷ lệ", kq.LT);
+                dgvPreviewChiPhiXD.Rows.Add("Chi phí xây dựng trước thuế", "GXDTT", "T + GT + TL", kq.GXDTT);
+                dgvPreviewChiPhiXD.Rows.Add($"IV. Thuế GTGT ({gtgt}%)", "GTGT", "GXDTT × thuế suất", kq.GTGT);
 
-                var row = new DataGridViewRow();
-                row.CreateCells(dgvPreviewChiPhiXD, "VIII. TỔNG CỘNG CHI PHÍ XÂY DỰNG", "GXD", "Gxd + LT", kq.GXD);
-                row.DefaultCellStyle.Font = new Font(dgvPreviewChiPhiXD.Font, FontStyle.Bold);
-                row.DefaultCellStyle.BackColor = Color.LightYellow;
-                dgvPreviewChiPhiXD.Rows.Add(row);
+                var rSauThue = new DataGridViewRow();
+                rSauThue.CreateCells(dgvPreviewChiPhiXD, "CHI PHÍ XÂY DỰNG SAU THUẾ", "GXD", "GXDTT + GTGT", kq.GXD);
+                rSauThue.DefaultCellStyle.Font = new Font(dgvPreviewChiPhiXD.Font, FontStyle.Bold);
+                rSauThue.DefaultCellStyle.BackColor = Color.FromArgb(230, 244, 234);
+                dgvPreviewChiPhiXD.Rows.Add(rSauThue);
+
+                var rNhaTam = new DataGridViewRow();
+                rNhaTam.CreateCells(dgvPreviewChiPhiXD, $"V. Chi phí nhà tạm ({nhatam}%)", "LT", "GXDTT × tỷ lệ × (1 + TGTGT)", kq.LT);
+                rNhaTam.DefaultCellStyle.Font = new Font(dgvPreviewChiPhiXD.Font, FontStyle.Bold);
+                dgvPreviewChiPhiXD.Rows.Add(rNhaTam);
 
                 int[] boldIndices = { 0, 4, 7, 8, 9, 10, 11 };
                 foreach (int idx in boldIndices)
@@ -1537,6 +1698,7 @@ namespace AIE.ExcelAddIn.Forms
                 {
                     r.Height = 36;
                 }
+                dgvPreviewChiPhiXD?.AutoFit();
             }
 
             DongBoSangTab2(kq, gtgt, nhatam);
@@ -1553,13 +1715,14 @@ namespace AIE.ExcelAddIn.Forms
             }
 
             decimal vatRate = gtgt / 100m;
-            decimal ntTruocThue = Math.Round(kq.G * nhatam / 100m, 0);
+            decimal ntTruocThue = Math.Round(kq.GXDTT * nhatam / 100m, 0);
 
-            _model.ChiPhiXDTruocThue = kq.G;
+            _model.ChiPhiXDTruocThue = kq.GXDTT;
             _model.ChiPhiNhaTamTruocThue = ntTruocThue;
 
-            if (txtChiPhiXD != null) txtChiPhiXD.Text = UIHelper.FormatTien(kq.G);
+            if (txtChiPhiXD != null) txtChiPhiXD.Text = UIHelper.FormatTien(kq.GXDTT);
             if (txtChiPhiNT != null) txtChiPhiNT.Text = UIHelper.FormatTien(ntTruocThue);
+
 
             var colVATSync = dgvChiPhi?.Columns["colVAT"] as DataGridViewComboBoxColumn;
             if (colVATSync != null)
@@ -1786,6 +1949,7 @@ namespace AIE.ExcelAddIn.Forms
             }
 
             CapNhatThanhTongCong();
+            dgvChiPhi?.AutoFit();
             _isUpdating = false;
         }
 
@@ -2221,12 +2385,9 @@ namespace AIE.ExcelAddIn.Forms
                     return;
                 }
 
-                // Đảm bảo dữ liệu Chi phí XD đã được tính
-                if (_duToan.ChiPhiXD == null)
-                {
-                    TinhToanChiPhiXD();
-                }
-
+                // Đảm bảo dữ liệu Chi phí XD và Bảng kinh phí đã được tính toán và đồng bộ đồng nhất
+                TinhToanChiPhiXD();
+                CapNhatGiaTriDauVao();
                 _duToan.BangKinhPhi = _model;
 
                 // Mở hộp thoại chọn các bảng biểu cần xuất

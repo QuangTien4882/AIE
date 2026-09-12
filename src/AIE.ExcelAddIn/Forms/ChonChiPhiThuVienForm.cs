@@ -31,16 +31,13 @@ namespace AIE.ExcelAddIn.Forms
         {
             KhoiTaoThuVien();
             InitializeComponent();
+            FormStateHelper.Attach(this);
             LoadData();
 
-            this.Load += (s, e) =>
-            {
-                this.WindowState = FormWindowState.Maximized;
-            };
             this.Shown += (s, e) =>
             {
-                this.WindowState = FormWindowState.Maximized;
                 txtTimKiem?.Focus();
+                dgvThuVien?.AutoFit();
             };
         }
 
@@ -363,6 +360,7 @@ namespace AIE.ExcelAddIn.Forms
             }
 
             CapNhatDemSoLuongChon();
+            dgvThuVien?.AutoFit();
         }
 
         private void LocDanhSach()

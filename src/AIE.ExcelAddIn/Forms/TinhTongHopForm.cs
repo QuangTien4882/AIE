@@ -10,6 +10,7 @@ using AIE.Core.Services.Shared;
 using AIE.Data;
 using AIE.Data.Repositories;
 using AIE.ExcelAddIn.Services;
+using AIE.ExcelAddIn.Helpers;
 
 namespace AIE.ExcelAddIn.Forms
 {
@@ -59,6 +60,7 @@ namespace AIE.ExcelAddIn.Forms
             }
 
             InitializeComponent();
+            FormStateHelper.Attach(this);
             LoadLoaiCongTrinh();
         }
 
@@ -300,23 +302,27 @@ namespace AIE.ExcelAddIn.Forms
 
             dgvPreview.Rows.Clear();
             dgvPreview.Rows.Add("I. Chi phí trực tiếp", "T", "VL + NC + M", kq.T);
-            dgvPreview.Rows.Add("- Chi phí vật liệu", "VL", "", kq.VL);
-            dgvPreview.Rows.Add("- Chi phí nhân công", "NC", "", kq.NC);
-            dgvPreview.Rows.Add("- Chi phí máy", "M", "", kq.M);
-            dgvPreview.Rows.Add("II. Chi phí gián tiếp", "GT", "CPC + TT", kq.GT);
-            dgvPreview.Rows.Add($"- Chi phí chung ({cpc}%)", "CPC", "T × tỷ lệ", kq.CPC);
+            dgvPreview.Rows.Add("1. Chi phí vật liệu", "VL", "Σ(KL × ĐG_VL)", kq.VL);
+            dgvPreview.Rows.Add("2. Chi phí nhân công", "NC", "Σ(KL × ĐG_NC × Knc)", kq.NC);
+            dgvPreview.Rows.Add("3. Chi phí máy và thiết bị thi công", "M", "Σ(KL × ĐG_M × Km)", kq.M);
+            dgvPreview.Rows.Add("II. Chi phí gián tiếp", "GT", "C + TT", kq.GT);
+            dgvPreview.Rows.Add($"- Chi phí chung ({cpc}%)", "C", "T × tỷ lệ", kq.CPC);
             dgvPreview.Rows.Add($"- CP không xác định KL ({tt}%)", "TT", "T × tỷ lệ", kq.TT);
             dgvPreview.Rows.Add($"III. Thu nhập chịu thuế tính trước ({tncttt}%)", "TL", "(T + GT) × tỷ lệ", kq.TL);
-            dgvPreview.Rows.Add("IV. Chi phí xây dựng trước thuế", "G", "T + GT + TL", kq.G);
-            dgvPreview.Rows.Add($"V. Thuế GTGT ({gtgt}%)", "GTGT", "G × tỷ lệ", kq.GTGT);
-            dgvPreview.Rows.Add("VI. Chi phí xây dựng sau thuế", "Gxd", "G + GTGT", kq.Gxd);
-            dgvPreview.Rows.Add($"VII. Chi phí nhà tạm ({nhatam}%)", "LT", "Gxd × tỷ lệ", kq.LT);
-            
-            var row = new DataGridViewRow();
-            row.CreateCells(dgvPreview, "VIII. TỔNG CỘNG CHI PHÍ XÂY DỰNG", "GXD", "Gxd + LT", kq.GXD);
-            row.DefaultCellStyle.Font = new Font(dgvPreview.Font, FontStyle.Bold);
-            row.DefaultCellStyle.BackColor = Color.LightYellow;
-            dgvPreview.Rows.Add(row);
+            dgvPreview.Rows.Add("Chi phí xây dựng trước thuế", "GXDTT", "T + GT + TL", kq.GXDTT);
+            dgvPreview.Rows.Add($"IV. Thuế GTGT ({gtgt}%)", "GTGT", "GXDTT × thuế suất", kq.GTGT);
+
+            var rSauThue = new DataGridViewRow();
+            rSauThue.CreateCells(dgvPreview, "CHI PHÍ XÂY DỰNG SAU THUẾ", "GXD", "GXDTT + GTGT", kq.GXD);
+            rSauThue.DefaultCellStyle.Font = new Font(dgvPreview.Font, FontStyle.Bold);
+            rSauThue.DefaultCellStyle.BackColor = Color.FromArgb(230, 244, 234);
+            dgvPreview.Rows.Add(rSauThue);
+
+            var rNhaTam = new DataGridViewRow();
+            rNhaTam.CreateCells(dgvPreview, $"V. Chi phí nhà tạm ({nhatam}%)", "LT", "GXDTT × tỷ lệ × (1 + TGTGT)", kq.LT);
+            rNhaTam.DefaultCellStyle.Font = new Font(dgvPreview.Font, FontStyle.Bold);
+            dgvPreview.Rows.Add(rNhaTam);
+
         }
 
         private void BtnXuatExcel_Click(object sender, EventArgs e)

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Windows.Forms;
 using AIE.Core.Models;
 using AIE.ExcelAddIn.Services;
+using AIE.ExcelAddIn.Helpers;
 
 namespace AIE.ExcelAddIn.Forms;
 
@@ -80,6 +81,7 @@ public class TinhCuocVCBoForm : Form
         _maNhanCong = maNhanCong;
 
         InitializeComponent();
+        FormStateHelper.Attach(this);
         LoadInitialData();
 
         if (giaTriHienTai > 0 && KetQuaCuocBo == 0)
@@ -96,7 +98,9 @@ public class TinhCuocVCBoForm : Form
         int targetW = Math.Min(1200, area.Width - 40);
         int targetH = Math.Min(880, area.Height - 40);
         this.ClientSize = new Size(targetW, targetH);
-        this.MinimumSize = new Size(1020, 720);
+        int minW = Math.Min(980, area.Width - 40);
+        int minH = Math.Min(580, area.Height - 40);
+        this.MinimumSize = new Size(minW, minH);
         this.StartPosition = FormStartPosition.CenterParent;
         this.FormBorderStyle = FormBorderStyle.Sizable;
         this.MaximizeBox = true;

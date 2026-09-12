@@ -32,6 +32,11 @@ namespace AIE.ExcelAddIn.Ribbon
         public static AIE.Core.Models.DuToan CurrentDuToan { get; set; }
         /// <summary>Đường dẫn file .dt hiện tại (null nếu chưa lưu)</summary>
         public static string CurrentFilePath { get; set; }
+
+        // Singleton references: tránh mở nhiều instance cùng lúc (Phương án B: Modeless)
+        private static TongHopKinhPhiForm _tongHopForm;
+        private static TinhGiaHienTruongForm _tinhGiaForm;
+        private static ThamDinhDonGiaForm _thamDinhForm;
         public override string GetCustomUI(string RibbonID)
         {
             return @"
@@ -273,30 +278,47 @@ namespace AIE.ExcelAddIn.Ribbon
                     loading.Show();
                     System.Windows.Forms.Application.DoEvents();
                     
+                    if (_thamDinhForm != null && !_thamDinhForm.IsDisposed)
+                    {
+                        loading.Close();
+                        loading.Dispose();
+                        _thamDinhForm.Activate();
+                        return;
+                    }
                     var donGiaForm = new ThamDinhDonGiaForm(danhSachVatTu, config.Vung);
+                    _thamDinhForm = donGiaForm;
                     
                     loading.Close();
                     loading.Dispose();
                     
-                    if (donGiaForm.ShowDialog() == DialogResult.OK && donGiaForm.SavedBoDonGiaId.HasValue)
+                    // Xử lý logic sau khi form đóng qua FormClosed event (Modeless)
+                    var capturedEngine = engine;
+                    var capturedConfig = config;
+                    var capturedDanhSachCongTac = danhSachCongTac;
+                    donGiaForm.FormClosed += (s, ev) =>
                     {
-                        var result = MessageBox.Show("Bạn có muốn áp dụng Bộ đơn giá vừa tạo để Thẩm định (Kiểm tra) dự toán này ngay không?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                        if (result == DialogResult.Yes)
+                        _thamDinhForm = null;
+                        if (donGiaForm.DialogResult == DialogResult.OK && donGiaForm.SavedBoDonGiaId.HasValue)
                         {
-                            var loadingKiemTra = new AIE.ExcelAddIn.Forms.LoadingForm("Đang thẩm định lại...");
-                            loadingKiemTra.Show();
-                            System.Windows.Forms.Application.DoEvents();
-                            
-                            var ketQuaMoi = engine.KiemTra(danhSachCongTac, donGiaForm.SavedBoDonGiaId);
-                            var writer = new AIE.ExcelAddIn.Services.ThamDinhExcelWriter();
-                            writer.ExportResult(config, ketQuaMoi);
-                            
-                            loadingKiemTra.Close();
-                            loadingKiemTra.Dispose();
-                            
-                            MessageBox.Show("Đã hoàn tất thẩm định và xuất kết quả ra sheet KQ_ThamDinh.", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            var result = MessageBox.Show("Bạn có muốn áp dụng Bộ đơn giá vừa tạo để Thẩm định (Kiểm tra) dự toán này ngay không?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                            if (result == DialogResult.Yes)
+                            {
+                                var loadingKiemTra = new AIE.ExcelAddIn.Forms.LoadingForm("Đang thẩm định lại...");
+                                loadingKiemTra.Show();
+                                System.Windows.Forms.Application.DoEvents();
+                                
+                                var ketQuaMoi = capturedEngine.KiemTra(capturedDanhSachCongTac, donGiaForm.SavedBoDonGiaId);
+                                var writer = new AIE.ExcelAddIn.Services.ThamDinhExcelWriter();
+                                writer.ExportResult(capturedConfig, ketQuaMoi);
+                                
+                                loadingKiemTra.Close();
+                                loadingKiemTra.Dispose();
+                                
+                                MessageBox.Show("Đã hoàn tất thẩm định và xuất kết quả ra sheet KQ_ThamDinh.", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            }
                         }
-                    }
+                    };
+                    donGiaForm.Show(new WindowWrapper(ExcelDnaUtil.WindowHandle));
                 }
             }
             catch (Exception ex)
@@ -589,11 +611,17 @@ namespace AIE.ExcelAddIn.Ribbon
                 var phanTichDonGiaService = new AIE.ExcelAddIn.Services.PhanTichDonGiaService(ctRepo);
                 phanTichDonGiaService.TinhDonGiaChiTiet(duToan);
                 
-                // Mở Form Tổng hợp kinh phí hợp nhất (Tab 1: Chi phí XD, Tab 2: TMĐT & THDT)
-                using var form = new TongHopKinhPhiForm(duToan);
-                form.ShowDialog();
-                
+                // Mở Form Tổng hợp kinh phí (Modeless: người dùng có thể click vào Excel)
+                if (_tongHopForm != null && !_tongHopForm.IsDisposed)
+                {
+                    _tongHopForm.Activate();
+                    return;
+                }
                 CurrentDuToan = duToan;
+                var form = new TongHopKinhPhiForm(duToan);
+                _tongHopForm = form;
+                form.FormClosed += (s, ev) => { _tongHopForm = null; };
+                form.Show(new WindowWrapper(ExcelDnaUtil.WindowHandle));
             }
             catch (Exception ex)
             {
@@ -641,9 +669,16 @@ namespace AIE.ExcelAddIn.Ribbon
                     }
                 }
 
-                using var form = new TongHopKinhPhiForm(duToan, macDinhTongMucDauTu);
-                form.ShowDialog();
+                if (_tongHopForm != null && !_tongHopForm.IsDisposed)
+                {
+                    _tongHopForm.Activate();
+                    return;
+                }
                 CurrentDuToan = duToan;
+                var form = new TongHopKinhPhiForm(duToan, macDinhTongMucDauTu);
+                _tongHopForm = form;
+                form.FormClosed += (s, ev) => { _tongHopForm = null; };
+                form.Show(new WindowWrapper(ExcelDnaUtil.WindowHandle));
             }
             catch (Exception ex)
             {
@@ -759,12 +794,21 @@ namespace AIE.ExcelAddIn.Ribbon
                 loading.Show();
                 System.Windows.Forms.Application.DoEvents();
                 
-                using var form = new TinhGiaHienTruongForm(duToan, service, phanTichDonGiaService);
+                if (_tinhGiaForm != null && !_tinhGiaForm.IsDisposed)
+                {
+                    loading.Close();
+                    loading.Dispose();
+                    _tinhGiaForm.Activate();
+                    return;
+                }
+                var form = new TinhGiaHienTruongForm(duToan, service, phanTichDonGiaService);
+                _tinhGiaForm = form;
+                form.FormClosed += (s, ev) => { _tinhGiaForm = null; };
                 
                 loading.Close();
                 loading.Dispose();
                 
-                form.ShowDialog();
+                form.Show(new WindowWrapper(ExcelDnaUtil.WindowHandle));
             }
             catch (Exception ex)
             {

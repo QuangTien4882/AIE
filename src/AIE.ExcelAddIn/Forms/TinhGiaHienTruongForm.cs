@@ -1,5 +1,6 @@
 using AIE.Core.Models;
 using AIE.ExcelAddIn.Services;
+using AIE.ExcelAddIn.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -35,7 +36,25 @@ public class TinhGiaHienTruongForm : Form
         _donGiaService = donGiaService;
         
         InitializeComponent();
+        FormStateHelper.Attach(this);
         LoadData();
+
+        this.Shown += (s, e) =>
+        {
+            dgvVL?.AutoFit();
+            dgvNC?.AutoFit();
+            dgvMay?.AutoFit();
+        };
+
+        if (tabControl != null)
+        {
+            tabControl.SelectedIndexChanged += (s, e) =>
+            {
+                if (tabControl.SelectedIndex == 0) dgvVL?.AutoFit();
+                else if (tabControl.SelectedIndex == 1) dgvNC?.AutoFit();
+                else if (tabControl.SelectedIndex == 2) dgvMay?.AutoFit();
+            };
+        }
     }
 
     private void InitializeComponent()
@@ -45,6 +64,8 @@ public class TinhGiaHienTruongForm : Form
         this.Size = new Size((int)(workingArea.Width * 0.9), (int)(workingArea.Height * 0.9));
         this.StartPosition = FormStartPosition.CenterScreen;
         this.MinimumSize = new Size(800, 500);
+        this.MinimizeBox = true;
+        this.ShowInTaskbar = true;
         this.Font = new Font("Be Vietnam Pro", 9.5f);
 
         // ===== Top Panel: Title & Tools =====
@@ -940,6 +961,10 @@ public class TinhGiaHienTruongForm : Form
         dgvVL.DataSource = new BindingSource { DataSource = _bangTongHop.DanhSachVatLieu };
         dgvNC.DataSource = new BindingSource { DataSource = _bangTongHop.DanhSachNhanCong };
         dgvMay.DataSource = new BindingSource { DataSource = _bangTongHop.DanhSachMay };
+
+        dgvVL?.AutoFit();
+        dgvNC?.AutoFit();
+        dgvMay?.AutoFit();
     }
 
     private void RecalculateMachinePrices()

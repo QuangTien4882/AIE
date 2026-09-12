@@ -788,29 +788,50 @@ namespace AIE.ExcelAddIn.Services
             AddRow("2", "Chi phí nhân công", "NC", "Σ(KL × ĐG_NC)", linkNC, false);
             AddRow("3", "Chi phí máy", "M", "Σ(KL × ĐG_M)", linkM, false);
             
-            AddRow("II", "Chi phí gián tiếp", "GT", "CPC + TT", "=E11+E12", true);
-            AddRow("1", "Chi phí chung", "CPC", $"T × {kq.TiLeCPC}%", $"=E6*{kq.TiLeCPC.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100", false);
-            AddRow("2", "Chi phí không xác định được KL từ TK", "TT", $"T × {kq.TiLeTT}%", $"=E6*{kq.TiLeTT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100", false);
+            AddRow("II", "Chi phí gián tiếp", "GT", "C + TT", "=E11+E12", true);
+            AddRow("1", "Chi phí chung", "C", $"T × {kq.TiLeCPC}%", $"=ROUND(E6*{kq.TiLeCPC.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100, 0)", false);
+            AddRow("2", "Chi phí một số công việc không xác định được KL từ TK", "TT", $"T × {kq.TiLeTT}%", $"=ROUND(E6*{kq.TiLeTT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100, 0)", false);
             
-            AddRow("III", "Thu nhập chịu thuế tính trước", "TL", $"(T + GT) × {kq.TiLeTNCTTT}%", $"=(E6+E10)*{kq.TiLeTNCTTT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100", true);
+            AddRow("III", "Thu nhập chịu thuế tính trước", "TL", $"(T + GT) × {kq.TiLeTNCTTT}%", $"=ROUND((E6+E10)*{kq.TiLeTNCTTT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100, 0)", true);
             
-            AddRow("IV", "Chi phí xây dựng trước thuế", "G", "T + GT + TL", "=E6+E10+E13", true);
+            // Dòng Chi phí xây dựng trước thuế (không đánh số thứ tự La Mã theo Bảng 3.8 TT 36)
+            AddRow("", "Chi phí xây dựng trước thuế", "GXDTT", "T + GT + TL", "=E6+E10+E13", true);
             
-            AddRow("V", "Thuế giá trị gia tăng", "GTGT", $"G × {kq.TiLeGTGT}%", $"=E14*{kq.TiLeGTGT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100", true);
+            // Dòng IV: Thuế giá trị gia tăng
+            AddRow("IV", "Thuế giá trị gia tăng", "GTGT", $"GXDTT × {kq.TiLeGTGT}%", $"=ROUND(E14*{kq.TiLeGTGT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100, 0)", true);
             
-            AddRow("VI", "Chi phí xây dựng sau thuế", "Gxd", "G + GTGT", "=E14+E15", true);
+            // Dòng CHI PHÍ XÂY DỰNG SAU THUẾ = GXDTT + GTGT (không cộng nhà tạm, theo đúng Bảng 3.8 TT 36)
+            AddRow("", "CHI PHÍ XÂY DỰNG SAU THUẾ", "GXD", "GXDTT + GTGT", "=E14+E15", true);
             
-            // Dòng VII: Chi phí nhà tạm để ở và điều hành thi công
+            // Dòng V: Chi phí nhà tạm để ở và điều hành thi công
             // Theo Quyết định số 1538/QĐ-BXD ngày 28/8/2026 của Bộ Xây dựng: Đính chính công thức xác định chi phí nhà tạm
             // tại Bảng 3.8 Phụ lục III từ “GXDTT × Tỷ lệ × TGTGT” thành “GXDTT × Tỷ lệ × (1+TGTGT)”
-            AddRow("VII", "Chi phí nhà tạm để ở và điều hành thi công", "LT", $"GXDTT × {kq.TiLeNhaTam}% × (1 + {kq.TiLeGTGT}%)", $"=ROUND(E14*{kq.TiLeNhaTam.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100*(1+E15/E14), 0)", true);
-            
-            AddRow("VIII", "TỔNG CHI PHÍ XÂY DỰNG", "GXD", "Gxd + LT", "=E16+E17", true);
+            AddRow("V", "Chi phí nhà tạm để ở và điều hành thi công", "LT", $"GXDTT × {kq.TiLeNhaTam}% × (1 + {kq.TiLeGTGT}%)", $"=ROUND(E14*{kq.TiLeNhaTam.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100*(1+E15/E14), 0)", true);
 
-            DrawTableBorders(ws, 5, 1, r - 1, 5);
+            // Vẽ viền bảng tổng hợp chi phí xây dựng (từ dòng 5 đến dòng 17)
+            DrawTableBorders(ws, 5, 1, 17, 5);
             ws.Range["E:E"].NumberFormat = "#,##0";
             ws.Columns.AutoFit();
             ApplyFreezePanes(ws, 5);
+
+            // Thêm chữ ký Người lập và Người chủ trì theo Bảng 3.8
+            int signRow = 19;
+            ws.Cells[signRow, 2] = "NGƯỜI LẬP";
+            ws.Cells[signRow, 2].Font.Bold = true;
+            ws.Cells[signRow, 2].HorizontalAlignment = XlHAlign.xlHAlignCenter;
+
+            ws.Cells[signRow, 5] = "NGƯỜI CHỦ TRÌ";
+            ws.Cells[signRow, 5].Font.Bold = true;
+            ws.Cells[signRow, 5].HorizontalAlignment = XlHAlign.xlHAlignCenter;
+
+            ws.Cells[signRow + 1, 2] = "(Ký, họ tên)";
+            ws.Cells[signRow + 1, 2].Font.Italic = true;
+            ws.Cells[signRow + 1, 2].HorizontalAlignment = XlHAlign.xlHAlignCenter;
+
+            ws.Cells[signRow + 1, 5] = "(Ký, họ tên)";
+            ws.Cells[signRow + 1, 5].Font.Italic = true;
+            ws.Cells[signRow + 1, 5].HorizontalAlignment = XlHAlign.xlHAlignCenter;
+
 
             // Di chuyển sheet TH_ChiPhiXD nằm ngay phía trước sheet DuToan
             try
@@ -1988,8 +2009,9 @@ namespace AIE.ExcelAddIn.Services
                     dm = DinhMucVanChuyenDatabase.NhanDienOTo(vl.TenVatTu);
                 }
 
-                // Nếu không có cấu hình và không nhận diện được và cước = 0, bỏ qua
-                if (dm == null && vl.CuocVCOTo <= 0 && (cfg == null || cfg.TongCuLyKm <= 0))
+                // Chỉ chiết tính ô tô cho các vật liệu người dùng ĐÃ cấu hình hoặc CÓ cước ô tô > 0
+                bool coCuocOTo = vl.CuocVCOTo > 0 || (cfg != null && (cfg.TongCuLyKm > 0 || cfg.CuocVCOTo > 0));
+                if (!coCuocOTo)
                 {
                     continue;
                 }

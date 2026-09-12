@@ -1,11 +1,11 @@
 namespace AIE.Core.Models;
 
 /// <summary>
-/// Chi phí xây dựng (GXD) — kết quả tính toán tổng hợp.
-/// Công thức theo Screenshot 2 / TT36/2026:
-///   GXD = Gxd + LT
-///   Gxd = G + GTGT  (CP XD sau thuế)
-///   G   = T + GT + TL  (CP XD trước thuế)
+/// Chi phí xây dựng (GXD) — kết quả tính toán tổng hợp theo Bảng 3.8 Thông tư 36/2026/TT-BXD:
+///   GXDTT = T + GT + TL  (Chi phí xây dựng trước thuế)
+///   GTGT  = GXDTT × T_GTGT (Thuế giá trị gia tăng)
+///   GXD   = GXDTT + GTGT  (Chi phí xây dựng sau thuế — KHÔNG cộng chi phí nhà tạm LT)
+///   LT    = Chi phí nhà tạm để ở và điều hành thi công (mục V Bảng 3.8)
 /// </summary>
 public class ChiPhiXayDung
 {
@@ -23,7 +23,7 @@ public class ChiPhiXayDung
     public decimal T => VL + NC + M;
 
     // --- Chi phí gián tiếp ---
-    /// <summary>Chi phí chung (CPC) = T × tỉ lệ %</summary>
+    /// <summary>Chi phí chung (C hoặc CPC) = T × tỉ lệ % (hoặc NC × tỉ lệ %)</summary>
     public decimal CPC { get; set; }
 
     /// <summary>CP không XĐ được Khối lượng (TT) = T × tỉ lệ %</summary>
@@ -36,26 +36,35 @@ public class ChiPhiXayDung
     /// <summary>TL = (T + GT) × tỉ lệ % TNCTTT</summary>
     public decimal TL { get; set; }
 
-    // --- Tổng hợp ---
-    /// <summary>G = T + GT + TL — CP xây dựng trước thuế</summary>
-    public decimal G => T + GT + TL;
+    // --- Tổng hợp chi phí xây dựng ---
+    /// <summary>GXDTT = T + GT + TL — Chi phí xây dựng trước thuế</summary>
+    public decimal GXDTT => T + GT + TL;
 
-    /// <summary>GTGT = G × thuế suất — Thuế giá trị gia tăng</summary>
+    /// <summary>Alias tương thích ngược cho GXDTT</summary>
+    public decimal G => GXDTT;
+
+    /// <summary>GTGT = GXDTT × thuế suất — Thuế giá trị gia tăng</summary>
     public decimal GTGT { get; set; }
 
-    /// <summary>Gxd = G + GTGT — CP xây dựng sau thuế</summary>
-    public decimal Gxd => G + GTGT;
+    /// <summary>GXD = GXDTT + GTGT — Chi phí xây dựng sau thuế (Chuẩn TT 36/2026 Bảng 3.8)</summary>
+    public decimal GXD => GXDTT + GTGT;
 
-    /// <summary>LT = G × tỉ lệ % — Chi phí nhà tạm</summary>
+    /// <summary>Alias tương thích ngược cho GXD</summary>
+    public decimal Gxd => GXD;
+
+    /// <summary>LT = Chi phí nhà tạm để ở và điều hành thi công (Mục V Bảng 3.8)</summary>
     public decimal LT { get; set; }
 
-    /// <summary>GXD = Gxd + LT — Tổng chi phí xây dựng</summary>
-    public decimal GXD => Gxd + LT;
-
-    // --- Tỉ lệ % đã áp dụng (lưu lại để Kiểm tra) ---
+    // --- Tỉ lệ % đã áp dụng (lưu lại để kiểm tra và xuất bảng) ---
     public decimal TiLeCPC { get; set; }
     public decimal TiLeTT { get; set; }
     public decimal TiLeTNCTTT { get; set; }
     public decimal TiLeGTGT { get; set; }
     public decimal TiLeNhaTam { get; set; }
+
+    // --- Ngữ cảnh tính toán ---
+    public string GiaiDoan { get; set; } = "Lập dự toán xây dựng";
+    public string LoaiCongTrinhNhaTam { get; set; } = "Công trình xây dựng còn lại";
+    public bool LaVungSauXa { get; set; } = false;
 }
+

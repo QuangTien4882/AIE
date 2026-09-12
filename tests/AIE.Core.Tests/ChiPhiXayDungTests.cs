@@ -71,5 +71,74 @@ public class ChiPhiXayDungTests
         Assert.Equal(13_200_000m, expectedLT);
         Assert.Equal(expectedLT, result.LT);
     }
+
+    [Fact]
+    public void ChiPhiXayDung_Bang38_KhongCongNhaTamVaoSauThue()
+    {
+        // Kiểm tra đúng theo Bảng 3.8 TT 36/2026:
+        // CHI PHÍ XÂY DỰNG SAU THUẾ (GXD) = GXDTT + GTGT, KHÔNG CỘNG CHI PHÍ NHÀ TẠM LT
+        var calc = new ChiPhiXayDungCalc();
+        var result = calc.Tinh(
+            tongVL: 100_000_000m,
+            tongNC: 50_000_000m,
+            tongMay: 50_000_000m,
+            tiLeCPC: 7.3m,
+            tiLeTT: 2.5m,
+            tiLeTNCTTT: 5.5m,
+            tiLeGTGT: 10m,
+            tiLeNhaTam: 1.1m);
+
+        // GXDTT = T + GT + TL
+        // T = 200.000.000
+        // CPC = 200.000.000 * 7.3% = 14.600.000
+        // TT = 200.000.000 * 2.5% = 5.000.000
+        // GT = 19.600.000
+        // TL = (200.000.000 + 19.600.000) * 5.5% = 12.078.000
+        // GXDTT = 200.000.000 + 19.600.000 + 12.078.000 = 231.678.000
+        // GTGT = 231.678.000 * 10% = 23.167.800
+        // Chi phí xây dựng sau thuế: GXD = 231.678.000 + 23.167.800 = 254.845.800 đ
+        Assert.Equal(254_845_800m, result.GXD);
+        Assert.Equal(254_845_800m, result.Gxd); // Alias cũ tương thích
+
+        // Nhà tạm: LT = GXDTT * 1.1% * 1.1 = 2.803.304 đ
+        Assert.True(result.LT > 0);
+        // Xác nhận GXD không bị cộng dồn thêm LT
+        Assert.NotEqual(result.GXD + result.LT, result.GXD);
+    }
+
+    [Fact]
+    public void NoiSuyTiLeNhaTam_Bang37_ChuanXac()
+    {
+        // Công trình theo tuyến: <=15 tỷ: 2.2%, <=100: 2.0%, <=500: 1.9%, <=1000: 1.8%, >1000: 1.7%
+        Assert.Equal(2.2m, AIE.Core.Services.Shared.InterpolationHelper.NoiSuyTiLeNhaTam("Công trình xây dựng theo tuyến", 10m));
+        Assert.Equal(2.0m, AIE.Core.Services.Shared.InterpolationHelper.NoiSuyTiLeNhaTam("Công trình xây dựng theo tuyến", 100m));
+        Assert.Equal(1.95m, AIE.Core.Services.Shared.InterpolationHelper.NoiSuyTiLeNhaTam("Công trình xây dựng theo tuyến", 300m));
+        Assert.Equal(1.7m, AIE.Core.Services.Shared.InterpolationHelper.NoiSuyTiLeNhaTam("Công trình xây dựng theo tuyến", 1500m));
+
+        // Công trình còn lại: <=15 tỷ: 1.1%, <=100: 1.0%, <=500: 0.95%, <=1000: 0.9%, >1000: 0.85%
+        Assert.Equal(1.1m, AIE.Core.Services.Shared.InterpolationHelper.NoiSuyTiLeNhaTam("Công trình xây dựng còn lại", 10m));
+        Assert.Equal(1.0m, AIE.Core.Services.Shared.InterpolationHelper.NoiSuyTiLeNhaTam("Công trình xây dựng còn lại", 100m));
+        Assert.Equal(0.975m, AIE.Core.Services.Shared.InterpolationHelper.NoiSuyTiLeNhaTam("Công trình xây dựng còn lại", 300m));
+        Assert.Equal(0.85m, AIE.Core.Services.Shared.InterpolationHelper.NoiSuyTiLeNhaTam("Công trình xây dựng còn lại", 1200m));
+    }
+
+    [Fact]
+    public void TraCuuDinhMuc_Bang32_Va_Bang36_ChuanXac()
+    {
+        // Bảng 3.2: Chi phí chung TMĐT
+        Assert.Equal(7.3m, AIE.Core.Services.Shared.InterpolationHelper.LayTiLeCPCTMDT("Dân dụng"));
+        Assert.Equal(11.6m, AIE.Core.Services.Shared.InterpolationHelper.LayTiLeCPCTMDT("Dân dụng", "Tu bổ di tích"));
+        Assert.Equal(6.2m, AIE.Core.Services.Shared.InterpolationHelper.LayTiLeCPCTMDT("Công nghiệp"));
+        Assert.Equal(7.3m, AIE.Core.Services.Shared.InterpolationHelper.LayTiLeCPCTMDT("Công nghiệp", "Đường hầm thủy điện, hầm lò"));
+        Assert.Equal(5.5m, AIE.Core.Services.Shared.InterpolationHelper.LayTiLeCPCTMDT("Hạ tầng kỹ thuật"));
+
+        // Bảng 3.6: Thu nhập chịu thuế tính trước
+        Assert.Equal(5.5m, AIE.Core.Services.Shared.InterpolationHelper.LayTiLeTNCTTT("Dân dụng"));
+        Assert.Equal(6.0m, AIE.Core.Services.Shared.InterpolationHelper.LayTiLeTNCTTT("Công nghiệp"));
+        Assert.Equal(6.0m, AIE.Core.Services.Shared.InterpolationHelper.LayTiLeTNCTTT("Giao thông"));
+        Assert.Equal(5.5m, AIE.Core.Services.Shared.InterpolationHelper.LayTiLeTNCTTT("Nông nghiệp & PTNT"));
+        Assert.Equal(5.5m, AIE.Core.Services.Shared.InterpolationHelper.LayTiLeTNCTTT("Hạ tầng kỹ thuật"));
+    }
 }
+
 

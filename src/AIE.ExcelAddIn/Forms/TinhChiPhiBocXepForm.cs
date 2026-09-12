@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows.Forms;
 using AIE.Core.Models;
 using AIE.ExcelAddIn.Services;
+using AIE.ExcelAddIn.Helpers;
 
 namespace AIE.ExcelAddIn.Forms;
 
@@ -70,6 +71,7 @@ public class TinhChiPhiBocXepForm : Form
         _dmMayCu = dmMayCu;
 
         InitializeComponent();
+        FormStateHelper.Attach(this);
         LoadInitialData();
 
         if (giaTriHienTai > 0 && KetQuaChiPhiBocXep == 0)
@@ -81,9 +83,11 @@ public class TinhChiPhiBocXepForm : Form
     private void InitializeComponent()
     {
         this.Text = $"Tính chi phí bốc xếp - {_tenVatLieu}";
-        // Kích thước mặc định rộng rãi 940x650, hỗ trợ thay đổi kích thước linh hoạt theo màn hình
-        this.ClientSize = new Size(940, 650);
-        this.MinimumSize = new Size(900, 620);
+        var area = Screen.PrimaryScreen.WorkingArea;
+        int targetW = Math.Min(940, area.Width - 40);
+        int targetH = Math.Min(650, area.Height - 40);
+        this.ClientSize = new Size(targetW, targetH);
+        this.MinimumSize = new Size(Math.Min(840, area.Width - 60), Math.Min(540, area.Height - 60));
         this.StartPosition = FormStartPosition.CenterParent;
         this.FormBorderStyle = FormBorderStyle.Sizable; // Cho phép co giãn cửa sổ linh hoạt
         this.MaximizeBox = true;                       // Cho phép phóng to tối đa

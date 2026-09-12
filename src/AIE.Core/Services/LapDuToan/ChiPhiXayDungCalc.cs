@@ -3,10 +3,11 @@ using AIE.Core.Models;
 namespace AIE.Core.Services.LapDuToan;
 
 /// <summary>
-/// Tính toán chi phí xây dựng (GXD) theo công thức TT36/2026.
-/// GXD = Gxd + LT
-/// Gxd = G + GTGT
-/// G   = T + GT + TL
+/// Tính toán chi phí xây dựng theo Bảng 3.8 Thông tư 36/2026/TT-BXD và QĐ đính chính 1538/QĐ-BXD.
+///   GXDTT = T + GT + TL  (Chi phí xây dựng trước thuế)
+///   GTGT  = GXDTT × Thuế suất
+///   GXD   = GXDTT + GTGT  (Chi phí xây dựng sau thuế — không cộng LT)
+///   LT    = GXDTT × Tỷ lệ nhà tạm × (1 + Thuế suất)
 /// </summary>
 public class ChiPhiXayDungCalc
 {
@@ -31,7 +32,10 @@ public class ChiPhiXayDungCalc
         decimal tiLeTNCTTT,
         decimal tiLeGTGT,
         decimal tiLeNhaTam,
-        string coSoTinhCPC = "T")
+        string coSoTinhCPC = "T",
+        string giaiDoan = "Lập dự toán xây dựng",
+        string loaiNhaTam = "Công trình xây dựng còn lại",
+        bool laVungSauXa = false)
     {
         var result = new ChiPhiXayDung
         {
@@ -42,34 +46,42 @@ public class ChiPhiXayDungCalc
             TiLeTT = tiLeTT,
             TiLeTNCTTT = tiLeTNCTTT,
             TiLeGTGT = tiLeGTGT,
-            TiLeNhaTam = tiLeNhaTam
+            TiLeNhaTam = tiLeNhaTam,
+            GiaiDoan = giaiDoan,
+            LoaiCongTrinhNhaTam = loaiNhaTam,
+            LaVungSauXa = laVungSauXa
         };
 
-        // T = VL + NC + M (tự tính qua property)
+        // 1. Chi phí trực tiếp: T = VL + NC + M
         decimal T = result.T;
 
-        // Chi phí chung: CPC = T × % hoặc NC × %
+        // 2. Chi phí chung: CPC = T × % (hoặc NC × %)
         decimal coSoCPC = coSoTinhCPC.Equals("NC", StringComparison.OrdinalIgnoreCase) ? tongNC : T;
-        result.CPC = Math.Round(coSoCPC * tiLeCPC / 100, 0, MidpointRounding.AwayFromZero);
+        result.CPC = Math.Round(coSoCPC * tiLeCPC / 100m, 0, MidpointRounding.AwayFromZero);
 
-        // CP không XĐ được KL: TT = T × %
-        result.TT = Math.Round(T * tiLeTT / 100, 0, MidpointRounding.AwayFromZero);
+        // 3. CP không XĐ được KL: TT = T × %
+        result.TT = Math.Round(T * tiLeTT / 100m, 0, MidpointRounding.AwayFromZero);
 
-        // GT = CPC + TT (tự tính qua property)
+        // 4. GT = CPC + TT (qua property GT)
         decimal GT = result.GT;
 
-        // TNCTTT: TL = (T + GT) × %
-        result.TL = Math.Round((T + GT) * tiLeTNCTTT / 100, 0, MidpointRounding.AwayFromZero);
+        // 5. Thu nhập chịu thuế tính trước: TL = (T + GT) × %
+        result.TL = Math.Round((T + GT) * tiLeTNCTTT / 100m, 0, MidpointRounding.AwayFromZero);
 
-        // G = T + GT + TL (tự tính qua property)
-        decimal G = result.G;
+        // 6. Chi phí xây dựng trước thuế: GXDTT = T + GT + TL (qua property GXDTT / G)
+        decimal gxdtt = result.GXDTT;
 
-        // GTGT = G × thuế suất
-        result.GTGT = Math.Round(G * tiLeGTGT / 100, 0, MidpointRounding.AwayFromZero);
+        // 7. Thuế GTGT: GTGT = GXDTT × %
+        result.GTGT = Math.Round(gxdtt * tiLeGTGT / 100m, 0, MidpointRounding.AwayFromZero);
 
-        // Nhà tạm: LT = Gxd × %
-        result.LT = Math.Round(result.Gxd * tiLeNhaTam / 100, 0, MidpointRounding.AwayFromZero);
+        // 8. Chi phí xây dựng sau thuế: GXD = GXDTT + GTGT (qua property GXD / Gxd)
+
+        // 9. Chi phí nhà tạm để ở và điều hành thi công (Mục V Bảng 3.8):
+        // Theo QĐ 1538/QĐ-BXD: LT = GXDTT × Tỷ lệ × (1 + Thuế suất GTGT)
+        decimal vatFactor = 1m + (tiLeGTGT / 100m);
+        result.LT = Math.Round(gxdtt * (tiLeNhaTam / 100m) * vatFactor, 0, MidpointRounding.AwayFromZero);
 
         return result;
     }
 }
+

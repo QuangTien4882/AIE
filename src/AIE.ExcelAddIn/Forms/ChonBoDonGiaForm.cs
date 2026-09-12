@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using AIE.Data;
 using AIE.Data.Repositories;
+using AIE.ExcelAddIn.Helpers;
 
 namespace AIE.ExcelAddIn.Forms
 {
@@ -29,11 +30,12 @@ namespace AIE.ExcelAddIn.Forms
             Text = "Chọn Bộ Đơn Giá";
             Size = new Size(400, 420);
             StartPosition = FormStartPosition.CenterParent;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
+            FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = false;
-            MinimizeBox = false;
+            MinimizeBox = true;
 
             InitializeComponents();
+            FormStateHelper.Attach(this);
             LoadData();
         }
 

@@ -26,6 +26,7 @@ namespace AIE.ExcelAddIn.Forms
         public TaoDuToanMoiForm()
         {
             InitializeComponent();
+            FormStateHelper.Attach(this);
         }
 
         private void InitializeComponent()
@@ -36,7 +37,7 @@ namespace AIE.ExcelAddIn.Forms
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.Sizable;
             this.MaximizeBox = false;
-            this.MinimizeBox = false;
+            this.MinimizeBox = true;
             this.Font = new Font("Be Vietnam Pro", 9.5f);
             this.BackColor = Color.White;
 

@@ -140,4 +140,103 @@ public static class InterpolationHelper
         // Lớn hơn mốc cuối cùng (trường hợp > 1000)
         return sorted[sorted.Count - 1].TiLe;
     }
+
+    /// <summary>
+    /// Tìm tỉ lệ % chi phí nhà tạm để ở và điều hành thi công theo Bảng 3.7 TT 36/2026/TT-BXD.
+    /// Nội suy tuyến tính theo quy mô chi phí XD trước thuế trong TMĐT (tỷ đồng).
+    /// </summary>
+    /// <param name="loaiNhaTam">"Công trình xây dựng theo tuyến" hoặc "Công trình xây dựng còn lại"</param>
+    /// <param name="quyMo">Quy mô chi phí XD trước thuế trong TMĐT (tỷ đồng)</param>
+    /// <returns>Tỷ lệ % chi phí nhà tạm</returns>
+    public static decimal NoiSuyTiLeNhaTam(string loaiNhaTam, decimal quyMo)
+    {
+        bool laTheoTuyen = !string.IsNullOrEmpty(loaiNhaTam) && 
+                           loaiNhaTam.IndexOf("tuyến", StringComparison.OrdinalIgnoreCase) >= 0;
+
+        // Các mốc Bảng 3.7: ≤15, ≤100, ≤500, ≤1000, >1000 (tỷ đồng)
+        (decimal Moc, decimal TiLe)[] mocs = laTheoTuyen
+            ? new (decimal, decimal)[] { (15m, 2.2m), (100m, 2.0m), (500m, 1.9m), (1000m, 1.8m), (decimal.MaxValue, 1.7m) }
+            : new (decimal, decimal)[] { (15m, 1.1m), (100m, 1.0m), (500m, 0.95m), (1000m, 0.9m), (decimal.MaxValue, 0.85m) };
+
+        if (quyMo <= mocs[0].Moc)
+            return mocs[0].TiLe;
+
+        for (int i = 1; i < mocs.Length; i++)
+        {
+            var prev = mocs[i - 1];
+            var curr = mocs[i];
+
+            if (quyMo <= curr.Moc)
+            {
+                if (curr.Moc == decimal.MaxValue)
+                    return curr.TiLe;
+
+                return NoiSuyTuyenTinh(prev.Moc, prev.TiLe, curr.Moc, curr.TiLe, quyMo);
+            }
+        }
+
+        return mocs[mocs.Length - 1].TiLe;
+    }
+
+    /// <summary>
+    /// Lấy định mức tỷ lệ Chi phí chung giai đoạn Tổng mức đầu tư (Bảng 3.2 TT 36/2026/TT-BXD).
+    /// Tỷ lệ cố định theo loại công trình, không phụ thuộc quy mô chi phí.
+    /// </summary>
+    public static decimal LayTiLeCPCTMDT(string loaiCongTrinh, string? phanLoaiPhu = null)
+    {
+        string normCT = loaiCongTrinh?.Trim() ?? "";
+        string normPhu = phanLoaiPhu?.Trim() ?? "";
+
+        if (normCT.IndexOf("Dân dụng", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            if (normPhu.IndexOf("di tích", StringComparison.OrdinalIgnoreCase) >= 0)
+                return 11.6m;
+            return 7.3m;
+        }
+
+        if (normCT.IndexOf("Công nghiệp", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            if (normPhu.IndexOf("hầm", StringComparison.OrdinalIgnoreCase) >= 0)
+                return 7.3m;
+            return 6.2m;
+        }
+
+        if (normCT.IndexOf("Giao thông", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            if (normPhu.IndexOf("hầm", StringComparison.OrdinalIgnoreCase) >= 0)
+                return 7.3m;
+            return 6.2m;
+        }
+
+        if (normCT.IndexOf("Nông nghiệp", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            if (normPhu.IndexOf("hầm", StringComparison.OrdinalIgnoreCase) >= 0)
+                return 7.3m;
+            return 6.1m;
+        }
+
+        if (normCT.IndexOf("Hạ tầng", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return 5.5m;
+        }
+
+        return 7.3m; // Mặc định dân dụng
+    }
+
+    /// <summary>
+    /// Lấy định mức tỷ lệ Thu nhập chịu thuế tính trước (Bảng 3.6 TT 36/2026/TT-BXD).
+    /// </summary>
+    public static decimal LayTiLeTNCTTT(string loaiCongTrinh)
+    {
+        string norm = loaiCongTrinh?.Trim() ?? "";
+        if (norm.IndexOf("Công nghiệp", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            norm.IndexOf("Giao thông", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            norm.IndexOf("Lắp đặt thiết bị", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return 6.0m;
+        }
+
+        return 5.5m; // Dân dụng, NN&PTNT, Hạ tầng kỹ thuật
+    }
 }
+

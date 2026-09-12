@@ -123,5 +123,49 @@ namespace AIE.ExcelAddIn.Helpers
                 e.Graphics.Clip = oldClip;
             }
         }
+
+        /// <summary>
+        /// Tự động co giãn toàn bộ dòng và cột cho DataGridView phù hợp với dữ liệu hiện có
+        /// </summary>
+        public static void AutoFit(this DataGridView dgv)
+        {
+            if (dgv == null || dgv.Columns.Count == 0) return;
+            try
+            {
+                dgv.SuspendLayout();
+                if (dgv.Rows.Count > 0)
+                {
+                    dgv.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.DisplayedCells);
+                    dgv.AutoResizeRows(DataGridViewAutoSizeRowsMode.DisplayedCells);
+                }
+                else
+                {
+                    dgv.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.ColumnHeader);
+                }
+
+                // Đảm bảo các cột tên / nội dung có độ rộng tối thiểu dễ nhìn
+                foreach (DataGridViewColumn col in dgv.Columns)
+                {
+                    if (col.Visible)
+                    {
+                        string header = col.HeaderText ?? "";
+                        string name = col.Name ?? "";
+                        if (header.Contains("Tên") || header.Contains("Nội dung") || name.Contains("Ten") || name.Contains("NoiDung"))
+                        {
+                            if (col.Width < 220) col.Width = 220;
+                        }
+                        else if (col.Width < 60)
+                        {
+                            col.Width = 60;
+                        }
+                    }
+                }
+            }
+            catch { }
+            finally
+            {
+                dgv.ResumeLayout();
+            }
+        }
     }
 }

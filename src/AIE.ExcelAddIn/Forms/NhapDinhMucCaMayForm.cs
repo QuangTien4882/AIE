@@ -7,6 +7,7 @@ using System.Linq;
 using System.Windows.Forms;
 using AIE.Core.Models;
 using AIE.Data.Repositories;
+using AIE.ExcelAddIn.Helpers;
 
 namespace AIE.ExcelAddIn.Forms;
 
@@ -68,7 +69,9 @@ public class NhapDinhMucCaMayForm : Form
         _repo = repo;
         
         InitializeComponent();
+        AIE.ExcelAddIn.Helpers.FormStateHelper.Attach(this);
         LoadData();
+        this.Shown += (s, e) => dgvNhanCong?.AutoFit();
     }
 
     private void InitializeComponent()
@@ -79,11 +82,12 @@ public class NhapDinhMucCaMayForm : Form
         this.FormBorderStyle = FormBorderStyle.Sizable;
         
         var workingArea = Screen.PrimaryScreen.WorkingArea;
-        this.Size = new Size(750, (int)(workingArea.Height * 0.9));
+        this.Size = new Size(750, Math.Min(800, (int)(workingArea.Height * 0.9)));
+        this.MinimumSize = new Size(720, 550);
         this.MaximizeBox = true;
-        this.MinimizeBox = false;
+        this.MinimizeBox = true;
 
-        var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20) };
+        var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20), AutoScroll = true };
         this.Controls.Add(panel);
 
         var lblTitle = new Label { Text = _tenMay, Font = new Font("Be Vietnam Pro", 11f, FontStyle.Bold), AutoSize = true, Location = new Point(20, 15), ForeColor = Color.FromArgb(0, 120, 215) };
@@ -256,6 +260,7 @@ public class NhapDinhMucCaMayForm : Form
         }
         
         dgvNhanCong.DataSource = _workerList;
+        dgvNhanCong?.AutoFit();
     }
 
     private void BtnSave_Click(object? sender, EventArgs e)

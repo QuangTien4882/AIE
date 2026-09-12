@@ -7,6 +7,7 @@ using System.Text;
 using System.Windows.Forms;
 using AIE.Core.Models;
 using AIE.ExcelAddIn.Services;
+using AIE.ExcelAddIn.Helpers;
 
 namespace AIE.ExcelAddIn.Forms;
 
@@ -86,6 +87,7 @@ public class TinhCuocVCOToForm : Form
         _layGiaMayFunc = layGiaMayFunc;
 
         InitializeComponent();
+        FormStateHelper.Attach(this);
         LoadInitialData();
 
         if (giaTriHienTai > 0 && KetQuaCuocOTo == 0)
@@ -102,7 +104,9 @@ public class TinhCuocVCOToForm : Form
         int targetW = Math.Min(1200, area.Width - 40);
         int targetH = Math.Min(880, area.Height - 40);
         this.ClientSize = new Size(targetW, targetH);
-        this.MinimumSize = new Size(1020, 720);
+        int minW = Math.Min(980, area.Width - 40);
+        int minH = Math.Min(580, area.Height - 40);
+        this.MinimumSize = new Size(minW, minH);
         this.StartPosition = FormStartPosition.CenterParent;
         this.FormBorderStyle = FormBorderStyle.Sizable;
         this.MaximizeBox = true;
