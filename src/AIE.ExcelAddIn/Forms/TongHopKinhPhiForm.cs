@@ -38,10 +38,14 @@ namespace AIE.ExcelAddIn.Forms
         private TabPage tabTMDT;
 
         // Controls Tab 1: Chi phí Xây dựng (Bảng 3.8 TT 36)
+        private ComboBox cboHangMucSelector;
+        private HangMuc _currentHangMuc;
+        private bool _isChangingHangMuc = false;
         private ComboBox cboGiaiDoanXD;
         private ComboBox cboLoaiCongTrinhXD;
         private ComboBox cboPhanLoaiPhuXD;
         private TextBox txtQuyMoXD;
+        private string _lastCustomQuyMo = "15";
         private ComboBox cboLoaiNhaTamXD;
         private CheckBox chkVungSauXaXD;
         private TextBox txtCPCXD;
@@ -1018,16 +1022,25 @@ namespace AIE.ExcelAddIn.Forms
             {
                 Text = "  1. Thông số phân loại công trình (TT 36/2026)  ",
                 Dock = DockStyle.Top,
-                Height = 255,
+                Height = 290,
                 Font = UIHelper.GetFont(10.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(0, 51, 102),
                 Padding = new Padding(10, 12, 10, 10)
             };
 
-            int ty = 26;
+            int ty = 24;
+            var lblHangMuc = new Label { Text = "Hạng mục tính toán:", Location = new Point(14, ty), Width = 175, Font = UIHelper.GetFont(10f, FontStyle.Bold), ForeColor = Color.FromArgb(0, 51, 102) };
+            cboHangMucSelector = new ComboBox { Location = new Point(190, ty - 4), Width = 310, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.GetFont(10f, FontStyle.Bold) };
+            cboHangMucSelector.SelectedIndexChanged += CboHangMucSelector_SelectedIndexChanged;
+
+            ty += 34;
             var lblGiaiDoanXD = new Label { Text = "Giai đoạn thực hiện:", Location = new Point(14, ty), Width = 175, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
             cboGiaiDoanXD = new ComboBox { Location = new Point(190, ty - 4), Width = 310, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.GetFont(10f) };
-            cboGiaiDoanXD.SelectedIndexChanged += (s, e) => TuDongTraTiLeXD();
+            cboGiaiDoanXD.SelectedIndexChanged += (s, e) =>
+            {
+                CapNhatTrangThaiQuyMoXD();
+                TuDongTraTiLeXD();
+            };
 
             ty += 35;
             var lblLoaiCTXD = new Label { Text = "Loại công trình:", Location = new Point(14, ty), Width = 175, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
@@ -1043,7 +1056,14 @@ namespace AIE.ExcelAddIn.Forms
             var lblQuyMoXD = new Label { Text = "CP XD trong TMĐT:", Location = new Point(14, ty), Width = 175, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
             txtQuyMoXD = new TextBox { Location = new Point(190, ty - 4), Width = 110, Font = UIHelper.GetFont(10f), Text = "15", TextAlign = HorizontalAlignment.Right };
             var lblDonViQuyMo = new Label { Text = "(tỷ đồng)", Location = new Point(308, ty), Width = 80, Font = UIHelper.GetFont(10f), ForeColor = Color.FromArgb(74, 85, 104) };
-            txtQuyMoXD.TextChanged += (s, e) => TuDongTraTiLeXD();
+            txtQuyMoXD.TextChanged += (s, e) =>
+            {
+                if (txtQuyMoXD.Enabled && decimal.TryParse(txtQuyMoXD.Text.Replace(',', '.'), out _))
+                {
+                    _lastCustomQuyMo = txtQuyMoXD.Text;
+                }
+                TuDongTraTiLeXD();
+            };
 
             ty += 35;
             var lblLoaiNhaTamXD = new Label { Text = "Loại CT tính Nhà tạm:", Location = new Point(14, ty), Width = 175, Font = UIHelper.GetFont(10f), ForeColor = Color.Black };
@@ -1062,6 +1082,7 @@ namespace AIE.ExcelAddIn.Forms
             chkVungSauXaXD.CheckedChanged += (s, e) => TuDongTraTiLeXD();
 
             grpThongSoXD.Controls.AddRange(new Control[] {
+                lblHangMuc, cboHangMucSelector,
                 lblGiaiDoanXD, cboGiaiDoanXD,
                 lblLoaiCTXD, cboLoaiCongTrinhXD,
                 lblPhanLoaiXD, cboPhanLoaiPhuXD,
@@ -1335,28 +1356,196 @@ namespace AIE.ExcelAddIn.Forms
             LoadGiaiDoanXD();
             LoadLoaiCongTrinhXD();
             LoadLoaiNhaTamXD();
+            LoadDanhSachHangMucSelector();
+        }
 
-            if (_duToan.ChiPhiXD != null)
+        private void LoadDanhSachHangMucSelector()
+        {
+            if (cboHangMucSelector == null) return;
+            cboHangMucSelector.Items.Clear();
+
+            if (_duToan?.DanhSachHangMuc != null && _duToan.DanhSachHangMuc.Count > 0)
             {
-                if (!string.IsNullOrEmpty(_duToan.ChiPhiXD.GiaiDoan) && cboGiaiDoanXD.Items.Contains(_duToan.ChiPhiXD.GiaiDoan))
-                    cboGiaiDoanXD.SelectedItem = _duToan.ChiPhiXD.GiaiDoan;
+                if (_duToan.DanhSachHangMuc.Count > 1)
+                {
+                    cboHangMucSelector.Items.Add($"--- TỔNG HỢP TOÀN DỰ ÁN ({_duToan.DanhSachHangMuc.Count} hạng mục) ---");
+                }
 
-                if (!string.IsNullOrEmpty(_duToan.ChiPhiXD.LoaiCongTrinhNhaTam) && cboLoaiNhaTamXD.Items.Contains(_duToan.ChiPhiXD.LoaiCongTrinhNhaTam))
-                    cboLoaiNhaTamXD.SelectedItem = _duToan.ChiPhiXD.LoaiCongTrinhNhaTam;
+                foreach (var hm in _duToan.DanhSachHangMuc)
+                {
+                    string label = $"{LapDuToanExcelService.ToRomanNumeral(hm.STT)}. {hm.TenHangMuc}";
+                    if (!string.IsNullOrEmpty(hm.LoaiCongTrinh))
+                    {
+                        label += $" ({hm.LoaiCongTrinh})";
+                    }
+                    cboHangMucSelector.Items.Add(label);
+                }
+            }
+            else
+            {
+                cboHangMucSelector.Items.Add("Hạng mục mặc định");
+            }
 
-                chkVungSauXaXD.Checked = _duToan.ChiPhiXD.LaVungSauXa;
+            _isChangingHangMuc = true;
+            try
+            {
+                cboHangMucSelector.SelectedIndex = _duToan?.DanhSachHangMuc?.Count > 1 ? 1 : 0;
+            }
+            finally
+            {
+                _isChangingHangMuc = false;
+            }
 
-                txtCPCXD.Text = _duToan.ChiPhiXD.TiLeCPC.ToString("0.000").Replace('.', ',');
-                txtTTXD.Text = _duToan.ChiPhiXD.TiLeTT.ToString("0.000").Replace('.', ',');
-                txtTNCTTTXD.Text = _duToan.ChiPhiXD.TiLeTNCTTT.ToString("0.0").Replace('.', ',');
-                txtGTGTXD.Text = _duToan.ChiPhiXD.TiLeGTGT.ToString("0").Replace('.', ',');
-                txtNhaTamXD.Text = _duToan.ChiPhiXD.TiLeNhaTam.ToString("0.00").Replace('.', ',');
+            int idx = cboHangMucSelector.SelectedIndex;
+            int hmIdx = (_duToan.DanhSachHangMuc != null && _duToan.DanhSachHangMuc.Count > 1) ? idx - 1 : idx;
+            if (_duToan.DanhSachHangMuc != null && hmIdx >= 0 && hmIdx < _duToan.DanhSachHangMuc.Count)
+            {
+                _currentHangMuc = _duToan.DanhSachHangMuc[hmIdx];
+                NapDuLieuChoHangMucHienHanh(_currentHangMuc);
+            }
+            else
+            {
+                CapNhatTrangThaiQuyMoXD();
+                TuDongTraTiLeXD();
+            }
+        }
+
+        private void CboHangMucSelector_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_isChangingHangMuc || cboHangMucSelector.SelectedItem == null) return;
+            int idx = cboHangMucSelector.SelectedIndex;
+
+            if (_duToan.DanhSachHangMuc != null && _duToan.DanhSachHangMuc.Count > 1 && idx == 0)
+            {
+                _currentHangMuc = null;
+                HienThiTongHopToanDuAn();
+            }
+            else
+            {
+                int hmIdx = (_duToan.DanhSachHangMuc != null && _duToan.DanhSachHangMuc.Count > 1) ? idx - 1 : idx;
+                if (_duToan.DanhSachHangMuc != null && hmIdx >= 0 && hmIdx < _duToan.DanhSachHangMuc.Count)
+                {
+                    _currentHangMuc = _duToan.DanhSachHangMuc[hmIdx];
+                    NapDuLieuChoHangMucHienHanh(_currentHangMuc);
+                }
+            }
+        }
+
+        private void NapDuLieuChoHangMucHienHanh(HangMuc hm)
+        {
+            if (hm == null) return;
+
+            _tongVL = hm.TongVL;
+            _tongNC = hm.TongNC;
+            _tongMay = hm.TongMay;
+            _tongT = _tongVL + _tongNC + _tongMay;
+
+            if (!string.IsNullOrEmpty(hm.LoaiCongTrinh) && cboLoaiCongTrinhXD.Items.Contains(hm.LoaiCongTrinh))
+            {
+                cboLoaiCongTrinhXD.SelectedItem = hm.LoaiCongTrinh;
+            }
+
+            CapNhatTrangThaiQuyMoXD();
+
+            if (hm.ChiPhiXD != null)
+            {
+                txtCPCXD.Text = hm.ChiPhiXD.TiLeCPC.ToString("0.000").Replace('.', ',');
+                txtTTXD.Text = hm.ChiPhiXD.TiLeTT.ToString("0.000").Replace('.', ',');
+                txtTNCTTTXD.Text = hm.ChiPhiXD.TiLeTNCTTT.ToString("0.0").Replace('.', ',');
+                txtGTGTXD.Text = hm.ChiPhiXD.TiLeGTGT.ToString("0").Replace('.', ',');
+                txtNhaTamXD.Text = hm.ChiPhiXD.TiLeNhaTam.ToString("0.00").Replace('.', ',');
                 TinhToanChiPhiXD();
             }
             else
             {
                 TuDongTraTiLeXD();
             }
+        }
+
+        private void CapNhatTongChiPhiXDToanDuAn()
+        {
+            if (_duToan.DanhSachHangMuc == null || _duToan.DanhSachHangMuc.Count == 0) return;
+
+            foreach (var hm in _duToan.DanhSachHangMuc)
+            {
+                if (hm.ChiPhiXD == null)
+                {
+                    decimal defaultCPC = InterpolationHelper.LayTiLeCPCTMDT(hm.LoaiCongTrinh ?? "Dân dụng", hm.PhanLoaiPhu);
+                    var ttModel = _ttRepo.GetByLoaiCongTrinh(hm.LoaiCongTrinh ?? "Dân dụng", hm.PhanLoaiPhu);
+                    decimal defaultTT = ttModel?.TiLe ?? 2.0m;
+                    decimal defaultTL = InterpolationHelper.LayTiLeTNCTTT(hm.LoaiCongTrinh ?? "Dân dụng");
+                    decimal defaultGTGT = 10m;
+                    decimal defaultNT = 1.0m;
+                    hm.ChiPhiXD = _calcService.Tinh(hm.TongVL, hm.TongNC, hm.TongMay, defaultCPC, defaultTT, defaultTL, defaultGTGT, defaultNT, "T");
+                }
+            }
+
+            decimal totalVL = _duToan.DanhSachHangMuc.Sum(h => h.ChiPhiXD?.VL ?? h.TongVL);
+            decimal totalNC = _duToan.DanhSachHangMuc.Sum(h => h.ChiPhiXD?.NC ?? h.TongNC);
+            decimal totalM = _duToan.DanhSachHangMuc.Sum(h => h.ChiPhiXD?.M ?? h.TongMay);
+            decimal totalCPC = _duToan.DanhSachHangMuc.Sum(h => h.ChiPhiXD?.CPC ?? 0);
+            decimal totalTT = _duToan.DanhSachHangMuc.Sum(h => h.ChiPhiXD?.TT ?? 0);
+            decimal totalTL = _duToan.DanhSachHangMuc.Sum(h => h.ChiPhiXD?.TL ?? 0);
+            decimal totalGTGT = _duToan.DanhSachHangMuc.Sum(h => h.ChiPhiXD?.GTGT ?? 0);
+            decimal totalLT = _duToan.DanhSachHangMuc.Sum(h => h.ChiPhiXD?.LT ?? 0);
+
+            _duToan.ChiPhiXD = new ChiPhiXayDung
+            {
+                VL = totalVL,
+                NC = totalNC,
+                M = totalM,
+                CPC = totalCPC,
+                TT = totalTT,
+                TL = totalTL,
+                GTGT = totalGTGT,
+                LT = totalLT
+            };
+        }
+
+        private void HienThiTongHopToanDuAn()
+        {
+            CapNhatTongChiPhiXDToanDuAn();
+            var kq = _duToan.ChiPhiXD;
+            if (kq == null || dgvPreviewChiPhiXD == null) return;
+
+            dgvPreviewChiPhiXD.Rows.Clear();
+            
+            var rTong = new DataGridViewRow();
+            rTong.CreateCells(dgvPreviewChiPhiXD, "TỔNG CHI PHÍ XÂY DỰNG TOÀN DỰ ÁN", "G_XD", "Σ G_XD các hạng mục", kq.GXD);
+            rTong.DefaultCellStyle.Font = new Font(dgvPreviewChiPhiXD.Font, FontStyle.Bold);
+            rTong.DefaultCellStyle.BackColor = Color.FromArgb(230, 244, 234);
+            dgvPreviewChiPhiXD.Rows.Add(rTong);
+
+            dgvPreviewChiPhiXD.Rows.Add("Chi phí xây dựng trước thuế (GXDTT)", "GXDTT", "Σ GXDTT các hạng mục", kq.GXDTT);
+            dgvPreviewChiPhiXD.Rows.Add("Thuế GTGT", "GTGT", "Σ GTGT các hạng mục", kq.GTGT);
+            dgvPreviewChiPhiXD.Rows.Add("Chi phí nhà tạm (LT)", "LT", "Σ LT các hạng mục", kq.LT);
+            dgvPreviewChiPhiXD.Rows.Add("Chi phí trực tiếp (T)", "T", "VL + NC + M", kq.T);
+            dgvPreviewChiPhiXD.Rows.Add("1. Chi phí vật liệu (VL)", "VL", "", kq.VL);
+            dgvPreviewChiPhiXD.Rows.Add("2. Chi phí nhân công (NC)", "NC", "", kq.NC);
+            dgvPreviewChiPhiXD.Rows.Add("3. Chi phí máy thi công (M)", "M", "", kq.M);
+            dgvPreviewChiPhiXD.Rows.Add("Chi phí gián tiếp (GT)", "GT", "C + TT", kq.GT);
+            dgvPreviewChiPhiXD.Rows.Add("Thu nhập chịu thuế tính trước (TL)", "TL", "", kq.TL);
+
+            var rSep = new DataGridViewRow();
+            rSep.CreateCells(dgvPreviewChiPhiXD, "--- TỔNG HỢP THEO TỪNG HẠNG MỤC ---", "", "", 0);
+            rSep.DefaultCellStyle.Font = new Font(dgvPreviewChiPhiXD.Font, FontStyle.Bold);
+            rSep.DefaultCellStyle.ForeColor = Color.FromArgb(0, 102, 204);
+            dgvPreviewChiPhiXD.Rows.Add(rSep);
+
+            foreach (var hm in _duToan.DanhSachHangMuc)
+            {
+                decimal gxd = hm.ChiPhiXD?.GXD ?? 0;
+                decimal t = hm.ChiPhiXD?.T ?? hm.TongChiPhi;
+                dgvPreviewChiPhiXD.Rows.Add($"{LapDuToanExcelService.ToRomanNumeral(hm.STT)}. {hm.TenHangMuc} ({hm.LoaiCongTrinh})", $"T: {t:N0}", "G_XD:", gxd);
+            }
+
+            foreach (DataGridViewRow r in dgvPreviewChiPhiXD.Rows)
+            {
+                r.Height = 36;
+            }
+            dgvPreviewChiPhiXD?.AutoFit();
+
+            DongBoSangTab2(kq, 10m, 1.0m);
         }
 
         private void LoadGiaiDoanXD()
@@ -1522,6 +1711,48 @@ namespace AIE.ExcelAddIn.Forms
             TuDongTraTiLeXD();
         }
 
+        private void CapNhatTrangThaiQuyMoXD()
+        {
+            if (cboGiaiDoanXD == null || txtQuyMoXD == null) return;
+            string giaiDoan = cboGiaiDoanXD.SelectedItem?.ToString() ?? "Lập dự toán xây dựng";
+
+            if (giaiDoan.IndexOf("kinh tế - kỹ thuật", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                giaiDoan.IndexOf("KT-KT", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                giaiDoan.IndexOf("KTKT", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                if (decimal.TryParse(txtQuyMoXD.Text.Replace(',', '.'), out _))
+                {
+                    _lastCustomQuyMo = txtQuyMoXD.Text;
+                }
+                txtQuyMoXD.Text = "≤ 40";
+                txtQuyMoXD.Enabled = false;
+                txtQuyMoXD.BackColor = Color.FromArgb(240, 243, 246);
+                txtQuyMoXD.ForeColor = Color.FromArgb(0, 102, 204);
+            }
+            else if (giaiDoan.IndexOf("Tổng mức đầu tư", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     giaiDoan.IndexOf("NCKT", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                if (decimal.TryParse(txtQuyMoXD.Text.Replace(',', '.'), out _))
+                {
+                    _lastCustomQuyMo = txtQuyMoXD.Text;
+                }
+                txtQuyMoXD.Text = "Bảng 3.2";
+                txtQuyMoXD.Enabled = false;
+                txtQuyMoXD.BackColor = Color.FromArgb(240, 243, 246);
+                txtQuyMoXD.ForeColor = Color.FromArgb(120, 120, 120);
+            }
+            else
+            {
+                txtQuyMoXD.Enabled = true;
+                txtQuyMoXD.BackColor = Color.White;
+                txtQuyMoXD.ForeColor = Color.Black;
+                if (txtQuyMoXD.Text.Contains("≤") || txtQuyMoXD.Text.Contains("Bảng") || !decimal.TryParse(txtQuyMoXD.Text.Replace(',', '.'), out _))
+                {
+                    txtQuyMoXD.Text = string.IsNullOrEmpty(_lastCustomQuyMo) ? "15" : _lastCustomQuyMo;
+                }
+            }
+        }
+
         private void TuDongTraTiLeXD()
         {
             if (cboLoaiCongTrinhXD == null || cboLoaiCongTrinhXD.SelectedItem == null) return;
@@ -1529,12 +1760,22 @@ namespace AIE.ExcelAddIn.Forms
             if (cboLoaiCongTrinhXD.SelectedIndex <= 0 || loaiCT.StartsWith("--")) return;
             string phanLoai = cboPhanLoaiPhuXD.SelectedIndex > 0 ? cboPhanLoaiPhuXD.SelectedItem.ToString() : null;
 
-            decimal.TryParse(txtQuyMoXD.Text.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal quyMo);
-            if (quyMo <= 0) quyMo = 15m;
-
             string giaiDoan = cboGiaiDoanXD?.SelectedItem?.ToString() ?? "Lập dự toán xây dựng";
             string loaiNhaTam = cboLoaiNhaTamXD?.SelectedItem?.ToString() ?? "Công trình xây dựng còn lại";
             bool laVungSauXa = chkVungSauXaXD?.Checked ?? false;
+
+            decimal quyMo = 15m;
+            string rawQuyMo = (txtQuyMoXD?.Text ?? "").Replace("≤", "").Replace("<=", "").Replace("tỷ", "").Trim();
+            if (decimal.TryParse(rawQuyMo.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal parsedQuyMo) && parsedQuyMo > 0)
+            {
+                quyMo = parsedQuyMo;
+            }
+            else if (giaiDoan.IndexOf("kinh tế - kỹ thuật", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     giaiDoan.IndexOf("KT-KT", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     giaiDoan.IndexOf("KTKT", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                quyMo = 40m;
+            }
 
             decimal cpc = 0m;
 
@@ -1656,8 +1897,24 @@ namespace AIE.ExcelAddIn.Forms
             string loaiNhaTam = cboLoaiNhaTamXD?.SelectedItem?.ToString() ?? "Công trình xây dựng còn lại";
             bool laVungSauXa = chkVungSauXaXD?.Checked ?? false;
 
+            if (_currentHangMuc == null && _duToan.DanhSachHangMuc != null && _duToan.DanhSachHangMuc.Count > 1)
+            {
+                HienThiTongHopToanDuAn();
+                return;
+            }
+
             var kq = _calcService.Tinh(tongVL, tongNC, tongMay, cpc, tt, tncttt, gtgt, nhatam, "T", giaiDoan, loaiNhaTam, laVungSauXa);
-            _duToan.ChiPhiXD = kq;
+            if (_currentHangMuc != null)
+            {
+                _currentHangMuc.ChiPhiXD = kq;
+                _currentHangMuc.LoaiCongTrinh = cboLoaiCongTrinhXD?.SelectedItem?.ToString() ?? "";
+            }
+            else
+            {
+                _duToan.ChiPhiXD = kq;
+            }
+
+            CapNhatTongChiPhiXDToanDuAn();
 
             if (dgvPreviewChiPhiXD != null)
             {
@@ -1666,6 +1923,20 @@ namespace AIE.ExcelAddIn.Forms
                 dgvPreviewChiPhiXD.Rows.Add("1. Chi phí vật liệu", "VL", "Σ(KL × ĐG_VL)", kq.VL);
                 dgvPreviewChiPhiXD.Rows.Add("2. Chi phí nhân công", "NC", "Σ(KL × ĐG_NC × Knc)", kq.NC);
                 dgvPreviewChiPhiXD.Rows.Add("3. Chi phí máy và thiết bị thi công", "M", "Σ(KL × ĐG_M × Km)", kq.M);
+
+                // Nếu hạng mục hiện tại có các hạng mục con, hiển thị phân rã chi tiết
+                if (_currentHangMuc?.DanhSachHangMucCon != null && _currentHangMuc.DanhSachHangMucCon.Count > 0)
+                {
+                    foreach (var hmc in _currentHangMuc.DanhSachHangMucCon)
+                    {
+                        var rHmc = new DataGridViewRow();
+                        rHmc.CreateCells(dgvPreviewChiPhiXD, $"   ▸ {hmc.TenHangMucCon}", "T_con", $"VL: {hmc.TongVL:N0} | NC: {hmc.TongNC:N0} | M: {hmc.TongMay:N0}", hmc.TongChiPhi);
+                        rHmc.DefaultCellStyle.Font = new Font(dgvPreviewChiPhiXD.Font, FontStyle.Italic);
+                        rHmc.DefaultCellStyle.ForeColor = Color.FromArgb(70, 80, 95);
+                        dgvPreviewChiPhiXD.Rows.Add(rHmc);
+                    }
+                }
+
                 dgvPreviewChiPhiXD.Rows.Add("II. Chi phí gián tiếp", "GT", "C + TT", kq.GT);
                 dgvPreviewChiPhiXD.Rows.Add($"1. Chi phí chung ({cpc}%)", "C", "T × tỷ lệ", kq.CPC);
                 dgvPreviewChiPhiXD.Rows.Add($"2. CP một số CV không XĐ được KL ({tt}%)", "TT", "T × tỷ lệ", kq.TT);
@@ -1684,16 +1955,6 @@ namespace AIE.ExcelAddIn.Forms
                 rNhaTam.DefaultCellStyle.Font = new Font(dgvPreviewChiPhiXD.Font, FontStyle.Bold);
                 dgvPreviewChiPhiXD.Rows.Add(rNhaTam);
 
-                int[] boldIndices = { 0, 4, 7, 8, 9, 10, 11 };
-                foreach (int idx in boldIndices)
-                {
-                    if (idx < dgvPreviewChiPhiXD.Rows.Count)
-                    {
-                        dgvPreviewChiPhiXD.Rows[idx].DefaultCellStyle.Font = new Font(dgvPreviewChiPhiXD.Font, FontStyle.Bold);
-                    }
-                }
-
-                // Cố định chiều cao 36px cho tất cả các dòng, chống bị che chữ
                 foreach (DataGridViewRow r in dgvPreviewChiPhiXD.Rows)
                 {
                     r.Height = 36;
@@ -1701,7 +1962,7 @@ namespace AIE.ExcelAddIn.Forms
                 dgvPreviewChiPhiXD?.AutoFit();
             }
 
-            DongBoSangTab2(kq, gtgt, nhatam);
+            DongBoSangTab2(_duToan.ChiPhiXD ?? kq, gtgt, nhatam);
         }
 
         private void DongBoSangTab2(ChiPhiXayDung kq, decimal gtgt, decimal nhatam)

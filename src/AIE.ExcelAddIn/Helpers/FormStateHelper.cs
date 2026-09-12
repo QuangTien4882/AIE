@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using ExcelDna.Integration;
 using Newtonsoft.Json;
 
 namespace AIE.ExcelAddIn.Helpers
@@ -20,6 +22,20 @@ namespace AIE.ExcelAddIn.Helpers
     /// </summary>
     public static class FormStateHelper
     {
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool IsIconic(IntPtr hWnd);
+
+        private const int SW_RESTORE = 9;
+        private const int SW_SHOW = 5;
+
         private static readonly string SettingsDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIE_DuToan");
         private static readonly string SettingsFile = Path.Combine(SettingsDir, "form_bounds.json");
@@ -94,7 +110,32 @@ namespace AIE.ExcelAddIn.Helpers
                 catch { }
             };
 
-            // 2. Lưu kích thước khi Form đóng
+            // 2. Kích hoạt Excel khi Form bị Minimize (tránh hiện ứng dụng khác, hỗ trợ Alt+Tab)
+            form.Resize += (s, e) =>
+            {
+                if (form.WindowState == FormWindowState.Minimized)
+                {
+                    try
+                    {
+                        var excelHwnd = ExcelDnaUtil.WindowHandle;
+                        if (excelHwnd != IntPtr.Zero)
+                        {
+                            if (IsIconic(excelHwnd))
+                            {
+                                ShowWindow(excelHwnd, SW_RESTORE);
+                            }
+                            else
+                            {
+                                ShowWindow(excelHwnd, SW_SHOW);
+                            }
+                            SetForegroundWindow(excelHwnd);
+                        }
+                    }
+                    catch { }
+                }
+            };
+
+            // 3. Lưu kích thước khi Form đóng
             form.FormClosing += (s, e) =>
             {
                 try

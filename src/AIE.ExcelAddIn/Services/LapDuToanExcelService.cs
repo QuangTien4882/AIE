@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Linq;
 using Microsoft.Office.Interop.Excel;
 using ExcelDna.Integration;
 using AIE.Core.Models;
@@ -66,35 +68,122 @@ public class LapDuToanExcelService
             duToan.VungApDung = (AIE.Core.Enums.Vung)vungInt;
         }
 
-        var hm = new HangMuc { STT = 1, TenHangMuc = "Hạng mục chung" };
-        duToan.DanhSachHangMuc.Add(hm);
-
         Range usedRange = ws.UsedRange;
         int maxRow = usedRange.Rows.Count + usedRange.Row - 1;
         
-        // Find the starting row by looking for 'STT' header
-        int startRow = 5;
+        // Tìm dòng bắt đầu dữ liệu bằng cách tìm ô 'STT' ở các dòng đầu
+        int startRow = 6;
         for (int r = 1; r <= 10; r++)
         {
             if (GetCellValue(ws, r, 1) == "STT")
             {
-                // STT is merged with the row below it. Data starts after 2 header rows.
                 startRow = r + 2;
                 break;
             }
         }
 
+        HangMuc currentHM = null;
+        HangMucCon currentHMC = null;
+        int currentHMIndex = 0;
+        int currentHMCIndex = 0;
+
         for (int r = startRow; r <= maxRow; r++)
         {
-            string maHieu = GetCellValue(ws, r, 2); // Cột B
-            if (string.IsNullOrWhiteSpace(maHieu)) continue;
+            string sttRaw = GetCellValue(ws, r, 1).Trim(); // Cột A
+            string maHieu = GetCellValue(ws, r, 2).Trim(); // Cột B
+            string ten = GetCellValue(ws, r, 3).Trim();    // Cột C
+            string donVi = GetCellValue(ws, r, 4).Trim();  // Cột D
+            string klStr = GetCellValue(ws, r, 5).Trim();  // Cột E
+            string dgVLStr = GetCellValue(ws, r, 6).Trim();  // Cột F
+            string dgNCStr = GetCellValue(ws, r, 7).Trim();  // Cột G
+            string dgMayStr = GetCellValue(ws, r, 8).Trim(); // Cột H
 
-            string ten = GetCellValue(ws, r, 3);    // Cột C
-            string donVi = GetCellValue(ws, r, 4);  // Cột D
-            string klStr = GetCellValue(ws, r, 5);  // Cột E
-            string dgVLStr = GetCellValue(ws, r, 6);  // Cột F
-            string dgNCStr = GetCellValue(ws, r, 7);  // Cột G
-            string dgMayStr = GetCellValue(ws, r, 8); // Cột H
+            // Dòng hoàn toàn rỗng -> bỏ qua
+            if (string.IsNullOrWhiteSpace(sttRaw) && 
+                string.IsNullOrWhiteSpace(maHieu) && 
+                string.IsNullOrWhiteSpace(ten))
+            {
+                continue;
+            }
+
+            // Bỏ qua dòng TỔNG CỘNG toàn dự án hoặc dòng CỘNG cũ
+            if (ten.StartsWith("TỔNG CỘNG", StringComparison.OrdinalIgnoreCase) ||
+                ten.StartsWith("CỘNG TOÀN", StringComparison.OrdinalIgnoreCase) ||
+                ten.Equals("TỔNG HỢP", StringComparison.OrdinalIgnoreCase) ||
+                ten.StartsWith("CỘNG HẠNG MỤC", StringComparison.OrdinalIgnoreCase) ||
+                ten.StartsWith("CỘNG PHẦN", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // Phân biệt: Công tác vs Dòng Tiêu đề (Header)
+            bool isWorkItem = !string.IsNullOrWhiteSpace(maHieu) || 
+                              (!string.IsNullOrWhiteSpace(donVi) && decimal.TryParse(klStr, out _));
+
+            if (!isWorkItem && !string.IsNullOrWhiteSpace(ten))
+            {
+                // Dòng Tiêu đề
+                if (IsLevel1Header(sttRaw, ten, currentHM))
+                {
+                    currentHMIndex++;
+                    currentHM = new HangMuc
+                    {
+                        STT = currentHMIndex,
+                        RowIndex = r,
+                        MaHangMuc = $"HM_{currentHMIndex:D2}",
+                        TenHangMuc = ten,
+                        LoaiCongTrinh = NhanDienLoaiCongTrinh(ten)
+                    };
+                    duToan.DanhSachHangMuc.Add(currentHM);
+                    currentHMC = null;
+                    currentHMCIndex = 0;
+                }
+                else
+                {
+                    // Level 2: Hạng mục con
+                    if (currentHM == null)
+                    {
+                        currentHMIndex++;
+                        currentHM = new HangMuc
+                        {
+                            STT = currentHMIndex,
+                            RowIndex = r,
+                            MaHangMuc = $"HM_{currentHMIndex:D2}",
+                            TenHangMuc = "Hạng mục chung",
+                            LoaiCongTrinh = "Dân dụng"
+                        };
+                        duToan.DanhSachHangMuc.Add(currentHM);
+                    }
+
+                    currentHMCIndex++;
+                    currentHMC = new HangMucCon
+                    {
+                        STT = currentHMCIndex,
+                        RowIndex = r,
+                        MaHangMucCon = $"{currentHM.MaHangMuc}_{currentHMCIndex:D2}",
+                        TenHangMucCon = ten
+                    };
+                    currentHM.DanhSachHangMucCon.Add(currentHMC);
+                }
+                continue;
+            }
+
+            if (!isWorkItem) continue;
+
+            // Dòng Công tác
+            if (currentHM == null)
+            {
+                currentHMIndex++;
+                currentHM = new HangMuc
+                {
+                    STT = currentHMIndex,
+                    RowIndex = startRow > 6 ? startRow - 1 : 5,
+                    MaHangMuc = $"HM_{currentHMIndex:D2}",
+                    TenHangMuc = "Hạng mục chung",
+                    LoaiCongTrinh = "Dân dụng"
+                };
+                duToan.DanhSachHangMuc.Add(currentHM);
+            }
 
             decimal.TryParse(klStr, out decimal khoiLuong);
             decimal.TryParse(dgVLStr, out decimal donGiaVL);
@@ -104,6 +193,7 @@ public class LapDuToanExcelService
             var dong = new DongDuToan
             {
                 STT = r, // Dùng STT tạm bằng row để map ngược lại
+                TenHangMucCon = currentHMC?.TenHangMucCon,
                 MaHieu = maHieu,
                 TenCongTac = ten,
                 DonVi = donVi,
@@ -112,14 +202,26 @@ public class LapDuToanExcelService
                 DonGiaNC = donGiaNC,
                 DonGiaMay = donGiaMay
             };
-            hm.DanhSachCongTac.Add(dong);
+
+            currentHM.DanhSachCongTac.Add(dong);
+            if (currentHMC != null)
+            {
+                currentHMC.DanhSachCongTac.Add(dong);
+            }
+        }
+
+        // Đồng bộ Loại công trình mặc định của dự toán nếu chưa có
+        if (duToan.DanhSachHangMuc.Count > 0 && string.IsNullOrEmpty(duToan.LoaiCongTrinh))
+        {
+            duToan.LoaiCongTrinh = duToan.DanhSachHangMuc[0].LoaiCongTrinh;
         }
 
         return duToan;
     }
 
     /// <summary>
-    /// Gán đơn giá và công thức Thành tiền ngược lại các dòng tương ứng trên Excel.
+    /// Gán đơn giá và công thức Thành tiền ngược lại các dòng tương ứng trên Excel,
+    /// đồng thời đặt công thức tổng trực tiếp trên dòng tiêu đề Hạng mục và Hạng mục con.
     /// </summary>
     public void WriteDonGiaToExcel(DuToan duToan)
     {
@@ -158,16 +260,61 @@ public class LapDuToanExcelService
                 ws.Cells[r, 10].Formula = $"=ROUND(E{r}*G{r}, 0)";
                 ws.Cells[r, 11].Formula = $"=ROUND(E{r}*H{r}, 0)";
             }
+
+            // Gán công thức tổng ngay trên dòng tiêu đề Hạng mục con và Hạng mục cha
+            if (hm.DanhSachHangMucCon != null && hm.DanhSachHangMucCon.Count > 0)
+            {
+                foreach (var hmc in hm.DanhSachHangMucCon)
+                {
+                    if (hmc.RowIndex > 0 && hmc.DanhSachCongTac.Count > 0)
+                    {
+                        int minR = hmc.DanhSachCongTac.Min(x => x.STT);
+                        int maxR_hmc = hmc.DanhSachCongTac.Max(x => x.STT);
+                        ws.Cells[hmc.RowIndex, 9].Formula = $"=SUM(I{minR}:I{maxR_hmc})";
+                        ws.Cells[hmc.RowIndex, 10].Formula = $"=SUM(J{minR}:J{maxR_hmc})";
+                        ws.Cells[hmc.RowIndex, 11].Formula = $"=SUM(K{minR}:K{maxR_hmc})";
+                    }
+                }
+
+                if (hm.RowIndex > 0)
+                {
+                    var validHmc = hm.DanhSachHangMucCon.Where(c => c.RowIndex > 0).ToList();
+                    if (validHmc.Count > 0)
+                    {
+                        ws.Cells[hm.RowIndex, 9].Formula = $"={string.Join("+", validHmc.Select(c => $"I{c.RowIndex}"))}";
+                        ws.Cells[hm.RowIndex, 10].Formula = $"={string.Join("+", validHmc.Select(c => $"J{c.RowIndex}"))}";
+                        ws.Cells[hm.RowIndex, 11].Formula = $"={string.Join("+", validHmc.Select(c => $"K{c.RowIndex}"))}";
+                    }
+                }
+            }
+            else if (hm.RowIndex > 0 && hm.DanhSachCongTac.Count > 0)
+            {
+                int minR = hm.DanhSachCongTac.Min(x => x.STT);
+                int maxR_hm = hm.DanhSachCongTac.Max(x => x.STT);
+                ws.Cells[hm.RowIndex, 9].Formula = $"=SUM(I{minR}:I{maxR_hm})";
+                ws.Cells[hm.RowIndex, 10].Formula = $"=SUM(J{minR}:J{maxR_hm})";
+                ws.Cells[hm.RowIndex, 11].Formula = $"=SUM(K{minR}:K{maxR_hm})";
+            }
         }
 
-        // Cập nhật dòng TỔNG CỘNG nếu có
+        // Cập nhật dòng TỔNG CỘNG TOÀN DỰ ÁN nếu có
         int totalRow = maxR + 1;
         string cVal = ws.Cells[totalRow, 3]?.Value2?.ToString()?.Trim() ?? "";
-        if (cVal.Equals("TỔNG CỘNG", StringComparison.OrdinalIgnoreCase) || cVal.Equals("CỘNG", StringComparison.OrdinalIgnoreCase))
+        if (cVal.StartsWith("TỔNG CỘNG", StringComparison.OrdinalIgnoreCase) || cVal.Equals("CỘNG", StringComparison.OrdinalIgnoreCase))
         {
-            ws.Cells[totalRow, 9].Formula = $"=SUM(I6:I{maxR})";
-            ws.Cells[totalRow, 10].Formula = $"=SUM(J6:J{maxR})";
-            ws.Cells[totalRow, 11].Formula = $"=SUM(K6:K{maxR})";
+            var validHms = duToan.DanhSachHangMuc.Where(h => h.RowIndex > 0).ToList();
+            if (validHms.Count > 1)
+            {
+                ws.Cells[totalRow, 9].Formula = $"={string.Join("+", validHms.Select(h => $"I{h.RowIndex}"))}";
+                ws.Cells[totalRow, 10].Formula = $"={string.Join("+", validHms.Select(h => $"J{h.RowIndex}"))}";
+                ws.Cells[totalRow, 11].Formula = $"={string.Join("+", validHms.Select(h => $"K{h.RowIndex}"))}";
+            }
+            else
+            {
+                ws.Cells[totalRow, 9].Formula = $"=SUM(I6:I{maxR})";
+                ws.Cells[totalRow, 10].Formula = $"=SUM(J6:J{maxR})";
+                ws.Cells[totalRow, 11].Formula = $"=SUM(K6:K{maxR})";
+            }
         }
     }
 
@@ -278,46 +425,124 @@ public class LapDuToanExcelService
                 ws.Name = "DuToan_" + DateTime.Now.ToString("HHmmss");
             }
 
-            // Dòng 6 trở đi: Dữ liệu
+            // Dòng 6 trở đi: Dữ liệu đa hạng mục & hạng mục con
             int r = 6;
-            int stt = 1;
+            int sttCongTac = 1;
+            var hmRows = new List<int>();
+
             foreach (var hm in duToan.DanhSachHangMuc)
             {
-                foreach (var dong in hm.DanhSachCongTac)
+                // Dòng Tiêu đề Hạng mục cha (Level 1)
+                int hmRow = r;
+                hm.RowIndex = hmRow;
+                hmRows.Add(hmRow);
+
+                ws.Cells[r, 1] = ToRomanNumeral(hm.STT);
+                ws.Cells[r, 3] = hm.TenHangMuc.ToUpper();
+                ws.Range[ws.Cells[r, 1], ws.Cells[r, 11]].Font.Bold = true;
+                ws.Range[ws.Cells[r, 1], ws.Cells[r, 11]].Interior.Color = ColorTranslator.ToOle(Color.FromArgb(220, 235, 252));
+                r++;
+
+                if (hm.DanhSachHangMucCon != null && hm.DanhSachHangMucCon.Count > 0)
                 {
-                    dong.STT = r; // Cập nhật lại STT = dòng Excel để map ngược
-                    ws.Cells[r, 1] = stt++;
-                    ws.Cells[r, 2] = dong.MaHieu;
-                    ws.Cells[r, 3] = dong.TenCongTac;
-                    ws.Cells[r, 4] = dong.DonVi;
-                    ws.Cells[r, 5] = (double)dong.KhoiLuong;
-
-                    if (dong.DonGiaVL > 0 || dong.DonGiaNC > 0 || dong.DonGiaMay > 0)
+                    var hmcRows = new List<int>();
+                    foreach (var hmc in hm.DanhSachHangMucCon)
                     {
-                        ws.Cells[r, 6] = (double)dong.DonGiaVL;
-                        ws.Cells[r, 7] = (double)dong.DonGiaNC;
-                        ws.Cells[r, 8] = (double)dong.DonGiaMay;
-                    }
-                    
-                    // 3 Cột Thành tiền: Vật liệu, Nhân công, Máy thi công
-                    ws.Cells[r, 9].Formula = $"=ROUND(E{r}*F{r}, 0)";
-                    ws.Cells[r, 10].Formula = $"=ROUND(E{r}*G{r}, 0)";
-                    ws.Cells[r, 11].Formula = $"=ROUND(E{r}*H{r}, 0)";
+                        // Dòng Tiêu đề Hạng mục con (Level 2)
+                        int hmcRow = r;
+                        hmc.RowIndex = hmcRow;
+                        hmcRows.Add(hmcRow);
 
-                    r++;
+                        ws.Cells[r, 1] = hmc.STT;
+                        ws.Cells[r, 3] = hmc.TenHangMucCon;
+                        ws.Range[ws.Cells[r, 1], ws.Cells[r, 11]].Font.Bold = true;
+                        ws.Range[ws.Cells[r, 1], ws.Cells[r, 11]].Font.Italic = true;
+                        ws.Range[ws.Cells[r, 1], ws.Cells[r, 11]].Interior.Color = ColorTranslator.ToOle(Color.FromArgb(242, 245, 249));
+                        r++;
+
+                        int hmcStart = r;
+                        foreach (var dong in hmc.DanhSachCongTac)
+                        {
+                            dong.STT = r;
+                            ws.Cells[r, 1] = sttCongTac++;
+                            ws.Cells[r, 2] = dong.MaHieu;
+                            ws.Cells[r, 3] = dong.TenCongTac;
+                            ws.Cells[r, 4] = dong.DonVi;
+                            ws.Cells[r, 5] = (double)dong.KhoiLuong;
+
+                            if (dong.DonGiaVL > 0 || dong.DonGiaNC > 0 || dong.DonGiaMay > 0)
+                            {
+                                ws.Cells[r, 6] = (double)dong.DonGiaVL;
+                                ws.Cells[r, 7] = (double)dong.DonGiaNC;
+                                ws.Cells[r, 8] = (double)dong.DonGiaMay;
+                            }
+
+                            ws.Cells[r, 9].Formula = $"=ROUND(E{r}*F{r}, 0)";
+                            ws.Cells[r, 10].Formula = $"=ROUND(E{r}*G{r}, 0)";
+                            ws.Cells[r, 11].Formula = $"=ROUND(E{r}*H{r}, 0)";
+                            r++;
+                        }
+                        int hmcEnd = r - 1;
+
+                        if (hmcEnd >= hmcStart)
+                        {
+                            ws.Cells[hmcRow, 9].Formula = $"=SUM(I{hmcStart}:I{hmcEnd})";
+                            ws.Cells[hmcRow, 10].Formula = $"=SUM(J{hmcStart}:J{hmcEnd})";
+                            ws.Cells[hmcRow, 11].Formula = $"=SUM(K{hmcStart}:K{hmcEnd})";
+                        }
+                    }
+
+                    if (hmcRows.Count > 0)
+                    {
+                        ws.Cells[hmRow, 9].Formula = $"={string.Join("+", hmcRows.Select(x => $"I{x}"))}";
+                        ws.Cells[hmRow, 10].Formula = $"={string.Join("+", hmcRows.Select(x => $"J{x}"))}";
+                        ws.Cells[hmRow, 11].Formula = $"={string.Join("+", hmcRows.Select(x => $"K{x}"))}";
+                    }
+                }
+                else
+                {
+                    int hmStart = r;
+                    foreach (var dong in hm.DanhSachCongTac)
+                    {
+                        dong.STT = r;
+                        ws.Cells[r, 1] = sttCongTac++;
+                        ws.Cells[r, 2] = dong.MaHieu;
+                        ws.Cells[r, 3] = dong.TenCongTac;
+                        ws.Cells[r, 4] = dong.DonVi;
+                        ws.Cells[r, 5] = (double)dong.KhoiLuong;
+
+                        if (dong.DonGiaVL > 0 || dong.DonGiaNC > 0 || dong.DonGiaMay > 0)
+                        {
+                            ws.Cells[r, 6] = (double)dong.DonGiaVL;
+                            ws.Cells[r, 7] = (double)dong.DonGiaNC;
+                            ws.Cells[r, 8] = (double)dong.DonGiaMay;
+                        }
+
+                        ws.Cells[r, 9].Formula = $"=ROUND(E{r}*F{r}, 0)";
+                        ws.Cells[r, 10].Formula = $"=ROUND(E{r}*G{r}, 0)";
+                        ws.Cells[r, 11].Formula = $"=ROUND(E{r}*H{r}, 0)";
+                        r++;
+                    }
+                    int hmEnd = r - 1;
+
+                    if (hmEnd >= hmStart)
+                    {
+                        ws.Cells[hmRow, 9].Formula = $"=SUM(I{hmStart}:I{hmEnd})";
+                        ws.Cells[hmRow, 10].Formula = $"=SUM(J{hmStart}:J{hmEnd})";
+                        ws.Cells[hmRow, 11].Formula = $"=SUM(K{hmStart}:K{hmEnd})";
+                    }
                 }
             }
 
-            // Dòng TỔNG CỘNG ở cuối bảng DuToan
-            int dataEndRow = r - 1;
-            if (dataEndRow >= 6)
+            // Dòng TỔNG CỘNG TOÀN DỰ ÁN ở cuối bảng DuToan
+            if (hmRows.Count > 0)
             {
-                ws.Cells[r, 3] = "TỔNG CỘNG";
-                ws.Cells[r, 9].Formula = $"=SUM(I6:I{dataEndRow})";
-                ws.Cells[r, 10].Formula = $"=SUM(J6:J{dataEndRow})";
-                ws.Cells[r, 11].Formula = $"=SUM(K6:K{dataEndRow})";
+                ws.Cells[r, 3] = "TỔNG CỘNG TOÀN DỰ ÁN";
+                ws.Cells[r, 9].Formula = $"={string.Join("+", hmRows.Select(x => $"I{x}"))}";
+                ws.Cells[r, 10].Formula = $"={string.Join("+", hmRows.Select(x => $"J{x}"))}";
+                ws.Cells[r, 11].Formula = $"={string.Join("+", hmRows.Select(x => $"K{x}"))}";
                 ws.Range[ws.Cells[r, 1], ws.Cells[r, 11]].Font.Bold = true;
-                ws.Range[ws.Cells[r, 1], ws.Cells[r, 11]].Interior.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(240, 245, 252));
+                ws.Range[ws.Cells[r, 1], ws.Cells[r, 11]].Interior.Color = ColorTranslator.ToOle(Color.FromArgb(200, 225, 250));
                 r++;
             }
 
@@ -365,5 +590,69 @@ public class LapDuToanExcelService
         {
             return string.Empty;
         }
+    }
+
+    public static bool IsRomanNumeral(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return false;
+        string clean = s.Trim().TrimEnd('.', ')', ':', '-').ToUpper();
+        return clean switch
+        {
+            "I" or "II" or "III" or "IV" or "V" or "VI" or "VII" or "VIII" or "IX" or "X" or "XI" or "XII" => true,
+            _ => false
+        };
+    }
+
+    public static string ToRomanNumeral(int number)
+    {
+        return number switch
+        {
+            1 => "I",
+            2 => "II",
+            3 => "III",
+            4 => "IV",
+            5 => "V",
+            6 => "VI",
+            7 => "VII",
+            8 => "VIII",
+            9 => "IX",
+            10 => "X",
+            11 => "XI",
+            12 => "XII",
+            _ => number.ToString()
+        };
+    }
+
+    public static bool IsLevel1Header(string stt, string ten, HangMuc currentHM)
+    {
+        if (currentHM == null) return true; // Dòng tiêu đề đầu tiên luôn là Level 1
+        if (IsRomanNumeral(stt)) return true;
+        if (ten.StartsWith("HẠNG MỤC", StringComparison.OrdinalIgnoreCase) ||
+            ten.StartsWith("PHẦN", StringComparison.OrdinalIgnoreCase) ||
+            ten.StartsWith("HM ", StringComparison.OrdinalIgnoreCase) ||
+            ten.StartsWith("HM.", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+        return false;
+    }
+
+    public static string NhanDienLoaiCongTrinh(string ten)
+    {
+        if (string.IsNullOrWhiteSpace(ten)) return "Dân dụng";
+        string lower = ten.ToLower();
+
+        if (lower.Contains("giao thông") || lower.Contains("đường") || lower.Contains("cầu") || (lower.Contains("vỉa hè") && !lower.Contains("thoát")))
+            return "Giao thông";
+        if (lower.Contains("thoát nước") || lower.Contains("cấp nước") || lower.Contains("chiếu sáng") || lower.Contains("hạ tầng") || lower.Contains("cây xanh"))
+            return "Hạ tầng kỹ thuật";
+        if (lower.Contains("thủy lợi") || lower.Contains("kênh") || lower.Contains("mương") || lower.Contains("đê") || lower.Contains("đập") || lower.Contains("hồ chứa") || lower.Contains("nông nghiệp"))
+            return "Nông nghiệp & PTNT";
+        if (lower.Contains("nhà xưởng") || lower.Contains("trạm biến áp") || lower.Contains("đường dây") || lower.Contains("công nghiệp") || lower.Contains("kho bãi"))
+            return "Công nghiệp";
+        if (lower.Contains("nhà") || lower.Contains("trường") || lower.Contains("trạm y tế") || lower.Contains("văn phòng") || lower.Contains("dân dụng") || lower.Contains("hội trường"))
+            return "Dân dụng";
+
+        return "Dân dụng";
     }
 }

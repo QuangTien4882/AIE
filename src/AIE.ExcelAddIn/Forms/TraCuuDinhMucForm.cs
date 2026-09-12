@@ -52,6 +52,7 @@ namespace AIE.ExcelAddIn.Forms
             this.Font = new Font("Be Vietnam Pro", 9.5F);
             this.BackColor = Color.FromArgb(245, 246, 250);
             this.ShowIcon = false;
+            this.ShowInTaskbar = true;
 
             // --- HEADER PANEL ---
             var pnlTop = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = Color.White };

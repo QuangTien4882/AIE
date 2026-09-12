@@ -74,16 +74,38 @@ public class DuToan
 }
 
 /// <summary>
-/// Hạng mục trong dự toán.
+/// Hạng mục trong dự toán (Level 1 — Đơn vị xác định Loại công trình và định mức TT 36).
 /// </summary>
 public class HangMuc
 {
     public int STT { get; set; }
+    public int RowIndex { get; set; }
+    public string MaHangMuc { get; set; } = string.Empty;
     public string TenHangMuc { get; set; } = string.Empty;
+    public string LoaiCongTrinh { get; set; } = string.Empty;
+    public string PhanLoaiPhu { get; set; } = string.Empty;
+    public string? CapCongTrinh { get; set; }
+
+    /// <summary>Danh sách các hạng mục con (Level 2) nếu có</summary>
+    public List<HangMucCon> DanhSachHangMucCon { get; set; } = [];
+
+    /// <summary>Danh sách toàn bộ công tác thuộc hạng mục này</summary>
     public List<DongDuToan> DanhSachCongTac { get; set; } = [];
 
-    /// <summary>Tổng chi phí trực tiếp của hạng mục</summary>
-    public decimal TongChiPhi => DanhSachCongTac.Sum(x => x.ThanhTien);
+    /// <summary>Chi phí xây dựng tính riêng theo Bảng 3.8 TT 36 cho Hạng mục này</summary>
+    public ChiPhiXayDung? ChiPhiXD { get; set; }
+
+    /// <summary>Tổng thành tiền Vật liệu của hạng mục</summary>
+    public decimal TongVL => DanhSachCongTac.Sum(x => x.ThanhTienVL);
+
+    /// <summary>Tổng thành tiền Nhân công của hạng mục</summary>
+    public decimal TongNC => DanhSachCongTac.Sum(x => x.ThanhTienNC);
+
+    /// <summary>Tổng thành tiền Máy thi công của hạng mục</summary>
+    public decimal TongMay => DanhSachCongTac.Sum(x => x.ThanhTienMay);
+
+    /// <summary>Tổng chi phí trực tiếp của hạng mục T = VL + NC + M</summary>
+    public decimal TongChiPhi => TongVL + TongNC + TongMay;
 }
 
 /// <summary>
@@ -92,6 +114,9 @@ public class HangMuc
 public class DongDuToan
 {
     public int STT { get; set; }
+
+    /// <summary>Tên hạng mục con (nếu thuộc hạng mục con)</summary>
+    public string? TenHangMucCon { get; set; }
 
     /// <summary>Mã hiệu định mức</summary>
     public string MaHieu { get; set; } = string.Empty;

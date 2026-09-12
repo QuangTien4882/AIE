@@ -726,10 +726,22 @@ namespace AIE.ExcelAddIn.Services
             headerRange.VerticalAlignment = XlVAlign.xlVAlignCenter;
             headerRange.Interior.Color = ColorTranslator.ToOle(Color.FromArgb(230, 236, 245));
 
-            int r = 6;
-            var kq = duToan.ChiPhiXD;
-            if (kq == null) return;
+            // Tìm sheet DuToan để liên kết VL/NC/M
+            Worksheet wsDuToan = null;
+            foreach (Worksheet sheet in wb.Sheets)
+            {
+                if (sheet.Name.StartsWith("DuToan", StringComparison.OrdinalIgnoreCase))
+                {
+                    wsDuToan = sheet;
+                    break;
+                }
+            }
+            if (wsDuToan == null) wsDuToan = wb.ActiveSheet as Worksheet;
+            string duToanName = wsDuToan != null ? wsDuToan.Name : "DuToan";
 
+            int r = 6;
+
+            // Helper ghi 1 dòng dữ liệu Bảng 3.8
             void AddRow(string tt, string khoiMuc, string kyHieu, string cachTinh, object giaTriOrFormula, bool isBold)
             {
                 ws.Cells[r, 1] = tt;
@@ -747,91 +759,193 @@ namespace AIE.ExcelAddIn.Services
                 r++;
             }
 
-            Worksheet wsDuToan = null;
-            foreach (Worksheet sheet in wb.Sheets)
-            {
-                if (sheet.Name.StartsWith("DuToan", StringComparison.OrdinalIgnoreCase))
-                {
-                    wsDuToan = sheet;
-                    break;
-                }
-            }
-            if (wsDuToan == null) wsDuToan = wb.ActiveSheet as Worksheet;
-            string duToanName = wsDuToan != null ? wsDuToan.Name : "DuToan";
+            // Kiểm tra đa hạng mục: mỗi hạng mục có ChiPhiXD riêng với tỉ lệ CPC/TT/TL theo LoaiCongTrinh
+            var hangMucsCoChiPhi = duToan.DanhSachHangMuc?
+                .Where(hm => hm.ChiPhiXD != null && hm.DanhSachCongTac.Count > 0)
+                .ToList();
+            bool isDaHangMuc = hangMucsCoChiPhi != null && hangMucsCoChiPhi.Count > 1;
 
-            // Tìm dòng TỔNG CỘNG trong wsDuToan
-            int duToanTotalRow = 0;
-            int totalCongTac = duToan.DanhSachHangMuc?.Sum(hm => hm.DanhSachCongTac.Count) ?? 0;
-            if (wsDuToan != null)
+            int lastDataRow;
+
+            if (isDaHangMuc)
             {
-                for (int rSearch = 6; rSearch <= Math.Max(20, 6 + totalCongTac + 5); rSearch++)
+                // ============ CHẾ ĐỘ ĐA HẠNG MỤC ============
+                var inv = System.Globalization.CultureInfo.InvariantCulture;
+                var hmGXDTTRows = new List<int>();
+                var hmGTGTRows = new List<int>();
+                var hmGXDRows = new List<int>();
+                var hmLTRows = new List<int>();
+
+                int hmIndex = 0;
+                foreach (var hm in hangMucsCoChiPhi)
                 {
-                    string cVal = wsDuToan.Cells[rSearch, 3]?.Value2?.ToString()?.Trim() ?? "";
-                    if (cVal.Equals("TỔNG CỘNG", StringComparison.OrdinalIgnoreCase) || cVal.Equals("CỘNG", StringComparison.OrdinalIgnoreCase))
+                    hmIndex++;
+                    var cpxd = hm.ChiPhiXD;
+
+                    // Dòng tiêu đề hạng mục
+                    var sectionTitle = ws.Range[ws.Cells[r, 1], ws.Cells[r, 5]];
+                    sectionTitle.Merge();
+                    string tenHM = $"HẠNG MỤC {LapDuToanExcelService.ToRomanNumeral(hmIndex)}: {hm.TenHangMuc}";
+                    if (!string.IsNullOrEmpty(hm.LoaiCongTrinh)) tenHM += $" ({hm.LoaiCongTrinh})";
+                    sectionTitle.Value2 = tenHM;
+                    sectionTitle.Font.Bold = true;
+                    sectionTitle.Font.Size = 12;
+                    sectionTitle.Interior.Color = ColorTranslator.ToOle(Color.FromArgb(200, 220, 250));
+                    sectionTitle.HorizontalAlignment = XlHAlign.xlHAlignLeft;
+                    r++;
+
+                    object linkVL, linkNC, linkM;
+                    if (hm.RowIndex > 0)
                     {
-                        duToanTotalRow = rSearch;
-                        break;
+                        linkVL = $"='{duToanName}'!I{hm.RowIndex}";
+                        linkNC = $"='{duToanName}'!J{hm.RowIndex}";
+                        linkM = $"='{duToanName}'!K{hm.RowIndex}";
+                    }
+                    else
+                    {
+                        linkVL = (double)hm.TongVL;
+                        linkNC = (double)hm.TongNC;
+                        linkM = (double)hm.TongMay;
+                    }
+
+                    int rowT = r;
+                    AddRow("I", "Chi phí trực tiếp", "T", "VL + NC + M", $"=SUM(E{r + 1}:E{r + 3})", true);
+                    AddRow("1", "Chi phí vật liệu", "VL", "Σ(KL × ĐG_VL)", linkVL, false);
+                    AddRow("2", "Chi phí nhân công", "NC", "Σ(KL × ĐG_NC)", linkNC, false);
+                    AddRow("3", "Chi phí máy", "M", "Σ(KL × ĐG_M)", linkM, false);
+
+                    int rowGT = r;
+                    AddRow("II", "Chi phí gián tiếp", "GT", "C + TT", $"=E{r + 1}+E{r + 2}", true);
+                    AddRow("1", "Chi phí chung", "C", $"T × {cpxd.TiLeCPC}%", $"=ROUND(E{rowT}*{cpxd.TiLeCPC.ToString(inv)}/100, 0)", false);
+                    AddRow("2", "Chi phí một số CVKXĐ KL từ TK", "TT", $"T × {cpxd.TiLeTT}%", $"=ROUND(E{rowT}*{cpxd.TiLeTT.ToString(inv)}/100, 0)", false);
+
+                    int rowTL = r;
+                    AddRow("III", "Thu nhập chịu thuế tính trước", "TL", $"(T + GT) × {cpxd.TiLeTNCTTT}%", $"=ROUND((E{rowT}+E{rowGT})*{cpxd.TiLeTNCTTT.ToString(inv)}/100, 0)", true);
+
+                    int rowGXDTT = r;
+                    hmGXDTTRows.Add(r);
+                    AddRow("", "Chi phí xây dựng trước thuế", "GXDTT", "T + GT + TL", $"=E{rowT}+E{rowGT}+E{rowTL}", true);
+
+                    int rowGTGT = r;
+                    hmGTGTRows.Add(r);
+                    AddRow("IV", "Thuế giá trị gia tăng", "GTGT", $"GXDTT × {cpxd.TiLeGTGT}%", $"=ROUND(E{rowGXDTT}*{cpxd.TiLeGTGT.ToString(inv)}/100, 0)", true);
+
+                    hmGXDRows.Add(r);
+                    AddRow("", "CHI PHÍ XÂY DỰNG SAU THUẾ", "GXD", "GXDTT + GTGT", $"=E{rowGXDTT}+E{rowGTGT}", true);
+
+                    hmLTRows.Add(r);
+                    AddRow("V", "Chi phí nhà tạm", "LT",
+                        $"GXDTT × {cpxd.TiLeNhaTam}% × (1 + {cpxd.TiLeGTGT}%)",
+                        $"=ROUND(E{rowGXDTT}*{cpxd.TiLeNhaTam.ToString(inv)}/100*(1+E{rowGTGT}/E{rowGXDTT}), 0)", true);
+
+                    r++; // Dòng trống phân cách
+                }
+
+                // TỔNG HỢP TOÀN DỰ ÁN
+                var summaryTitle = ws.Range[ws.Cells[r, 1], ws.Cells[r, 5]];
+                summaryTitle.Merge();
+                summaryTitle.Value2 = "TỔNG HỢP CHI PHÍ XÂY DỰNG TOÀN DỰ ÁN";
+                summaryTitle.Font.Bold = true;
+                summaryTitle.Font.Size = 13;
+                summaryTitle.Interior.Color = ColorTranslator.ToOle(Color.FromArgb(255, 255, 204));
+                summaryTitle.HorizontalAlignment = XlHAlign.xlHAlignCenter;
+                r++;
+
+                ws.Cells[r, 2] = "Chi phí xây dựng trước thuế";
+                SetCellSymbolWithSubscript(ws, r, 3, "GXDTT");
+                ws.Cells[r, 4] = "Σ GXDTT các hạng mục";
+                ws.Cells[r, 5].Formula = $"={string.Join("+", hmGXDTTRows.Select(x => $"E{x}"))}";
+                ws.Range[ws.Cells[r, 1], ws.Cells[r, 5]].Font.Bold = true;
+                r++;
+
+                ws.Cells[r, 2] = "Thuế giá trị gia tăng";
+                SetCellSymbolWithSubscript(ws, r, 3, "GTGT");
+                ws.Cells[r, 4] = "Σ GTGT các hạng mục";
+                ws.Cells[r, 5].Formula = $"={string.Join("+", hmGTGTRows.Select(x => $"E{x}"))}";
+                ws.Range[ws.Cells[r, 1], ws.Cells[r, 5]].Font.Bold = true;
+                r++;
+
+                ws.Cells[r, 2] = "CHI PHÍ XÂY DỰNG SAU THUẾ";
+                SetCellSymbolWithSubscript(ws, r, 3, "GXD");
+                ws.Cells[r, 4] = "GXDTT + GTGT";
+                ws.Cells[r, 5].Formula = $"=E{r - 2}+E{r - 1}";
+                var gxdTotalRng = ws.Range[ws.Cells[r, 1], ws.Cells[r, 5]];
+                gxdTotalRng.Font.Bold = true;
+                gxdTotalRng.Interior.Color = ColorTranslator.ToOle(Color.FromArgb(230, 244, 234));
+                r++;
+
+                ws.Cells[r, 2] = "Chi phí nhà tạm để ở và điều hành thi công";
+                SetCellSymbolWithSubscript(ws, r, 3, "LT");
+                ws.Cells[r, 4] = "Σ LT các hạng mục";
+                ws.Cells[r, 5].Formula = $"={string.Join("+", hmLTRows.Select(x => $"E{x}"))}";
+                ws.Range[ws.Cells[r, 1], ws.Cells[r, 5]].Font.Bold = true;
+
+                lastDataRow = r;
+            }
+            else
+            {
+                // ============ CHẾ ĐỘ ĐƠN HẠNG MỤC (giữ nguyên logic cũ) ============
+                var kqSingle = duToan.ChiPhiXD;
+                if (kqSingle == null) return;
+
+                int duToanTotalRow = 0;
+                int totalCongTac = duToan.DanhSachHangMuc?.Sum(hm => hm.DanhSachCongTac.Count) ?? 0;
+                if (wsDuToan != null)
+                {
+                    for (int rSearch = 6; rSearch <= Math.Max(20, 6 + totalCongTac + 5); rSearch++)
+                    {
+                        string cVal = wsDuToan.Cells[rSearch, 3]?.Value2?.ToString()?.Trim() ?? "";
+                        if (cVal.Equals("TỔNG CỘNG", StringComparison.OrdinalIgnoreCase) || cVal.Equals("CỘNG", StringComparison.OrdinalIgnoreCase))
+                        {
+                            duToanTotalRow = rSearch;
+                            break;
+                        }
                     }
                 }
+                if (duToanTotalRow == 0) duToanTotalRow = 6 + totalCongTac;
+
+                string linkVL = $"='{duToanName}'!I{duToanTotalRow}";
+                string linkNC = $"='{duToanName}'!J{duToanTotalRow}";
+                string linkM = $"='{duToanName}'!K{duToanTotalRow}";
+
+                AddRow("I", "Chi phí trực tiếp", "T", "VL + NC + M", "=SUM(E7:E9)", true);
+                AddRow("1", "Chi phí vật liệu", "VL", "Σ(KL × ĐG_VL)", linkVL, false);
+                AddRow("2", "Chi phí nhân công", "NC", "Σ(KL × ĐG_NC)", linkNC, false);
+                AddRow("3", "Chi phí máy", "M", "Σ(KL × ĐG_M)", linkM, false);
+                
+                AddRow("II", "Chi phí gián tiếp", "GT", "C + TT", "=E11+E12", true);
+                AddRow("1", "Chi phí chung", "C", $"T × {kqSingle.TiLeCPC}%", $"=ROUND(E6*{kqSingle.TiLeCPC.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100, 0)", false);
+                AddRow("2", "Chi phí một số công việc không xác định được KL từ TK", "TT", $"T × {kqSingle.TiLeTT}%", $"=ROUND(E6*{kqSingle.TiLeTT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100, 0)", false);
+                
+                AddRow("III", "Thu nhập chịu thuế tính trước", "TL", $"(T + GT) × {kqSingle.TiLeTNCTTT}%", $"=ROUND((E6+E10)*{kqSingle.TiLeTNCTTT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100, 0)", true);
+                AddRow("", "Chi phí xây dựng trước thuế", "GXDTT", "T + GT + TL", "=E6+E10+E13", true);
+                AddRow("IV", "Thuế giá trị gia tăng", "GTGT", $"GXDTT × {kqSingle.TiLeGTGT}%", $"=ROUND(E14*{kqSingle.TiLeGTGT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100, 0)", true);
+                AddRow("", "CHI PHÍ XÂY DỰNG SAU THUẾ", "GXD", "GXDTT + GTGT", "=E14+E15", true);
+                AddRow("V", "Chi phí nhà tạm để ở và điều hành thi công", "LT", $"GXDTT × {kqSingle.TiLeNhaTam}% × (1 + {kqSingle.TiLeGTGT}%)", $"=ROUND(E14*{kqSingle.TiLeNhaTam.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100*(1+E15/E14), 0)", true);
+
+                lastDataRow = 17;
             }
-            if (duToanTotalRow == 0)
-            {
-                duToanTotalRow = 6 + totalCongTac;
-            }
 
-            string linkVL = $"='{duToanName}'!I{duToanTotalRow}";
-            string linkNC = $"='{duToanName}'!J{duToanTotalRow}";
-            string linkM = $"='{duToanName}'!K{duToanTotalRow}";
-
-            AddRow("I", "Chi phí trực tiếp", "T", "VL + NC + M", "=SUM(E7:E9)", true);
-            AddRow("1", "Chi phí vật liệu", "VL", "Σ(KL × ĐG_VL)", linkVL, false);
-            AddRow("2", "Chi phí nhân công", "NC", "Σ(KL × ĐG_NC)", linkNC, false);
-            AddRow("3", "Chi phí máy", "M", "Σ(KL × ĐG_M)", linkM, false);
-            
-            AddRow("II", "Chi phí gián tiếp", "GT", "C + TT", "=E11+E12", true);
-            AddRow("1", "Chi phí chung", "C", $"T × {kq.TiLeCPC}%", $"=ROUND(E6*{kq.TiLeCPC.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100, 0)", false);
-            AddRow("2", "Chi phí một số công việc không xác định được KL từ TK", "TT", $"T × {kq.TiLeTT}%", $"=ROUND(E6*{kq.TiLeTT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100, 0)", false);
-            
-            AddRow("III", "Thu nhập chịu thuế tính trước", "TL", $"(T + GT) × {kq.TiLeTNCTTT}%", $"=ROUND((E6+E10)*{kq.TiLeTNCTTT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100, 0)", true);
-            
-            // Dòng Chi phí xây dựng trước thuế (không đánh số thứ tự La Mã theo Bảng 3.8 TT 36)
-            AddRow("", "Chi phí xây dựng trước thuế", "GXDTT", "T + GT + TL", "=E6+E10+E13", true);
-            
-            // Dòng IV: Thuế giá trị gia tăng
-            AddRow("IV", "Thuế giá trị gia tăng", "GTGT", $"GXDTT × {kq.TiLeGTGT}%", $"=ROUND(E14*{kq.TiLeGTGT.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100, 0)", true);
-            
-            // Dòng CHI PHÍ XÂY DỰNG SAU THUẾ = GXDTT + GTGT (không cộng nhà tạm, theo đúng Bảng 3.8 TT 36)
-            AddRow("", "CHI PHÍ XÂY DỰNG SAU THUẾ", "GXD", "GXDTT + GTGT", "=E14+E15", true);
-            
-            // Dòng V: Chi phí nhà tạm để ở và điều hành thi công
-            // Theo Quyết định số 1538/QĐ-BXD ngày 28/8/2026 của Bộ Xây dựng: Đính chính công thức xác định chi phí nhà tạm
-            // tại Bảng 3.8 Phụ lục III từ “GXDTT × Tỷ lệ × TGTGT” thành “GXDTT × Tỷ lệ × (1+TGTGT)”
-            AddRow("V", "Chi phí nhà tạm để ở và điều hành thi công", "LT", $"GXDTT × {kq.TiLeNhaTam}% × (1 + {kq.TiLeGTGT}%)", $"=ROUND(E14*{kq.TiLeNhaTam.ToString(System.Globalization.CultureInfo.InvariantCulture)}/100*(1+E15/E14), 0)", true);
-
-            // Vẽ viền bảng tổng hợp chi phí xây dựng (từ dòng 5 đến dòng 17)
-            DrawTableBorders(ws, 5, 1, 17, 5);
+            // Vẽ viền bảng tổng hợp chi phí xây dựng
+            DrawTableBorders(ws, 5, 1, lastDataRow, 5);
             ws.Range["E:E"].NumberFormat = "#,##0";
             ws.Columns.AutoFit();
             ApplyFreezePanes(ws, 5);
 
             // Thêm chữ ký Người lập và Người chủ trì theo Bảng 3.8
-            int signRow = 19;
+            int signRow = lastDataRow + 2;
             ws.Cells[signRow, 2] = "NGƯỜI LẬP";
             ws.Cells[signRow, 2].Font.Bold = true;
             ws.Cells[signRow, 2].HorizontalAlignment = XlHAlign.xlHAlignCenter;
-
             ws.Cells[signRow, 5] = "NGƯỜI CHỦ TRÌ";
             ws.Cells[signRow, 5].Font.Bold = true;
             ws.Cells[signRow, 5].HorizontalAlignment = XlHAlign.xlHAlignCenter;
-
             ws.Cells[signRow + 1, 2] = "(Ký, họ tên)";
             ws.Cells[signRow + 1, 2].Font.Italic = true;
             ws.Cells[signRow + 1, 2].HorizontalAlignment = XlHAlign.xlHAlignCenter;
-
             ws.Cells[signRow + 1, 5] = "(Ký, họ tên)";
             ws.Cells[signRow + 1, 5].Font.Italic = true;
             ws.Cells[signRow + 1, 5].HorizontalAlignment = XlHAlign.xlHAlignCenter;
-
 
             // Di chuyển sheet TH_ChiPhiXD nằm ngay phía trước sheet DuToan
             try

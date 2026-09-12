@@ -130,8 +130,8 @@ namespace AIE.ExcelAddIn.Ribbon
             try
             {
                 var form = new TraCuuDinhMucForm();
-                // Show floating over Excel without blocking
-                form.Show(new WindowWrapper(ExcelDnaUtil.WindowHandle));
+                // Show floating without owner to allow Alt+Tab and independent minimize
+                form.Show();
             }
             catch (Exception ex)
             {
@@ -318,7 +318,7 @@ namespace AIE.ExcelAddIn.Ribbon
                             }
                         }
                     };
-                    donGiaForm.Show(new WindowWrapper(ExcelDnaUtil.WindowHandle));
+                    donGiaForm.Show();
                 }
             }
             catch (Exception ex)
@@ -585,7 +585,7 @@ namespace AIE.ExcelAddIn.Ribbon
                 var excelService = new AIE.ExcelAddIn.Services.LapDuToanExcelService();
                 var duToan = CurrentDuToan;
 
-                if (duToan == null || duToan.DanhSachHangMuc == null || duToan.DanhSachHangMuc.Count == 0 || duToan.DanhSachHangMuc[0].DanhSachCongTac.Count == 0)
+                if (duToan == null || duToan.DanhSachHangMuc == null || duToan.DanhSachHangMuc.Count == 0 || duToan.DanhSachHangMuc.Sum(hm => hm.DanhSachCongTac.Count) == 0)
                 {
                     try
                     {
@@ -594,7 +594,7 @@ namespace AIE.ExcelAddIn.Ribbon
                     catch { }
                 }
 
-                if (duToan == null || duToan.DanhSachHangMuc == null || duToan.DanhSachHangMuc.Count == 0 || duToan.DanhSachHangMuc[0].DanhSachCongTac.Count == 0)
+                if (duToan == null || duToan.DanhSachHangMuc == null || duToan.DanhSachHangMuc.Count == 0 || duToan.DanhSachHangMuc.Sum(hm => hm.DanhSachCongTac.Count) == 0)
                 {
                     MessageBox.Show("Không tìm thấy công tác nào trong file Excel hoặc dự toán hiện hành.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
@@ -621,7 +621,7 @@ namespace AIE.ExcelAddIn.Ribbon
                 var form = new TongHopKinhPhiForm(duToan);
                 _tongHopForm = form;
                 form.FormClosed += (s, ev) => { _tongHopForm = null; };
-                form.Show(new WindowWrapper(ExcelDnaUtil.WindowHandle));
+                form.Show();
             }
             catch (Exception ex)
             {
@@ -678,7 +678,7 @@ namespace AIE.ExcelAddIn.Ribbon
                 var form = new TongHopKinhPhiForm(duToan, macDinhTongMucDauTu);
                 _tongHopForm = form;
                 form.FormClosed += (s, ev) => { _tongHopForm = null; };
-                form.Show(new WindowWrapper(ExcelDnaUtil.WindowHandle));
+                form.Show();
             }
             catch (Exception ex)
             {
@@ -700,7 +700,7 @@ namespace AIE.ExcelAddIn.Ribbon
                 var excelService = new AIE.ExcelAddIn.Services.LapDuToanExcelService();
                 var duToan = excelService.ReadBOQFromActiveSheet();
 
-                if (duToan.DanhSachHangMuc[0].DanhSachCongTac.Count == 0)
+                if (duToan == null || duToan.DanhSachHangMuc == null || duToan.DanhSachHangMuc.Sum(hm => hm.DanhSachCongTac.Count) == 0)
                 {
                     MessageBox.Show("Không tìm thấy công tác nào trong file Excel.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
@@ -808,7 +808,7 @@ namespace AIE.ExcelAddIn.Ribbon
                 loading.Close();
                 loading.Dispose();
                 
-                form.Show(new WindowWrapper(ExcelDnaUtil.WindowHandle));
+                form.Show();
             }
             catch (Exception ex)
             {
